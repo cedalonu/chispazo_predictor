@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chispazo P2∩P3 - Pakinja</title>
+<style>
+body{font-family:system-ui;background:#0f172a;color:#e2e8f0;padding:20px;max-width:800px;margin:auto}
+h1{color:#facc15}
+.card{background:#1e293b;padding:16px;border-radius:12px;margin:12px 0}
+button{background:#facc15;color:#000;border:none;padding:12px 20px;border-radius:8px;font-weight:bold;font-size:16px;width:100%}
+pre{white-space:pre-wrap;background:#0b1220;padding:12px;border-radius:8px;overflow:auto}
+.small{font-size:12px;color:#94a3b8}
+</style>
+</head>
+<body>
+<h1>🔮 Chispazo P2∩P3 - Predictor</h1>
+<div class="small">Jala directo de: raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv</div>
+<div class="card">
+<button id="btn">🔄 Cargar y Predecir Próximo Sorteo</button>
+<div id="status" class="small">Listo.</div>
+</div>
+<div class="card"><h3>Último sorteo</h3><pre id="last">-</pre></div>
+<div class="card"><h3>POOLS</h3><pre id="pools">-</pre></div>
+<div class="card" style="border:2px solid #facc15"><h3>🎯 INTERSECCIÓN FINAL</h3><pre id="result" style="font-size:18px;font-weight:bold"></pre></div>
+<script>
+const CSV_URL = "https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv";
+const TOP_N = 21;
+const TABLA_P2 = {1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
+const SHIFT_BASE=8, SHIFT_A=10, SHIFT_TOP=5;
+function getTopN(rc, rd, n){
+  let setN = new Set([...rc.slice(0,n),...rd.slice(0,n)]);
+  let combined = [...rc,...rd];
+  let uniq = []; let seen=new Set();
+  for(let x of combined){ if(setN.has(x) &&!seen.has(x)){ uniq.push(x); seen.add(x);} }
+  return uniq.slice(0,n);
+}
+function countFreq(arr){ let m={}; arr.forEach(v=>m[v]=(m[v]||0)+1); return m; }
+document.getElementById('btn').onclick = async () => {
+  const st = document.getElementById('status');
+  st.textContent = "Descargando CSV...";
+  try{
+    const resp = await fetch(CSV_URL);
+    const text = await resp.text();
+    const lines = text.trim().split('\n');
+    const header = lines[0].split(',');
+    const idxC = header.indexOf('CONCURSO'), idxR1=header.indexOf('R1'), idxR2=header.indexOf('R2'), idxR3=header.indexOf('R3'), idxR4=header.indexOf('R4'), idxR5=header.indexOf('R5'), idxF=header.indexOf('FECHA');
+    let draws=[];
+    for(let i=1;i<lines.length;i++){
+      if(!lines[i].trim()) continue;
+      let cols = lines[i].split(',');
+      if(cols.length<6) continue;
+      let concurso = parseInt(cols[idxC]), r1=parseInt(cols[idxR1]), r2=parseInt(cols[idxR2]), r3=parseInt(cols[idxR3]), r4=parseInt(cols[idxR4]), r5=parseInt(cols[idxR5]), fecha=cols[idxF];
+      if(isNaN(concurso)) continue;
+      draws.push({concurso, fecha, numeros:new Set([r1,r2,r3,r4,r5])});
+    }
+    draws.sort((a,b)=>a.concurso-b.concurso);
+    st.textContent = `CSV cargado: ${draws.length} sorteos. Calculando...`;
+    let idx_a = draws.length-1;
+    let sorteo_a = draws[idx_a];
+    document.getElementById('last').textContent = `Concurso ${sorteo_a.concurso} (${sorteo_a.fecha})\nNúmeros: ${[...sorteo_a.numeros].sort((a,b)=>a-b).join('-')} \nPróximo: ${sorteo_a.concurso+1}`;
+    let indices_b = [];
+    for(let i=0;i<idx_a;i++){
+      let inter = [...sorteo_a.numeros].filter(x=>draws[i].numeros.has(x)).length;
+      if(inter>=3) indices_b.push(i);
+    }
+    if(indices_b.length<5){
+      indices_b=[];
+      for(let i=0;i<idx_a;i++){
+        let inter = [...sorteo_a.numeros].filter(x=>draws[i].numeros.has(x)).length;
+        if(inter>=2) indices_b.push(i);
+      }
+    }
+    let c_raw=[], d_raw=[];
+    indices_b.forEach(idx=>{
+      if(idx+2 < draws.length){
+        c_raw.push(...draws[idx+1].numeros);
+        d_raw.push(...draws[idx+2].numeros);
+      }
+    });
+    let freqC = countFreq(c_raw), freqD = countFreq(d_raw);
+    let rankingC = [...Array(28)].map((_,i)=>i+1).sort((a,b)=> (freqC[b]||0)-(freqC[a]||0) || a-b);
+    let rankingD = [...Array(28)].map((_,i)=>i+1).sort((a,b)=> (freqD[b]||0)-(freqD[a]||0) || a-b);
+    let c_top5 = new Set(rankingC.slice(0,5)), d_top5 = new Set(rankingD.slice(0,5)), a_nums = sorteo_a.numeros;
+    let c2 = c_raw.map(n=>TABLA_P2[n]), d2 = d_raw.map(n=>TABLA_P2[n]);
+    let fC2=countFreq(c2), fD2=countFreq(d2);
+    let rC2=[...Array(28)].map((_,i)=>i+1).sort((a,b)=> (fC2[b]||0)-(fC2[a]||0) || a-b);
+    let rD2=[...Array(28)].map((_,i)=>i+1).sort((a,b)=> (fD2[b]||0)-(fD2[a]||0) || a-b);
+    let pool2 = getTopN(rC2,rD2,TOP_N);
+    function convertDynamic(arr){
+      return arr.map(n=>{
+        let shift = (SHIFT_BASE + (a_nums.has(n)?SHIFT_A:0) + (c_top5.has(n)||d_top5.has(n)?SHIFT_TOP:0)) %28;
+        let nc = ((n-1+shift)%28)+1;
+        if(nc===n) nc = (nc%28)+1;
+        return nc;
+      });
+    }
+    let c3=convertDynamic(c_raw), d3=convertDynamic(d_raw);
+    let fC3=countFreq(c3), fD3=countFreq(d3);
+    let rC3=[...Array(28)].map((_,i)=>i+1).sort((a,b)=> (fC3[b]||0)-(fC3[a]||0) || a-b);
+    let rD3=[...Array(28)].map((_,i)=>i+1).sort((a,b)=> (fD3[b]||0)-(fD3[a]||0) || a-b);
+    let pool3 = getTopN(rC3,rD3,TOP_N);
+    document.getElementById('pools').textContent = `B encontrados: ${indices_b.length}\n\nPOOL2 (${pool2.length}): ${pool2.join(', ')}\n\nPOOL3 (${pool3.length}): ${pool3.join(', ')}`;
+    let set2=new Set(pool2), set3=new Set(pool3);
+    let inter = rankingC.concat(rankingD).filter((v,i,self)=>self.indexOf(v)===i).filter(v=>set2.has(v)&&set3.has(v));
+    document.getElementById('result').textContent = `INTERSECCIÓN (${inter.length}):\n${inter.join(', ')}\n\nTOP 14:\n${inter.slice(0,14).join(' - ')}\n\nTOP 16:\n${inter.slice(0,16).join(' - ')}`;
+    st.textContent = "✅ Listo - " + new Date().toLocaleString();
+  }catch(e){ st.textContent = "Error: "+e.message; console.error(e); }
+};
+</script>
+</body>
+</html>
