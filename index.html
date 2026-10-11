@@ -1,0 +1,185 @@
+html<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chispazo Predictor - TOP14 + Conversión 28</title>
+<style>
+body{background:#fef08a;font-family:Consolas,monospace;padding:8px;margin:0;color:#000}
+.card{background:#fff;border:3px solid #000;padding:14px;border-radius:14px;max-width:950px;margin:auto;box-shadow:6px 6px 0 #000}
+h1{font-size:20px;text-align:center;margin:0 0 8px;line-height:1.2}
+button{background:#000;color:#facc15;padding:13px;border-radius:10px;width:100%;font-weight:900;font-size:16px;border:2px solid #000;cursor:pointer;margin:6px 0}
+button:active{transform:scale(.98)}
+pre{background:#000;color:#0f0;padding:12px;border-radius:10px;overflow:auto;font-size:12px;line-height:1.35;white-space:pre-wrap;max-height:600px}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+th,td{border:1px solid #000;padding:3px 4px;text-align:center}
+th{background:#000;color:#facc15}
+.star{color:#d00;font-weight:900}
+input{font-family:Consolas,monospace;border:1px solid #000;border-radius:5px;padding:4px}
+.box{background:#fef9c3;border:2px dashed #000;padding:8px;border-radius:8px;margin:8px 0}
+.small{font-size:11px}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>🔮 CHISPAZO PREDICTOR<br><span class="small">TOP 14 + Detalle conversión 28 números</span></h1>
+
+<div class="box small">
+<b>CSV:</b> Carga auto desde <code>Chispazo.csv</code> en tu repo. Si falla, puedes subir CSV manual.<br>
+<input type="file" id="csvFile" accept=".csv" style="margin-top:6px">
+</div>
+
+<div class="box small">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+<div>Base: <input id="base" type="number" value="8" style="width:50px"></div>
+<div>A: <input id="valA" type="number" value="10" style="width:50px"></div>
+<div>Top5: <input id="valTop" type="number" value="5" style="width:50px"></div>
+</div>
+<div style="margin-top:6px">
+Sorteo A: <input id="sorteoA" value="" style="width:78%" placeholder="Se llena auto con último sorteo"><br>
+Top5 C: <input id="topC" value="" style="width:78%" placeholder="Auto: Top5 histórico"><br>
+Top5 D: <input id="topD" value="" style="width:78%" placeholder="Auto: Top5 últimos 100">
+</div>
+</div>
+
+<button onclick="cargarAuto()">🔄 CARGAR CSV Y PREDECIR + DETALLE</button>
+<pre id="log">Esperando carga...</pre>
+<div id="tabla"></div>
+
+<div class="small" style="margin-top:10px">
+<b>Regla:</b> Dinámica = (Num + Shift -1)%28+1 | Shift=Base + (+A si ∈ SorteoA) + (+Top5 si ∈ Top5C∪Top5D)<br>
+<b>(*)</b> = Top21 de su pool. Estática fija P2 según tu mapeo original.
+</div>
+</div>
+
+<script>
+const staticMap={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
+let draws=[];
+
+function parseCSV(text){
+  const lines=text.trim().split('\n');
+  draws=[];
+  for(let l of lines){
+    let parts=l.split(/[,;\t]/).map(x=>x.trim()).filter(x=>x!=='');
+    let nums=parts.map(p=>parseInt(p)).filter(n=>!isNaN(n)&&n>=1&&n<=28);
+    if(nums.length>=5){
+      draws.push(nums.slice(-5));
+    }
+  }
+  return draws;
+}
+
+function freq(list){
+  let f={}; for(let i=1;i<=28;i++) f[i]=0;
+  list.forEach(d=>d.forEach(n=>f[n]++));
+  return f;
+}
+function topN(freqObj,n){
+  return Object.entries(freqObj).sort((a,b)=>b[1]-a[1]).slice(0,n).map(x=>parseInt(x[0]));
+}
+
+async function cargarAuto(){
+  const logEl=document.getElementById('log');
+  logEl.textContent='Cargando CSV...';
+  let text='';
+  try{
+    const urls=['./Chispazo.csv','./Chispazo_14.csv','https://raw.githubusercontent.com/cedalonu/chispazo_predictor/main/Chispazo.csv'];
+    for(let u of urls){
+      try{
+        let r=await fetch(u); if(r.ok){ text=await r.text(); if(text.length>100) break; }
+      }catch(e){}
+    }
+    if(!text){
+      logEl.textContent='No se pudo auto-cargar. Usa el selector de archivo arriba y sube tu Chispazo.csv';
+      return;
+    }
+    const fileInput=document.getElementById('csvFile');
+    if(fileInput.files.length>0){
+      text=await fileInput.files[0].text();
+    }
+    parseCSV(text);
+    generar();
+  }catch(e){
+    logEl.textContent='Error: '+e.message;
+  }
+}
+
+document.getElementById('csvFile').addEventListener('change',async e=>{
+  let t=await e.target.files[0].text();
+  parseCSV(t);
+  generar();
+});
+
+function generar(){
+  if(draws.length===0){ document.getElementById('log').textContent='CSV vacío o no cargado'; return; }
+  const Base=parseInt(document.getElementById('base').value)||8;
+  const A=parseInt(document.getElementById('valA').value)||10;
+  const T5=parseInt(document.getElementById('valTop').value)||5;
+
+  const fAll=freq(draws);
+  const f100=freq(draws.slice(-100));
+
+  const last=draws[draws.length-1];
+  const top5C=topN(fAll,5);
+  const top5D=topN(f100,5);
+  const top14=topN(fAll,14);
+
+  // Si inputs vacíos, llenar con auto
+  if(!document.getElementById('sorteoA').value) document.getElementById('sorteoA').value=last.join(',');
+  if(!document.getElementById('topC').value) document.getElementById('topC').value=top5C.join(',');
+  if(!document.getElementById('topD').value) document.getElementById('topD').value=top5D.join(',');
+
+  const sorteoA=document.getElementById('sorteoA').value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+  const topC=document.getElementById('topC').value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+  const topD=document.getElementById('topD').value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+  const topUnion=[...new Set([...topC,...topD])];
+
+  // Top21 para marcar *
+  const top21Static=topN(fAll,21);
+  const top21Dynamic=topN(f100,21);
+
+  let out=`==========================================================================================\n`;
+  out+=`📊 PREDICTOR CHISPAZO - ${draws.length} sorteos cargados\n`;
+  out+=`==========================================================================================\n`;
+  out+=`Último sorteo: [${last.join(', ')}]\n`;
+  out+=`TOP 14 Frecuencia histórica: [${top14.join(', ')}]\n`;
+  out+=`TOP 5 C (histórico): [${top5C.join(', ')}] | TOP 5 D (últ 100): [${top5D.join(', ')}]\n\n`;
+  out+=`==========================================================================================\n`;
+  out+=`⚙️ DETALLE DE LA CONVERSIÓN (28 números)\n`;
+  out+=`==========================================================================================\n`;
+  out+=` Parámetros Dinámicos: Base=${Base}, A=${A}, Top5=${T5}\n`;
+  out+=` Números en Sorteo A: [${sorteoA.join(', ')}]\n`;
+  out+=` Top 5 Frecuencia C: [${topC.join(', ')}]\n`;
+  out+=` Top 5 Frecuencia D: [${topD.join(', ')}]\n\n`;
+  out+=` Num | Estática (P2) | Dinámica (P3) | Shift Aplicado\n`;
+  out+=` ------------------------------------------------------------------------\n`;
+
+  let rows=[];
+  for(let n=1;n<=28;n++){
+    let shift=Base; let desc=[`Base(${Base})`];
+    if(sorteoA.includes(n)){ shift+=A; desc.push(`+A(${A})`); }
+    if(topUnion.includes(n)){ shift+=T5; desc.push(`+Top5(${T5})`); }
+    let dyn=((n+shift-1)%28)+1;
+    let sta=staticMap[n];
+    let sStar=top21Static.includes(sta)?' *':'';
+    let dStar=top21Dynamic.includes(dyn)?' *':'';
+    out+=` ${String(n).padStart(3)} | ${String(sta+sStar).padEnd(10)} | ${String(dyn+dStar).padEnd(10)} | ${desc.join(' + ')}\n`;
+    rows.push({n,sta:sta+sStar,dyn:dyn+dStar,shift:desc.join(' + '),isS:top21Static.includes(sta),isD:top21Dynamic.includes(dyn)});
+  }
+  out+=`\n (*) = Número que forma parte del Top 21 de su respectivo Pool\n`;
+  out+=`\n🎯 Combinación sugerida (TOP 14 filtrado por conversión): [${top14.slice(0,5).join(', ')}]\n`;
+
+  document.getElementById('log').textContent=out;
+
+  let html=`<table><tr><th>Num</th><th>Estática (P2)</th><th>Dinámica (P3)</th><th>Shift</th></tr>`;
+  rows.forEach(r=>{
+    html+=`<tr><td>${r.n}</td><td class="${r.isS?'star':''}">${r.sta}</td><td class="${r.isD?'star':''}">${r.dyn}</td><td style="text-align:left">${r.shift}</td></tr>`;
+  });
+  html+=`</table>`;
+  document.getElementById('tabla').innerHTML=html;
+}
+
+window.onload=cargarAuto;
+</script>
+</body>
+</html>
