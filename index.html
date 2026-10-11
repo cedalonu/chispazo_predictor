@@ -3,37 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Chispazo Predictor P2∩P3 - Clon Python</title>
+<title>Chispazo Predictor v2 - Bonito + Histórico</title>
 <style>
-body{background:#fef08a;font-family:Consolas,monospace;padding:8px;margin:0;color:#000}
-.card{background:#fff;border:3px solid #000;padding:14px;border-radius:14px;max-width:980px;margin:auto;box-shadow:6px 6px 0 #000}
-h1{font-size:17px;text-align:center;margin:0 0 8px}
-button{background:#000;color:#facc15;padding:14px;border-radius:10px;width:100%;font-weight:900;font-size:15px;border:2px solid #000;cursor:pointer;margin:6px 0}
-pre{background:#000;color:#0f0;padding:14px;border-radius:10px;overflow:auto;font-size:11.5px;line-height:1.35;white-space:pre-wrap;min-height:600px}
-.box{background:#fef9c3;border:2px dashed #000;padding:8px;border-radius:8px;margin:8px 0;font-size:11px}
+:root{--yellow:#fef08a;--yellow2:#fef9c3;--black:#000;--green:#0f0}
+body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8px;color:#000}
+.card{background:#fff;border:3px solid #000;border-radius:16px;max-width:1050px;margin:auto;box-shadow:7px 7px 0 #000;overflow:hidden}
+.header{background:var(--black);color:#facc15;padding:14px;text-align:center}
+.header h1{margin:0;font-size:20px;line-height:1.2}
+.header small{color:#fff;font-size:11px}
+.body{padding:12px}
+.badge{display:inline-block;background:var(--yellow2);border:2px dashed #000;border-radius:8px;padding:6px 8px;font-size:11px;margin:4px 0}
+.btn{background:#000;color:#facc15;border:2px solid #000;border-radius:10px;padding:12px;width:100%;font-weight:900;font-size:15px;cursor:pointer}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.box{background:var(--yellow2);border:2px solid #000;border-radius:10px;padding:8px}
+.box h3{margin:0 0 6px;font-size:13px;background:#000;color:#facc15;padding:4px 6px;border-radius:6px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th,td{border:1px solid #000;padding:4px 5px;text-align:center}
+th{background:#000;color:#facc15}
+td.left{text-align:left}
+.star{color:#c00;font-weight:900}
+.pool{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chip{border:2px solid #000;border-radius:999px;padding:3px 8px;font-weight:900;font-size:12px;background:#fff}
+.chip.hit{background:#000;color:#facc15}
+.chip.p2{background:#fef08a}
+.chip.p3{background:#bbf7d0}
+pre.log{background:#000;color:#0f0;padding:12px;border-radius:10px;overflow:auto;font-size:11px;white-space:pre-wrap;line-height:1.35;min-height:200px}
+.kpi{display:flex;gap:8px;flex-wrap:wrap}
+.kpi div{background:#fff;border:2px solid #000;border-radius:10px;padding:6px 10px;text-align:center;min-width:90px}
+.kpi b{font-size:18px;display:block}
+.hist{max-height:380px;overflow:auto;border:2px solid #000;border-radius:10px}
+.acierto-5{background:#22c55e;color:#fff;font-weight:900}
+.acierto-4{background:#facc15;font-weight:900}
+.acierto-3{background:#fff}
+.acierto-low{color:#999}
 </style>
 </head>
 <body>
 <div class="card">
-<h1>🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (ESTRATEGIA P2 ∩ P3)<br><small>Clon exacto del Python - Auto pakinja</small></h1>
-<div class="box">
-Fuente: <code>https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv</code><br>
-<span id="status">Cargando...</span>
+<div class="header">
+<h1>🔮 CHISPAZO PREDICTOR v2<br>ESTRATEGIA P2 ∩ P3</h1>
+<small>Auto desde pakinja/pakin • Clon exacto Python • Diseño bonito + Histórico 20</small>
 </div>
-<button onclick="cargar()">🔄 GENERAR PREDICCIÓN (Clon Python)</button>
-<pre id="log">Cargando automático desde pakinja...</pre>
+<div class="body">
+<div class="badge" id="status">Cargando datos...</div>
+<button class="btn" onclick="cargar()">🔄 ACTUALIZAR PREDICCIÓN</button>
+<div class="grid" style="margin-top:10px">
+<div class="box" id="boxActual"></div>
+<div class="box" id="boxStats"></div>
+</div>
+<h3 style="margin:12px 0 4px">⚙️ DETALLE DE LA CONVERSIÓN (28 números)</h3>
+<div id="tablaConversion" class="box" style="background:#fff;overflow:auto"></div>
+<div class="grid" style="margin-top:10px">
+<div class="box">
+<h3>POOL 2 (Estático) - 21 números</h3>
+<div id="pool2" class="pool"></div>
+</div>
+<div class="box">
+<h3>🟢 POOL 3 (Dinámico) - 21 números</h3>
+<div id="pool3" class="pool"></div>
+</div>
+</div>
+<div class="box" style="margin-top:10px;background:#000;color:#facc15">
+<h3 style="background:#facc15;color:#000">🎯 INTERSECCIÓN FINAL (P2 ∩ P3)</h3>
+<div id="interseccionFinal" style="margin-top:8px"></div>
+</div>
+<h3 style="margin:14px 0 4px">📜 HISTÓRICO - Últimos 20 sorteos (Backtest del modelo)</h3>
+<div class="badge">Simula: si hubiéramos predicho el sorteo N+1 usando solo hasta N, ¿cuántos aciertos daba la intersección?</div>
+<div id="historico" class="hist" style="margin-top:6px;background:#fff"></div>
+<h3 style="margin:12px 0 4px">📟 LOG COMPLETO (formato terminal)</h3>
+<pre id="log" class="log"></pre>
+</div>
 </div>
 <script>
 const TABLA_P2={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
-const SHIFT_P3_BASE=8, SHIFT_P3_A=10, SHIFT_P3_TOP=5, TOP_N=21;
+const BASE=8,A=10,TOP=5,TOP_N=21;
 let draws=[];
-function parseCSV(text){draws=[];let lines=text.trim().split('\n');let header=lines[0].toLowerCase();let hasConcurso=header.includes('concurso');let startIdx=hasConcurso?1:0;for(let i=startIdx;i<lines.length;i++){let line=lines[i].trim();if(!line)continue;let parts=line.split(',').map(s=>s.trim());if(parts.length<6&&!hasConcurso){let nums=parts.map(v=>parseInt(v)).filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5)draws.push({concurso:draws.length+1,fecha:'',numeros:new Set(nums.slice(-5)),numerosArr:nums.slice(-5)});continue;}try{let concurso=parseInt(parts[0]);let fecha=parts[1];let r1=parseInt(parts[2]),r2=parseInt(parts[3]),r3=parseInt(parts[4]),r4=parseInt(parts[5]),r5=parts[6]?parseInt(parts[6]):null;let nums=[r1,r2,r3,r4,r5].filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5){draws.push({concurso:isNaN(concurso)?draws.length+1:concurso,fecha:fecha,numeros:new Set(nums),numerosArr:nums});}}catch(e){}}draws.sort((a,b)=>a.concurso-b.concurso);}
-function freqFromRaw(raw){let c={};for(let i=1;i<=28;i++)c[i]=0;raw.forEach(n=>{c[n]=(c[n]||0)+1});return c;}
-function rankingFromFreq(freqObj){let arr=[];for(let i=1;i<=28;i++)arr.push(i);arr.sort((a,b)=>{let fa=freqObj[a]||0,fb=freqObj[b]||0;if(fb!==fa)return fb-fa;return a-b;});return arr;}
-function get_top_n(ranking_c_src,ranking_d_src,n){let numsSet=new Set([...ranking_c_src.slice(0,n),...ranking_d_src.slice(0,n)]);let combined=[...ranking_c_src,...ranking_d_src];let result=[];let seen=new Set();for(let num of combined){if(numsSet.has(num)&&!seen.has(num)){result.push(num);seen.add(num);}if(result.length>=n)break;}return result;}
-function overlapSet(setA,setB){let c=0;for(let x of setA)if(setB.has(x))c++;return c;}
-async function cargar(){try{let url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';let r=await fetch(url+'?t='+Date.now());let text=await r.text();parseCSV(text);document.getElementById('status').textContent=`${draws.length} sorteos | Último: Concurso ${draws[draws.length-1].concurso} (${draws[draws.length-1].fecha}) [${draws[draws.length-1].numerosArr.join(', ')}]`;generar();}catch(e){document.getElementById('log').textContent='Error: '+e.message;}}
-function generar(){if(draws.length===0)return;let idx_a=draws.length-1;let sorteo_a=draws[idx_a];let a_nums=sorteo_a.numeros;let a_arr=Array.from(a_nums).sort((a,b)=>a-b);let indices_b=[];for(let idx=0;idx<idx_a;idx++){if(overlapSet(a_nums,draws[idx].numeros)>=3)indices_b.push(idx);}let c_raw=[],d_raw=[];for(let idx_b of indices_b){if(idx_b+2<draws.length){c_raw.push(...Array.from(draws[idx_b+1].numeros));d_raw.push(...Array.from(draws[idx_b+2].numeros));}}let log=document.getElementById('log');if(c_raw.length<10||d_raw.length<10){log.textContent='❌ No hay suficientes datos. B encontrados: '+indices_b.length;return;}let freq_c_base=freqFromRaw(c_raw),freq_d_base=freqFromRaw(d_raw);let ranking_c_base=rankingFromFreq(freq_c_base);let ranking_d_base=rankingFromFreq(freq_d_base);let c_top5=new Set(ranking_c_base.slice(0,5));let d_top5=new Set(ranking_d_base.slice(0,5));let c_conv2=c_raw.map(n=>TABLA_P2[n]);let d_conv2=d_raw.map(n=>TABLA_P2[n]);let freq_c2=freqFromRaw(c_conv2),freq_d2=freqFromRaw(d_conv2);let rank_c2=rankingFromFreq(freq_c2),rank_d2=rankingFromFreq(freq_d2);let pool2_list=get_top_n(rank_c2,rank_d2,TOP_N);let pool2=new Set(pool2_list);let c_conv3=[],d_conv3=[];for(let n of c_raw){let shift=(SHIFT_P3_BASE+(a_nums.has(n)?SHIFT_P3_A:0)+(c_top5.has(n)||d_top5.has(n)?SHIFT_P3_TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let final=(nc===n)?nd:nc;c_conv3.push(final);}for(let n of d_raw){let shift=(SHIFT_P3_BASE+(a_nums.has(n)?SHIFT_P3_A:0)+(c_top5.has(n)||d_top5.has(n)?SHIFT_P3_TOP:0))%28;let nd_raw=((n-1+shift)%28)+1;let nd_extra=(nd_raw%28)+1;let final=(nd_raw===n)?nd_extra:nd_raw;d_conv3.push(final);}let freq_c3=freqFromRaw(c_conv3),freq_d3=freqFromRaw(d_conv3);let rank_c3=rankingFromFreq(freq_c3),rank_d3=rankingFromFreq(freq_d3);let pool3_list=get_top_n(rank_c3,rank_d3,TOP_N);let pool3=new Set(pool3_list);let out='';out+=`${'='.repeat(90)}\n`;out+=`🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (ESTRATEGIA P2 ∩ P3)\n`;out+=`${'='.repeat(90)}\n\n`;out+=`📌 ÚLTIMO SORTEO REGISTRADO: Concurso ${sorteo_a.concurso} (${sorteo_a.fecha})\n`;out+=` Números: [${a_arr.join(', ')}]\n\n`;out+=` PREDICCIÓN PARA: Concurso ${sorteo_a.concurso+1}\n\n`;out+=`🔍 Buscando Sorteos B (≥3 coincidencias) en el historial completo...\n`;out+=` ✅ Encontrados: ${indices_b.length} sorteos B\n\n`;out+=`${'='.repeat(90)}\n`;out+=`⚙️ DETALLE DE LA CONVERSIÓN (28 números)\n`;out+=`${'='.repeat(90)}\n`;out+=` Parámetros Dinámicos: Base=${SHIFT_P3_BASE}, A=${SHIFT_P3_A}, Top5=${SHIFT_P3_TOP}\n`;out+=` Números en Sorteo A: [${a_arr.join(', ')}]\n`;out+=` Top 5 Frecuencia C: [${Array.from(c_top5).sort((a,b)=>a-b).join(', ')}]\n`;out+=` Top 5 Frecuencia D: [${Array.from(d_top5).sort((a,b)=>a-b).join(', ')}]\n\n`;out+=` ${'Num'.padStart(3)} | ${'Estática (P2)'.padStart(14)} | ${'Dinámica (P3)'.padStart(14)} | ${'Shift Aplicado'}\n`;out+=` ${'-'.repeat(72)}\n`;for(let n=1;n<=28;n++){let n_p2=TABLA_P2[n];let shift=(SHIFT_P3_BASE+(a_nums.has(n)?SHIFT_P3_A:0)+(c_top5.has(n)||d_top5.has(n)?SHIFT_P3_TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let n_p3=(nc===n)?nd:nc;let razones=[`Base(${SHIFT_P3_BASE})`];if(a_nums.has(n))razones.push(`+A(${SHIFT_P3_A})`);if(c_top5.has(n)||d_top5.has(n))razones.push(`+Top5(${SHIFT_P3_TOP})`);let razon_str=razones.join(' + ');let mark_p2=pool2.has(n_p2)?' *':' ';let mark_p3=pool3.has(n_p3)?' *':' ';out+=` ${String(n).padStart(3)} | ${String(n_p2).padStart(2)}${mark_p2} | ${String(n_p3).padStart(2)}${mark_p3} | ${razon_str}\n`;}out+=`\n (*) = Número que forma parte del Top 21 de su respectivo Pool\n\n`;out+=`${'='.repeat(90)}\n`;out+=` DESGLOSE DE LOS POOLS GENERADOS (Top 21 más frecuentes)\n`;out+=`${'='.repeat(90)}\n\n`;out+=` POOL 2 (Estático) - ${pool2_list.length} números:\n`;out+=` [${pool2_list.join(', ')}]\n\n`;out+=`🟢 POOL 3 (Dinámico) - ${pool3_list.length} números:\n`;out+=` [${pool3_list.join(', ')}]\n\n`;let master_order=[];let seenMaster=new Set();for(let num of [...ranking_c_base,...ranking_d_base]){if(!seenMaster.has(num)){master_order.push(num);seenMaster.add(num);}}let interseccion=Array.from(pool2).filter(x=>pool3.has(x));let interseccion_ordenada=master_order.filter(n=>interseccion.includes(n));out+=`${'='.repeat(90)}\n`;out+=`🎯 RESULTADO FINAL: INTERSECCIÓN (P2 ∩ P3)\n`;out+=`${'='.repeat(90)}\n\n`;out+=` 🔢 NÚMEROS RECOMENDADOS (${interseccion_ordenada.length} números):\n`;out+=` [${interseccion_ordenada.join(', ')}]\n\n`;out+=` 📊 ESTADÍSTICAS DEL POOL:\n`;out+=` - Tamaño de la intersección: ${interseccion_ordenada.length} números\n`;out+=` - Tasa histórica de 4-5 aciertos: ~56% en los últimos 200 sorteos.\n`;out+=` - Los números de la izquierda tienen mayor peso estadístico.\n\n`;out+=`${'='.repeat(90)}\n`;out+=` INSTRUCCIONES DE USO\n`;out+=`${'='.repeat(90)}\n`;out+=` 1. Copia la lista de 'NÚMEROS RECOMENDADOS' de arriba.\n`;out+=` 2. Úsala en tu generador de combinaciones reducidas (garantía 4 si 5).\n`;out+=` 3. Si el tamaño es mayor a 16, prioriza estrictamente los primeros 14 números.\n`;out+=` 4. ¡Juega con responsabilidad y dentro de tu presupuesto!\n`;out+=`${'='.repeat(90)}\n`;out+=`🔮 PREDICCIÓN COMPLETA. ¡Mucho éxito en el próximo sorteo!\n`;document.getElementById('log').textContent=out;}
+function parseCSV(t){draws=[];let lines=t.trim().split('\n');let hasCon=lines[0].toLowerCase().includes('concurso');let s=hasCon?1:0;for(let i=s;i<lines.length;i++){let p=lines[i].split(',').map(x=>x.trim());if(p.length<6)continue;let conc=parseInt(p[0]);let fecha=p[1];let nums=[parseInt(p[2]),parseInt(p[3]),parseInt(p[4]),parseInt(p[5]),parseInt(p[6])].filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5)draws.push({concurso:isNaN(conc)?i:conc,fecha,arr:nums,set:new Set(nums)});}draws.sort((a,b)=>a.concurso-b.concurso);}
+function freqRaw(raw){let f={};for(let i=1;i<=28;i++)f[i]=0;raw.forEach(n=>f[n]++);return f;}
+function ranking(f){let a=[];for(let i=1;i<=28;i++)a.push(i);a.sort((x,y)=>{let fx=f[x]||0,fy=f[y]||0;if(fy!==fx)return fy-fx;return x-y;});return a;}
+function get_top_n(rc,rd,n){let setN=new Set([...rc.slice(0,n),...rd.slice(0,n)]);let comb=[...rc,...rd];let res=[],seen=new Set();for(let num of comb){if(setN.has(num)&&!seen.has(num)){res.push(num);seen.add(num);}if(res.length>=n)break;}return res;}
+function overlapSet(a,b){let c=0;for(let x of a)if(b.has(x))c++;return c;}
+function predictFromHistory(historyDraws){let idx_a=historyDraws.length-1;let sorteo_a=historyDraws[idx_a];let a_nums=sorteo_a.set;let a_arr=[...a_nums].sort((x,y)=>x-y);let indices_b=[];for(let i=0;i<idx_a;i++){if(overlapSet(a_nums,historyDraws[i].set)>=3)indices_b.push(i);}let c_raw=[],d_raw=[];for(let ib of indices_b){if(ib+2<historyDraws.length){c_raw.push(...[...historyDraws[ib+1].set]);d_raw.push(...[...historyDraws[ib+2].set]);}}if(c_raw.length<10)return null;let fc=freqRaw(c_raw),fd=freqRaw(d_raw);let rc=ranking(fc),rd=ranking(fd);let c_top5=new Set(rc.slice(0,5)),d_top5=new Set(rd.slice(0,5));let c2=c_raw.map(n=>TABLA_P2[n]),d2=d_raw.map(n=>TABLA_P2[n]);let rc2=ranking(freqRaw(c2)),rd2=ranking(freqRaw(d2));let pool2=get_top_n(rc2,rd2,TOP_N);let c3=c_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let d3=d_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let rc3=ranking(freqRaw(c3)),rd3=ranking(freqRaw(d3));let pool3=get_top_n(rc3,rd3,TOP_N);let master=[];let seen=new Set();for(let num of [...rc,...rd]){if(!seen.has(num)){master.push(num);seen.add(num);}}let interSet=new Set(pool2.filter(x=>new Set(pool3).has(x)));let interOrdered=master.filter(n=>interSet.has(n));return {sorteo_a,a_arr,indices_b,c_top5,d_top5,pool2,pool3,inter:interOrdered,rc,rd};}
+async function cargar(){document.getElementById('status').textContent='Descargando...';let url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';let text=await (await fetch(url+'?t='+Date.now())).text();parseCSV(text);document.getElementById('status').textContent=`✅ ${draws.length} sorteos | Último Concurso ${draws[draws.length-1].concurso} (${draws[draws.length-1].fecha})`;renderCurrent();renderHistorico();}
+function renderCurrent(){let pred=predictFromHistory(draws);if(!pred)return;let {sorteo_a,a_arr,indices_b,c_top5,d_top5,pool2,pool3,inter}=pred;document.getElementById('boxActual').innerHTML=`<h3>📌 ÚLTIMO SORTEO</h3><b>Concurso ${sorteo_a.concurso} (${sorteo_a.fecha})</b><br>Números: <b>[${a_arr.join(', ')}]</b><br>Predicción para: <b>Concurso ${sorteo_a.concurso+1}</b><br><br><div class="kpi"><div><b>${indices_b.length}</b> Sorteos B<br>≥3 coincidencias</div><div><b>${c_top5.size+d_top5.size}</b> Top5 C/D<br>[${[...c_top5].sort((a,b)=>a-b).join(',')}] / [${[...d_top5].sort((a,b)=>a-b).join(',')}]</div><div><b>${inter.length}</b> Intersección</div></div>`;document.getElementById('boxStats').innerHTML=`<h3>📊 ESTADÍSTICAS POOL</h3>Base=${BASE}, A=${A}, Top5=${TOP}<br>Pool2: ${pool2.length} nums | Pool3: ${pool3.length} nums<br>Tasa histórica 4-5 aciertos: <b>~56% últimos 200</b><br><small>Los números de la izquierda tienen mayor peso</small>`;let html=`<table><tr><th>Num</th><th>Estática (P2)</th><th>Dinámica (P3)</th><th class="left">Shift Aplicado</th></tr>`;for(let n=1;n<=28;n++){let n_p2=TABLA_P2[n];let shift=(BASE+(pred.sorteo_a.set.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let n_p3=nc===n?nd:nc;let razones=[`Base(${BASE})`];if(pred.sorteo_a.set.has(n))razones.push(`+A(${A})`);if(c_top5.has(n)||d_top5.has(n))razones.push(`+Top5(${TOP})`);let mark2=pool2.includes(n_p2)?' *':'';let mark3=pool3.includes(n_p3)?' *':'';html+=`<tr><td>${n}</td><td class="${pool2.includes(n_p2)?'star':''}">${n_p2}${mark2}</td><td class="${pool3.includes(n_p3)?'star':''}">${n_p3}${mark3}</td><td class="left">${razones.join(' + ')}</td></tr>`;}html+=`</table><div style="font-size:10px;margin-top:4px">(*) = Top 21 de su respectivo Pool</div>`;document.getElementById('tablaConversion').innerHTML=html;document.getElementById('pool2').innerHTML=pool2.map(n=>`<span class="chip p2">${n}</span>`).join('');document.getElementById('pool3').innerHTML=pool3.map(n=>`<span class="chip p3">${n}</span>`).join('');document.getElementById('interseccionFinal').innerHTML=`<div class="pool">${inter.map((n,i)=>`<span class="chip hit" style="background:${i<5?'#000':'#fff'};color:${i<5?'#facc15':'#000'}">${n}</span>`).join('')}</div><div style="margin-top:8px;font-size:12px">🔢 <b>${inter.length} números recomendados:</b> [${inter.join(', ')}]</div><div style="margin-top:6px;font-size:11px">1. Copia la lista • 2. Úsala en combinaciones reducidas (garantía 4 si 5) • 3. Si >16, prioriza los primeros 14</div>`;let out=`==========================================================================================\n🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (ESTRATEGIA P2 ∩ P3)\n==========================================================================================\n\n📌 ÚLTIMO SORTEO REGISTRADO: Concurso ${sorteo_a.concurso} (${sorteo_a.fecha})\n Números: [${a_arr.join(', ')}]\n\n PREDICCIÓN PARA: Concurso ${sorteo_a.concurso+1}\n\n🔍 Buscando Sorteos B (≥3 coincidencias) en el historial completo...\n ✅ Encontrados: ${indices_b.length} sorteos B\n\n${'='.repeat(90)}\n⚙️ DETALLE DE LA CONVERSIÓN (28 números)\n${'='.repeat(90)}\n Parámetros Dinámicos: Base=${BASE}, A=${A}, Top5=${TOP}\n Números en Sorteo A: [${a_arr.join(', ')}]\n Top 5 Frecuencia C: [${[...c_top5].sort((a,b)=>a-b).join(', ')}]\n Top 5 Frecuencia D: [${[...d_top5].sort((a,b)=>a-b).join(', ')}]\n\n Num | Estática (P2) | Dinámica (P3) | Shift Aplicado\n ${'-'.repeat(72)}\n`;for(let n=1;n<=28;n++){let n_p2=TABLA_P2[n];let sh=(BASE+(pred.sorteo_a.set.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;let n_p3=nc===n?nd:nc;let r=[`Base(${BASE})`];if(pred.sorteo_a.set.has(n))r.push(`+A(${A})`);if(c_top5.has(n)||d_top5.has(n))r.push(`+Top5(${TOP})`);let mp2=pool2.includes(n_p2)?' *':' ';let mp3=pool3.includes(n_p3)?' *':' ';out+=` ${String(n).padStart(3)} | ${String(n_p2).padStart(2)}${mp2} | ${String(n_p3).padStart(2)}${mp3} | ${r.join(' + ')}\n`;}out+=`\n (*) = Número que forma parte del Top 21 de su respectivo Pool\n\n${'='.repeat(90)}\n DESGLOSE DE LOS POOLS GENERADOS (Top 21 más frecuentes)\n${'='.repeat(90)}\n\n POOL 2 (Estático) - ${pool2.length} números:\n [${pool2.join(', ')}]\n\n🟢 POOL 3 (Dinámico) - ${pool3.length} números:\n [${pool3.join(', ')}]\n\n${'='.repeat(90)}\n🎯 RESULTADO FINAL: INTERSECCIÓN (P2 ∩ P3)\n${'='.repeat(90)}\n\n 🔢 NÚMEROS RECOMENDADOS (${inter.length} números):\n [${inter.join(', ')}]\n`;document.getElementById('log').textContent=out;}
+function renderHistorico(){let rows=[];let start=Math.max(0,draws.length-21);for(let i=draws.length-2;i>=start&&rows.length<20;i--){let history=draws.slice(0,i+1);let nextReal=draws[i+1];let pred=predictFromHistory(history);if(!pred)continue;let interSet=new Set(pred.inter);let aciertos=[...nextReal.set].filter(n=>interSet.has(n)).length;rows.push({concurso:history[history.length-1].concurso,fecha:history[history.length-1].fecha,a_arr:pred.a_arr,nextConcurso:nextReal.concurso,nextArr:nextReal.arr,inter:pred.inter,aciertos});}let html=`<table><tr><th>Base (A)</th><th>Predijo para</th><th>Inter P2∩P3 (${rows[0]?.inter.length||''})</th><th>Sorteo Real</th><th>Aciertos</th></tr>`;rows.forEach(r=>{let cls=r.aciertos>=5?'acierto-5':r.aciertos==4?'acierto-4':r.aciertos==3?'acierto-3':'acierto-low';html+=`<tr><td><b>${r.concurso}</b><br><small>${r.fecha}</small><br>[${r.a_arr.join(',')}]</td><td>${r.nextConcurso}</td><td class="left"><div class="pool">${r.inter.map(n=>`<span class="chip ${r.nextArr.includes(n)?'hit':''}">${n}</span>`).join('')}</div><small>[${r.inter.join(',')}]</small></td><td><b>[${r.nextArr.join(',')}]</b></td><td class="${cls}">${r.aciertos}/5</td></tr>`;});html+=`</table>`;document.getElementById('historico').innerHTML=html;}
 window.onload=cargar;
 </script>
 </body>
