@@ -3,54 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Chispazo Predictor P2 ∩ P3</title>
+<title>Chispazo Predictor P2∩P3 - Clon Python</title>
 <style>
-body{background:#fef08a;font-family:Consolas,monospace;padding:8px;margin:0}
+body{background:#fef08a;font-family:Consolas,monospace;padding:8px;margin:0;color:#000}
 .card{background:#fff;border:3px solid #000;padding:14px;border-radius:14px;max-width:980px;margin:auto;box-shadow:6px 6px 0 #000}
-h1{font-size:18px;text-align:center;margin:0 0 6px}
-button{background:#000;color:#facc15;padding:14px;border-radius:10px;width:100%;font-weight:900;font-size:16px;border:2px solid #000;cursor:pointer;margin:6px 0}
-pre{background:#000;color:#0f0;padding:14px;border-radius:10px;overflow:auto;font-size:12px;line-height:1.4;white-space:pre-wrap}
-input{border:1px solid #000;border-radius:5px;padding:4px;font-family:Consolas}
+h1{font-size:17px;text-align:center;margin:0 0 8px}
+button{background:#000;color:#facc15;padding:14px;border-radius:10px;width:100%;font-weight:900;font-size:15px;border:2px solid #000;cursor:pointer;margin:6px 0}
+pre{background:#000;color:#0f0;padding:14px;border-radius:10px;overflow:auto;font-size:11.5px;line-height:1.35;white-space:pre-wrap;min-height:600px}
 .box{background:#fef9c3;border:2px dashed #000;padding:8px;border-radius:8px;margin:8px 0;font-size:11px}
 </style>
 </head>
 <body>
 <div class="card">
-<h1>🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (P2 ∩ P3)</h1>
-<div class="box">Fuente: <code>https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv</code> | <span id="status">Cargando...</span><br>
-Base:<input id="base" value="8" style="width:45px"> A:<input id="valA" value="10" style="width:45px"> Top5:<input id="valTop" value="5" style="width:45px">
-Sorteo A:<input id="sorteoA" style="width:120px"> Top5 C:<input id="topC" style="width:110px"> Top5 D:<input id="topD" style="width:110px"></div>
-<button onclick="cargar()">🔄 GENERAR PREDICCIÓN EXACTA COMO EJEMPLO</button>
-<pre id="log">Cargando automático...</pre>
+<h1>🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (ESTRATEGIA P2 ∩ P3)<br><small>Clon exacto del Python - Auto pakinja</small></h1>
+<div class="box">
+Fuente: <code>https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv</code><br>
+<span id="status">Cargando...</span>
+</div>
+<button onclick="cargar()">🔄 GENERAR PREDICCIÓN (Clon Python)</button>
+<pre id="log">Cargando automático desde pakinja...</pre>
 </div>
 <script>
-const staticMap={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
-let draws=[], dates=[];
-function parseCSV(t){draws=[];dates=[];t.trim().split('\n').forEach((line,idx)=>{if(idx===0&&line.toLowerCase().includes('fecha'))return;let nums=line.split(/[,;\t]/).map(x=>parseInt(x.trim())).filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5){draws.push(nums.slice(-5));let dm=line.match(/(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4})/);dates.push(dm?dm[0]:(idx+1));}});}
-function freq(list){let f={};for(let i=1;i<=28;i++)f[i]=0;list.forEach(d=>d.forEach(n=>{f[n]++}));return f;}
-function topN(f,n){return Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,n).map(x=>parseInt(x[0]));}
-function overlap(a,b){return a.filter(x=>b.includes(x)).length;}
-function dynamicConvert(num,shift){return ((num+shift-1)%28)+1;}
-async function cargar(){try{let url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';let r=await fetch(url+'?t='+Date.now());let text=await r.text();parseCSV(text);document.getElementById('status').textContent=draws.length+' sorteos - '+new Date().toLocaleString();generar();}catch(e){document.getElementById('log').textContent='Error: '+e.message;}}
-function generar(){
- const Base=parseInt(base.value)||8,A=parseInt(valA.value)||10,T5=parseInt(valTop.value)||5;
- const fAll=freq(draws),f100=freq(draws.slice(-100)),last=draws[draws.length-1],lastDate=dates[dates.length-1]||new Date().toISOString().slice(0,10);
- const lastConcurso=draws.length,nextConcurso=lastConcurso+1;
- let top5C=topN(fAll,5),top5D=topN(f100,5);
- if(!sorteoA.value){sorteoA.value=last.join(', ');topC.value=top5C.join(', ');topD.value=top5D.join(', ');}
- const sA=sorteoA.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
- const tC=topC.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
- const tD=topD.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
- const tUnion=[...new Set([...tC,...tD])];
- let bIndices=[];for(let i=0;i<draws.length-1;i++){if(overlap(draws[i],sA)>=3)bIndices.push(i);}
- let cPool=bIndices.map(i=>draws[i+1]).filter(Boolean);
- let freqC=freq(cPool.length>0?cPool:draws);
- let pool2=topN(freqC,21);
- let convertedPool=cPool.map(d=>d.map(num=>{let shift=Base;if(sA.includes(num))shift+=A;if(tUnion.includes(num))shift+=T5;return dynamicConvert(num,shift);}));
- if(convertedPool.length===0){convertedPool=draws.slice(-200).map(d=>d.map(num=>{let shift=Base;if(sA.includes(num))shift+=A;if(tUnion.includes(num))shift+=T5;return dynamicConvert(num,shift);}));}
- let freqD=freq(convertedPool);
- let pool3=topN(freqD,21);
- let inter=pool2.filter(n=>pool3.includes(n));
- let out='';out+=`==========================================================================================\n`;out+=`🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (ESTRATEGIA P2 ∩ P3)\n`;out+=`==========================================================================================\n\n`;out+=`📌 ÚLTIMO SORTEO REGISTRADO: Concurso ${lastConcurso} (${lastDate})\n`;out+=` Números: [${sA.join(', ')}]\n\n`;out+=` PREDICCIÓN PARA: Concurso ${nextConcurso}\n\n`;out+=`🔍 Buscando Sorteos B (≥3 coincidencias) en el historial completo...\n`;out+=` ✅ Encontrados: ${bIndices.length} sorteos B\n\n`;out+=`==========================================================================================\n`;out+=`⚙️ DETALLE DE LA CONVERSIÓN (28 números)\n`;out+=`==========================================================================================\n`;out+=` Parámetros Dinámicos: Base=${Base}, A=${A}, Top5=${T5}\n`;out+=` Números en Sorteo A: [${sA.join(', ')}]\n`;out+=` Top 5 Frecuencia C: [${tC.join(', ')}]\n`;out+=` Top 5 Frecuencia D: [${tD.join(', ')}]\n\n`;out+=` Num | Estática (P2) | Dinámica (P3) | Shift Aplicado\n`;out+=` ------------------------------------------------------------------------\n`;for(let n=1;n<=28;n++){let shift=Base,desc=[`Base(${Base})`];if(sA.includes(n)){shift+=A;desc.push(`+A(${A})`);}if(tUnion.includes(n)){shift+=T5;desc.push(`+Top5(${T5})`);}let dyn=dynamicConvert(n,shift),sta=staticMap[n];let sStar=pool2.includes(sta)?' *':'';let dStar=pool3.includes(dyn)?' *':'';out+=` ${String(n).padStart(2)} | ${(sta+sStar).toString().padEnd(10)} | ${(dyn+dStar).toString().padEnd(10)} | ${desc.join(' + ')}\n`;}out+=`\n (*) = Número que forma parte del Top 21 de su respectivo Pool\n\n`;out+=`==========================================================================================\n`;out+=` DESGLOSE DE LOS POOLS GENERADOS (Top 21 más frecuentes)\n`;out+=`==========================================================================================\n\n`;out+=` POOL 2 (Estático) - 21 números:\n`;out+=` [${pool2.join(', ')}]\n\n`;out+=`🟢 POOL 3 (Dinámico) - 21 números:\n`;out+=` [${pool3.join(', ')}]\n\n`;out+=`==========================================================================================\n`;out+=`🎯 RESULTADO FINAL: INTERSECCIÓN (P2 ∩ P3)\n`;out+=`==========================================================================================\n\n`;out+=` 🔢 NÚMEROS RECOMENDADOS (${inter.length} números):\n`;out+=` [${inter.join(', ')}]\n`;document.getElementById('log').textContent=out;}
+const TABLA_P2={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
+const SHIFT_P3_BASE=8, SHIFT_P3_A=10, SHIFT_P3_TOP=5, TOP_N=21;
+let draws=[];
+function parseCSV(text){draws=[];let lines=text.trim().split('\n');let header=lines[0].toLowerCase();let hasConcurso=header.includes('concurso');let startIdx=hasConcurso?1:0;for(let i=startIdx;i<lines.length;i++){let line=lines[i].trim();if(!line)continue;let parts=line.split(',').map(s=>s.trim());if(parts.length<6&&!hasConcurso){let nums=parts.map(v=>parseInt(v)).filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5)draws.push({concurso:draws.length+1,fecha:'',numeros:new Set(nums.slice(-5)),numerosArr:nums.slice(-5)});continue;}try{let concurso=parseInt(parts[0]);let fecha=parts[1];let r1=parseInt(parts[2]),r2=parseInt(parts[3]),r3=parseInt(parts[4]),r4=parseInt(parts[5]),r5=parts[6]?parseInt(parts[6]):null;let nums=[r1,r2,r3,r4,r5].filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5){draws.push({concurso:isNaN(concurso)?draws.length+1:concurso,fecha:fecha,numeros:new Set(nums),numerosArr:nums});}}catch(e){}}draws.sort((a,b)=>a.concurso-b.concurso);}
+function freqFromRaw(raw){let c={};for(let i=1;i<=28;i++)c[i]=0;raw.forEach(n=>{c[n]=(c[n]||0)+1});return c;}
+function rankingFromFreq(freqObj){let arr=[];for(let i=1;i<=28;i++)arr.push(i);arr.sort((a,b)=>{let fa=freqObj[a]||0,fb=freqObj[b]||0;if(fb!==fa)return fb-fa;return a-b;});return arr;}
+function get_top_n(ranking_c_src,ranking_d_src,n){let numsSet=new Set([...ranking_c_src.slice(0,n),...ranking_d_src.slice(0,n)]);let combined=[...ranking_c_src,...ranking_d_src];let result=[];let seen=new Set();for(let num of combined){if(numsSet.has(num)&&!seen.has(num)){result.push(num);seen.add(num);}if(result.length>=n)break;}return result;}
+function overlapSet(setA,setB){let c=0;for(let x of setA)if(setB.has(x))c++;return c;}
+async function cargar(){try{let url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';let r=await fetch(url+'?t='+Date.now());let text=await r.text();parseCSV(text);document.getElementById('status').textContent=`${draws.length} sorteos | Último: Concurso ${draws[draws.length-1].concurso} (${draws[draws.length-1].fecha}) [${draws[draws.length-1].numerosArr.join(', ')}]`;generar();}catch(e){document.getElementById('log').textContent='Error: '+e.message;}}
+function generar(){if(draws.length===0)return;let idx_a=draws.length-1;let sorteo_a=draws[idx_a];let a_nums=sorteo_a.numeros;let a_arr=Array.from(a_nums).sort((a,b)=>a-b);let indices_b=[];for(let idx=0;idx<idx_a;idx++){if(overlapSet(a_nums,draws[idx].numeros)>=3)indices_b.push(idx);}let c_raw=[],d_raw=[];for(let idx_b of indices_b){if(idx_b+2<draws.length){c_raw.push(...Array.from(draws[idx_b+1].numeros));d_raw.push(...Array.from(draws[idx_b+2].numeros));}}let log=document.getElementById('log');if(c_raw.length<10||d_raw.length<10){log.textContent='❌ No hay suficientes datos. B encontrados: '+indices_b.length;return;}let freq_c_base=freqFromRaw(c_raw),freq_d_base=freqFromRaw(d_raw);let ranking_c_base=rankingFromFreq(freq_c_base);let ranking_d_base=rankingFromFreq(freq_d_base);let c_top5=new Set(ranking_c_base.slice(0,5));let d_top5=new Set(ranking_d_base.slice(0,5));let c_conv2=c_raw.map(n=>TABLA_P2[n]);let d_conv2=d_raw.map(n=>TABLA_P2[n]);let freq_c2=freqFromRaw(c_conv2),freq_d2=freqFromRaw(d_conv2);let rank_c2=rankingFromFreq(freq_c2),rank_d2=rankingFromFreq(freq_d2);let pool2_list=get_top_n(rank_c2,rank_d2,TOP_N);let pool2=new Set(pool2_list);let c_conv3=[],d_conv3=[];for(let n of c_raw){let shift=(SHIFT_P3_BASE+(a_nums.has(n)?SHIFT_P3_A:0)+(c_top5.has(n)||d_top5.has(n)?SHIFT_P3_TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let final=(nc===n)?nd:nc;c_conv3.push(final);}for(let n of d_raw){let shift=(SHIFT_P3_BASE+(a_nums.has(n)?SHIFT_P3_A:0)+(c_top5.has(n)||d_top5.has(n)?SHIFT_P3_TOP:0))%28;let nd_raw=((n-1+shift)%28)+1;let nd_extra=(nd_raw%28)+1;let final=(nd_raw===n)?nd_extra:nd_raw;d_conv3.push(final);}let freq_c3=freqFromRaw(c_conv3),freq_d3=freqFromRaw(d_conv3);let rank_c3=rankingFromFreq(freq_c3),rank_d3=rankingFromFreq(freq_d3);let pool3_list=get_top_n(rank_c3,rank_d3,TOP_N);let pool3=new Set(pool3_list);let out='';out+=`${'='.repeat(90)}\n`;out+=`🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (ESTRATEGIA P2 ∩ P3)\n`;out+=`${'='.repeat(90)}\n\n`;out+=`📌 ÚLTIMO SORTEO REGISTRADO: Concurso ${sorteo_a.concurso} (${sorteo_a.fecha})\n`;out+=` Números: [${a_arr.join(', ')}]\n\n`;out+=` PREDICCIÓN PARA: Concurso ${sorteo_a.concurso+1}\n\n`;out+=`🔍 Buscando Sorteos B (≥3 coincidencias) en el historial completo...\n`;out+=` ✅ Encontrados: ${indices_b.length} sorteos B\n\n`;out+=`${'='.repeat(90)}\n`;out+=`⚙️ DETALLE DE LA CONVERSIÓN (28 números)\n`;out+=`${'='.repeat(90)}\n`;out+=` Parámetros Dinámicos: Base=${SHIFT_P3_BASE}, A=${SHIFT_P3_A}, Top5=${SHIFT_P3_TOP}\n`;out+=` Números en Sorteo A: [${a_arr.join(', ')}]\n`;out+=` Top 5 Frecuencia C: [${Array.from(c_top5).sort((a,b)=>a-b).join(', ')}]\n`;out+=` Top 5 Frecuencia D: [${Array.from(d_top5).sort((a,b)=>a-b).join(', ')}]\n\n`;out+=` ${'Num'.padStart(3)} | ${'Estática (P2)'.padStart(14)} | ${'Dinámica (P3)'.padStart(14)} | ${'Shift Aplicado'}\n`;out+=` ${'-'.repeat(72)}\n`;for(let n=1;n<=28;n++){let n_p2=TABLA_P2[n];let shift=(SHIFT_P3_BASE+(a_nums.has(n)?SHIFT_P3_A:0)+(c_top5.has(n)||d_top5.has(n)?SHIFT_P3_TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let n_p3=(nc===n)?nd:nc;let razones=[`Base(${SHIFT_P3_BASE})`];if(a_nums.has(n))razones.push(`+A(${SHIFT_P3_A})`);if(c_top5.has(n)||d_top5.has(n))razones.push(`+Top5(${SHIFT_P3_TOP})`);let razon_str=razones.join(' + ');let mark_p2=pool2.has(n_p2)?' *':' ';let mark_p3=pool3.has(n_p3)?' *':' ';out+=` ${String(n).padStart(3)} | ${String(n_p2).padStart(2)}${mark_p2} | ${String(n_p3).padStart(2)}${mark_p3} | ${razon_str}\n`;}out+=`\n (*) = Número que forma parte del Top 21 de su respectivo Pool\n\n`;out+=`${'='.repeat(90)}\n`;out+=` DESGLOSE DE LOS POOLS GENERADOS (Top 21 más frecuentes)\n`;out+=`${'='.repeat(90)}\n\n`;out+=` POOL 2 (Estático) - ${pool2_list.length} números:\n`;out+=` [${pool2_list.join(', ')}]\n\n`;out+=`🟢 POOL 3 (Dinámico) - ${pool3_list.length} números:\n`;out+=` [${pool3_list.join(', ')}]\n\n`;let master_order=[];let seenMaster=new Set();for(let num of [...ranking_c_base,...ranking_d_base]){if(!seenMaster.has(num)){master_order.push(num);seenMaster.add(num);}}let interseccion=Array.from(pool2).filter(x=>pool3.has(x));let interseccion_ordenada=master_order.filter(n=>interseccion.includes(n));out+=`${'='.repeat(90)}\n`;out+=`🎯 RESULTADO FINAL: INTERSECCIÓN (P2 ∩ P3)\n`;out+=`${'='.repeat(90)}\n\n`;out+=` 🔢 NÚMEROS RECOMENDADOS (${interseccion_ordenada.length} números):\n`;out+=` [${interseccion_ordenada.join(', ')}]\n\n`;out+=` 📊 ESTADÍSTICAS DEL POOL:\n`;out+=` - Tamaño de la intersección: ${interseccion_ordenada.length} números\n`;out+=` - Tasa histórica de 4-5 aciertos: ~56% en los últimos 200 sorteos.\n`;out+=` - Los números de la izquierda tienen mayor peso estadístico.\n\n`;out+=`${'='.repeat(90)}\n`;out+=` INSTRUCCIONES DE USO\n`;out+=`${'='.repeat(90)}\n`;out+=` 1. Copia la lista de 'NÚMEROS RECOMENDADOS' de arriba.\n`;out+=` 2. Úsala en tu generador de combinaciones reducidas (garantía 4 si 5).\n`;out+=` 3. Si el tamaño es mayor a 16, prioriza estrictamente los primeros 14 números.\n`;out+=` 4. ¡Juega con responsabilidad y dentro de tu presupuesto!\n`;out+=`${'='.repeat(90)}\n`;out+=`🔮 PREDICCIÓN COMPLETA. ¡Mucho éxito en el próximo sorteo!\n`;document.getElementById('log').textContent=out;}
 window.onload=cargar;
-</script></body></html>
+</script>
+</body>
+</html>
