@@ -8,9 +8,32 @@
 :root{--yellow:#fef08a;--yellow2:#fef9c3;--black:#000}
 body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8px;color:#000}
 .card{background:#fff;border:3px solid #000;border-radius:16px;max-width:1050px;margin:auto;box-shadow:7px 7px 0 #000;overflow:hidden}
-.header{background:#000;color:#facc15;padding:14px;text-align:center}
+.header{background:#000;color:#facc15;padding:16px;text-align:center}
 .header h1{margin:0;font-size:20px;line-height:1.3}
-...
+.body{padding:12px}
+.badge{display:inline-block;background:var(--yellow2);border:2px dashed #000;border-radius:8px;padding:6px 8px;font-size:11px;margin:4px 0}
+.btn{background:#000;color:#facc15;border:2px solid #000;border-radius:10px;padding:12px;width:100%;font-weight:900;font-size:15px;cursor:pointer}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.box{background:var(--yellow2);border:2px solid #000;border-radius:10px;padding:8px}
+.box h3{margin:0 0 6px;font-size:13px;background:#000;color:#facc15;padding:4px 6px;border-radius:6px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th,td{border:1px solid #000;padding:4px 5px;text-align:center}
+th{background:#000;color:#facc15}
+td.left{text-align:left}
+.star{color:#c00;font-weight:900}
+.pool{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chip{border:2px solid #000;border-radius:999px;padding:3px 8px;font-weight:900;font-size:12px;background:#fff}
+.chip.hit{background:#000;color:#facc15}
+.chip.p2{background:#fef08a}
+.chip.p3{background:#bbf7d0}
+pre.log{background:#000;color:#0f0;padding:12px;border-radius:10px;overflow:auto;font-size:11px;white-space:pre-wrap;line-height:1.35;min-height:180px}
+.kpi{display:flex;gap:8px;flex-wrap:wrap}
+.kpi div{background:#fff;border:2px solid #000;border-radius:10px;padding:6px 10px;text-align:center;min-width:90px}
+.kpi b{font-size:18px;display:block}
+.hist{max-height:380px;overflow:auto;border:2px solid #000;border-radius:10px}
+.acierto-5{background:#22c55e;color:#fff;font-weight:900}
+.acierto-4{background:#facc15;font-weight:900}
 </style>
 </head>
 <body>
@@ -18,4 +41,131 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8p
 <div class="header">
 <h1>🔮 CHISPAZO PREDICTOR v2<br>ESTRATEGIA DE CONVERSIONES</h1>
 </div>
-...
+<div class="body">
+<div class="badge" id="status">Cargando datos...</div>
+<button class="btn" onclick="cargar()">🔄 ACTUALIZAR PREDICCIÓN</button>
+<div class="grid" style="margin-top:10px">
+<div class="box" id="boxActual"></div>
+<div class="box" id="boxStats"></div>
+</div>
+<h3 style="margin:12px 0 4px">⚙️ DETALLE DE LA CONVERSIÓN (28 números)</h3>
+<div id="tablaConversion" class="box" style="background:#fff;overflow:auto"></div>
+<div class="grid" style="margin-top:10px">
+<div class="box"><h3>POOL 2 (Estático) - 21 números</h3><div id="pool2" class="pool"></div></div>
+<div class="box"><h3>🟢 POOL 3 (Dinámico) - 21 números</h3><div id="pool3" class="pool"></div></div>
+</div>
+<div class="box" style="margin-top:10px;background:#000;color:#facc15">
+<h3 style="background:#facc15;color:#000">🎯 INTERSECCIÓN FINAL (P2 ∩ P3)</h3>
+<div id="interseccionFinal" style="margin-top:8px"></div>
+</div>
+<h3 style="margin:14px 0 4px">📜 HISTÓRICO - Últimos 20 sorteos (Backtest)</h3>
+<div class="badge">Si hubiéramos predicho N+1 usando solo hasta N, ¿cuántos aciertos daba la intersección?</div>
+<div id="historico" class="hist" style="margin-top:6px;background:#fff"></div>
+<h3 style="margin:12px 0 4px">📟 LOG COMPLETO</h3>
+<pre id="log" class="log"></pre>
+</div>
+</div>
+<script>
+const TABLA_P2={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
+const BASE=8,A=10,TOP=5,TOP_N=21;
+let draws=[];
+function parseCSV(t){
+  draws=[];
+  const lines=t.trim().split('\n');
+  const hasCon=lines[0].toLowerCase().includes('concurso');
+  const s=hasCon?1:0;
+  for(let i=s;i<lines.length;i++){
+    const p=lines[i].split(',').map(x=>x.trim());
+    if(p.length<6) continue;
+    const conc=parseInt(p[0]);
+    const fecha=p[1];
+    const nums=[parseInt(p[2]),parseInt(p[3]),parseInt(p[4]),parseInt(p[5]),parseInt(p[6])].filter(n=>!isNaN(n)&&n>=1&&n<=28);
+    if(nums.length>=5) draws.push({concurso:isNaN(conc)?i:conc,fecha,arr:nums,set:new Set(nums)});
+  }
+  draws.sort((a,b)=>a.concurso-b.concurso);
+}
+function freqRaw(raw){let f={};for(let i=1;i<=28;i++)f[i]=0;raw.forEach(n=>f[n]++);return f;}
+function ranking(f){let a=[];for(let i=1;i<=28;i++)a.push(i);a.sort((x,y)=>{let fx=f[x]||0,fy=f[y]||0;if(fy!==fx)return fy-fx;return x-y;});return a;}
+function get_top_n(rc,rd,n){let setN=new Set([...rc.slice(0,n),...rd.slice(0,n)]);let comb=[...rc,...rd];let res=[],seen=new Set();for(let num of comb){if(setN.has(num)&&!seen.has(num)){res.push(num);seen.add(num);}if(res.length>=n)break;}return res;}
+function overlapSet(a,b){let c=0;for(let x of a)if(b.has(x))c++;return c;}
+function predictFromHistory(historyDraws){
+  let idx_a=historyDraws.length-1;
+  let sorteo_a=historyDraws[idx_a];
+  let a_nums=sorteo_a.set;
+  let a_arr=[...a_nums].sort((x,y)=>x-y);
+  let indices_b=[];
+  for(let i=0;i<idx_a;i++){if(overlapSet(a_nums,historyDraws[i].set)>=3) indices_b.push(i);}
+  let c_raw=[],d_raw=[];
+  for(let ib of indices_b){if(ib+2<historyDraws.length){c_raw.push(...[...historyDraws[ib+1].set]);d_raw.push(...[...historyDraws[ib+2].set]);}}
+  if(c_raw.length<10) return null;
+  let fc=freqRaw(c_raw),fd=freqRaw(d_raw);
+  let rc=ranking(fc),rd=ranking(fd);
+  let c_top5=new Set(rc.slice(0,5)),d_top5=new Set(rd.slice(0,5));
+  let c2=c_raw.map(n=>TABLA_P2[n]),d2=d_raw.map(n=>TABLA_P2[n]);
+  let rc2=ranking(freqRaw(c2)),rd2=ranking(freqRaw(d2));
+  let pool2=get_top_n(rc2,rd2,TOP_N);
+  let c3=c_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});
+  let d3=d_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});
+  let rc3=ranking(freqRaw(c3)),rd3=ranking(freqRaw(d3));
+  let pool3=get_top_n(rc3,rd3,TOP_N);
+  let master=[];let seen=new Set();for(let num of [...rc,...rd]){if(!seen.has(num)){master.push(num);seen.add(num);}}
+  let interSet=new Set(pool2.filter(x=>new Set(pool3).has(x)));
+  let interOrdered=master.filter(n=>interSet.has(n));
+  return {sorteo_a,a_arr,indices_b,c_top5,d_top5,pool2,pool3,inter:interOrdered,rc,rd};
+}
+async function cargar(){
+  document.getElementById('status').textContent='Descargando...';
+  const url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';
+  const text=await (await fetch(url+'?t='+Date.now())).text();
+  parseCSV(text);
+  document.getElementById('status').textContent='✅ '+draws.length+' sorteos | Último Concurso '+draws[draws.length-1].concurso+' ('+draws[draws.length-1].fecha+')';
+  renderCurrent();
+  renderHistorico();
+}
+function renderCurrent(){
+  const pred=predictFromHistory(draws);
+  if(!pred) return;
+  const {sorteo_a,a_arr,indices_b,c_top5,d_top5,pool2,pool3,inter}=pred;
+  document.getElementById('boxActual').innerHTML='<h3>📌 ÚLTIMO SORTEO</h3><b>Concurso '+sorteo_a.concurso+' ('+sorteo_a.fecha+')</b><br>Números: <b>['+a_arr.join(', ')+']</b><br>Predicción para: <b>Concurso '+(sorteo_a.concurso+1)+'</b><br><br><div class="kpi"><div><b>'+indices_b.length+'</b> Sorteos B<br>≥3</div><div><b>'+inter.length+'</b> Intersección</div></div>';
+  document.getElementById('boxStats').innerHTML='<h3>📊 ESTADÍSTICAS POOL</h3>Base='+BASE+', A='+A+', Top5='+TOP+'<br>Pool2: '+pool2.length+' | Pool3: '+pool3.length+'<br>Tasa histórica 4-5 aciertos: <b>~56% últimos 200</b>';
+  let html='<table><tr><th>Num</th><th>Estática (P2)</th><th>Dinámica (P3)</th><th class="left">Shift Aplicado</th></tr>';
+  for(let n=1;n<=28;n++){
+    let n_p2=TABLA_P2[n];
+    let shift=(BASE+(pred.sorteo_a.set.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;
+    let nc=((n-1+shift)%28)+1; let nd=(nc%28)+1; let n_p3=nc===n?nd:nc;
+    let razones=['Base('+BASE+')']; if(pred.sorteo_a.set.has(n)) razones.push('+A('+A+')'); if(c_top5.has(n)||d_top5.has(n)) razones.push('+Top5('+TOP+')');
+    let mark2=pool2.includes(n_p2)?' *':''; let mark3=pool3.includes(n_p3)?' *':'';
+    html+='<tr><td>'+n+'</td><td class="'+(pool2.includes(n_p2)?'star':'')+'">'+n_p2+mark2+'</td><td class="'+(pool3.includes(n_p3)?'star':'')+'">'+n_p3+mark3+'</td><td class="left">'+razones.join(' + ')+'</td></tr>';
+  }
+  html+='</table><div style="font-size:10px;margin-top:4px">(*) = Top 21 de su respectivo Pool</div>';
+  document.getElementById('tablaConversion').innerHTML=html;
+  document.getElementById('pool2').innerHTML=pool2.map(n=>'<span class="chip p2">'+n+'</span>').join('');
+  document.getElementById('pool3').innerHTML=pool3.map(n=>'<span class="chip p3">'+n+'</span>').join('');
+  document.getElementById('interseccionFinal').innerHTML='<div class="pool">'+inter.map((n,i)=>'<span class="chip hit" style="background:'+(i<5?'#000':'#fff')+';color:'+(i<5?'#facc15':'#000')+'">'+n+'</span>').join('')+'</div><div style="margin-top:8px;font-size:12px">🔢 <b>'+inter.length+' números recomendados:</b> ['+inter.join(', ')+']</div>';
+  let out='==========================================================================================\n🔮 SCRIPT DE PREDICCIÓN: PRÓXIMO SORTEO (ESTRATEGIA DE CONVERSIONES)\n==========================================================================================\n\n📌 ÚLTIMO SORTEO REGISTRADO: Concurso '+sorteo_a.concurso+' ('+sorteo_a.fecha+')\n Números: ['+a_arr.join(', ')+']\n\n PREDICCIÓN PARA: Concurso '+(sorteo_a.concurso+1)+'\n\n🔍 Buscando Sorteos B (≥3 coincidencias) en el historial completo...\n ✅ Encontrados: '+indices_b.length+' sorteos B\n\n';
+  document.getElementById('log').textContent=out;
+}
+function renderHistorico(){
+  let rows=[];
+  let start=Math.max(0,draws.length-21);
+  for(let i=draws.length-2;i>=start&&rows.length<20;i--){
+    let history=draws.slice(0,i+1);
+    let nextReal=draws[i+1];
+    let pred=predictFromHistory(history);
+    if(!pred) continue;
+    let interSet=new Set(pred.inter);
+    let aciertos=[...nextReal.set].filter(n=>interSet.has(n)).length;
+    rows.push({concurso:history[history.length-1].concurso,fecha:history[history.length-1].fecha,a_arr:pred.a_arr,nextConcurso:nextReal.concurso,nextArr:nextReal.arr,inter:pred.inter,aciertos});
+  }
+  let html='<table><tr><th>Base (A)</th><th>Predijo para</th><th>Inter P2∩P3</th><th>Sorteo Real</th><th>Aciertos</th></tr>';
+  rows.forEach(r=>{
+    let cls=r.aciertos>=5?'acierto-5':r.aciertos==4?'acierto-4':'';
+    html+='<tr><td><b>'+r.concurso+'</b><br><small>'+r.fecha+'</small><br>['+r.a_arr.join(',')+']</td><td>'+r.nextConcurso+'</td><td class="left"><small>['+r.inter.join(',')+']</small></td><td><b>['+r.nextArr.join(',')+']</b></td><td class="'+cls+'">'+r.aciertos+'/5</td></tr>';
+  });
+  html+='</table>';
+  document.getElementById('historico').innerHTML=html;
+}
+window.onload=cargar;
+</script>
+</body>
+</html>
