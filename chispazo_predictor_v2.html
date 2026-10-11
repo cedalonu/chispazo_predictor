@@ -1,0 +1,45 @@
+html<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width">
+<title>Chispazo Predictor V2</title>
+<style>
+body{background:#fef08a;font-family:Consolas,monospace;padding:10px}
+.card{background:#fff;border:3px solid #000;padding:15px;border-radius:12px;max-width:900px;margin:auto}
+button{background:#000;color:#facc15;padding:12px;width:100%;font-weight:bold;border-radius:8px}
+pre{background:#000;color:#0f0;padding:12px;border-radius:8px;overflow:auto;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #000;padding:4px;text-align:center}th{background:#000;color:#facc15}
+</style>
+</head>
+<body><div class="card">
+<h1>🔮 CHISPAZO PREDICTOR V2 - Detalle 28 números</h1>
+Base: <input id="base" value="8" size=3> A: <input id="valA" value="10" size=3> Top5: <input id="valTop" value="5" size=3><br><br>
+Sorteo A: <input id="sorteoA" value="2,6,12,20,24" style="width:80%"><br>
+Top5 C: <input id="topC" value="4,5,10,13,25" style="width:80%"><br>
+Top5 D: <input id="topD" value="2,4,15,16,23" style="width:80%"><br><br>
+<button onclick="generar()">CARGAR Y PREDECIR + DETALLE</button>
+<pre id="log"></pre><div id="tablaContainer"></div>
+<script>
+const staticMap={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
+function parseList(id){return document.getElementById(id).value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));}
+function generar(){
+const Base=parseInt(base.value)||0,A=parseInt(valA.value)||0,T5=parseInt(valTop.value)||0;
+const sorteoA=parseList('sorteoA'),topC=parseList('topC'),topD=parseList('topD');
+const topUnion=[...new Set([...topC,...topD])];
+const top21Static=[28,13,18,25,24,8,6,23,11,10,17,3,21,7,2,12,15,1,5,20];
+const top21Dynamic=Array.from({length:28},(_,i)=>i+1);
+let log=`==========================================================================================\n⚙️ DETALLE DE LA CONVERSIÓN (28 números)\n==========================================================================================\n   Parámetros Dinámicos: Base=${Base}, A=${A}, Top5=${T5}\n   Números en Sorteo A: [${sorteoA.join(', ')}]\n   Top 5 Frecuencia C: [${topC.join(', ')}]\n   Top 5 Frecuencia D: [${topD.join(', ')}]\n\n   Num |  Estática (P2) |  Dinámica (P3) | Shift Aplicado\n   ------------------------------------------------------------------------\n`;
+let html=`<table><tr><th>Num</th><th>Estática</th><th>Dinámica</th><th>Shift</th></tr>`;
+for(let n=1;n<=28;n++){
+let shift=Base,desc=[`Base(${Base})`];
+if(sorteoA.includes(n)){shift+=A;desc.push(`+A(${A})`);}
+if(topUnion.includes(n)){shift+=T5;desc.push(`+Top5(${T5})`);}
+let dyn=((n+shift-1)%28)+1,sta=staticMap[n];
+let starS=top21Static.includes(sta)?' *':'',starD=top21Dynamic.includes(dyn)?' *':'';
+log+=`   ${String(n).padStart(3)} |     ${String(sta+starS).padEnd(10)} |     ${String(dyn+starD).padEnd(10)} | ${desc.join(' + ')}\n`;
+html+=`<tr><td>${n}</td><td>${sta+starS}</td><td>${dyn+starD}</td><td style="text-align:left">${desc.join(' + ')}</td></tr>`;
+}
+log+=`\n   (*) = Número que forma parte del Top 21\n`;
+document.getElementById('log').textContent=log;
+document.getElementById('tablaContainer').innerHTML=html+`</table>`;
+} generar();
+</script></div></body></html>
