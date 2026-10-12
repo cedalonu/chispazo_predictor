@@ -11,20 +11,19 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6p
 @media(min-width:600px){.card{max-width:850px}}
 .header{background:#000;color:#facc15;padding:12px 12px 14px;text-align:center}
 .header h1{margin:0;font-size:18px;line-height:1.2}
-.wa-link{display:inline-flex;align-items:center;gap:6px;background:#25D366;color:#fff;text-decoration:none;font-weight:900;font-size:11px;padding:6px 12px;border-radius:20px;margin-top:8px;border:2px solid #fff;letter-spacing:0.3px}
-.wa-link:hover{background:#1ebe57}
-.wa-icon{width:16px;height:16px;display:inline-block}
+.wa-link{display:inline-flex;align-items:center;gap:6px;background:#25D366;color:#fff;text-decoration:none;font-weight:900;font-size:11px;padding:6px 12px;border-radius:20px;margin-top:8px;border:2px solid #fff}
+.wa-icon{width:16px;height:16px}
 .top-reco{background:#fff;border-bottom:3px solid #000;padding:10px;text-align:center}
 .top-reco b{display:block;font-size:13px;margin-bottom:4px}
-.top-reco.nums{font-size:16px;font-weight:900;background:#000;color:#facc15;padding:6px 10px;border-radius:8px;display:inline-block;letter-spacing:0.5px;line-height:1.4;word-spacing:4px}
+.top-reco.nums{font-size:16px;font-weight:900;background:#000;color:#facc15;padding:6px 10px;border-radius:8px;display:inline-block;word-spacing:4px}
 .btn-bar{background:#000;color:#facc15;padding:8px;text-align:center;font-weight:900;font-size:12px;cursor:pointer;border-bottom:3px solid #000}
 .pools-top{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:3px solid #000;background:#fff}
 .pool-box{padding:8px 4px;text-align:center;border-right:2px solid #000}
 .pool-box:last-child{border-right:none}
 .pool-box b{display:block;font-size:10px;margin-bottom:6px}
-.pool-inner{border:2px solid #000;border-radius:10px;padding:6px 6px;display:inline-block;font-weight:900;font-size:12px;max-width:98%;line-height:1.4;letter-spacing:0.3px;word-spacing:3px}
-.pool-inner.p2{background:#b6d4f0;}
-.pool-inner.p3{background:var(--green-militar);}
+.pool-inner{border:2px solid #000;border-radius:10px;padding:6px;display:inline-block;font-weight:900;font-size:12px;max-width:98%;line-height:1.4;word-spacing:3px}
+.pool-inner.p2{background:#b6d4f0}
+.pool-inner.p3{background:var(--green-militar)}
 .body{padding:8px}
 .body h3{font-size:13px;margin:10px 0 4px}
 .box{background:#fff;border:2px solid #000;border-radius:8px;padding:4px}
@@ -36,10 +35,29 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6p
 .hist table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
 .hist th{background:#000;color:#facc15;border-right:1px solid #facc15;padding:6px 2px;font-size:10px;font-weight:900;text-align:center;line-height:1.1}
 .hist th:last-child{border-right:none}
-.hist td{border:1px solid #000;padding:8px 2px;text-align:center;font-size:13px;font-weight:900}
+.hist td{border:1px solid #000;padding:8px 2px;text-align:center;font-size:13px;font-weight:900;cursor:pointer}
+.hist td:first-child{cursor:default}
 .hit-green{background:var(--green-militar)!important}
 .hit-purple{background:var(--purple-pastel)!important}
 #status{font-size:9px!important;text-align:center;margin-top:6px}
+
+/* POPUP */
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:999;padding:12px}
+.modal.open{display:flex}
+.modal-box{background:#fff;border:3px solid #000;border-radius:16px;max-width:360px;width:95%;box-shadow:8px 8px 0 #000;overflow:hidden}
+.modal-head{background:#000;color:#facc15;padding:10px;text-align:center;font-weight:900;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:#fff;color:#000;border:2px solid #000;border-radius:50%;width:26px;height:26px;font-weight:900;cursor:pointer}
+.modal-body{padding:10px;text-align:center}
+.real-box{background:var(--yellow);border:2px solid #000;border-radius:10px;padding:8px;margin-bottom:10px}
+.real-box b{display:block;font-size:12px;margin-bottom:4px}
+.real-nums{font-size:16px;font-weight:900;letter-spacing:1px;word-spacing:6px}
+.pred-box{border:2px solid #000;border-radius:10px;padding:8px;margin-bottom:8px}
+.pred-box b{font-size:11px;display:block;margin-bottom:6px}
+.pred-nums{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.num{border:2px solid #000;border-radius:8px;padding:4px 7px;font-weight:900;font-size:13px;background:#fff;min-width:22px}
+.num.hit{background:var(--green-militar)}
+.num.hit5{background:var(--purple-pastel)}
+.legend{font-size:10px;margin-top:6px;color:#333}
 </style>
 </head>
 <body>
@@ -51,10 +69,7 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6p
 Unidos contra el chispazo
 </a>
 </div>
-<div class="top-reco" id="topReco">
-<b>🔢 NÚMEROS RECOMENDADOS - Cargando...</b>
-<span class="nums">...</span>
-</div>
+<div class="top-reco" id="topReco"><b>🔢 NÚMEROS RECOMENDADOS - Cargando...</b><span class="nums">...</span></div>
 <div class="btn-bar" onclick="cargar()">🔄 ACTUALIZAR</div>
 <div class="pools-top">
 <div class="pool-box" id="boxPool2"><b>POOL 2 (21)</b><div class="pool-inner p2">...</div></div>
@@ -63,15 +78,23 @@ Unidos contra el chispazo
 <div class="body">
 <h3>⚙️ CONVERSIÓN (28 números)</h3>
 <div id="tablaConversion" class="box">Cargando...</div>
-<h3>📜 RESULTADOS - Últimos 20</h3>
+<h3>📜 RESULTADOS - Últimos 20 (toca la celda)</h3>
 <div id="historico" class="hist">Cargando...</div>
 <div id="status">Cargando datos...</div>
 </div>
 </div>
+
+<div id="modal" class="modal" onclick="if(event.target==this)closeModal()">
+<div class="modal-box">
+<div class="modal-head"><span id="modalTitle">Sorteo</span><button class="modal-close" onclick="closeModal()">X</button></div>
+<div class="modal-body" id="modalBody"></div>
+</div>
+</div>
+
 <script>
 const TABLA_P2={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
 const BASE=8,A=10,TOP=5,TOP_N=21;
-let draws=[];
+let draws=[]; let historicoData=[];
 function parseCSV(t){draws=[];const lines=t.trim().split('\n');const hasCon=lines[0].toLowerCase().includes('concurso');const s=hasCon?1:0;for(let i=s;i<lines.length;i++){const p=lines[i].split(',').map(x=>x.trim());if(p.length<6)continue;const conc=parseInt(p[0]);const nums=[parseInt(p[2]),parseInt(p[3]),parseInt(p[4]),parseInt(p[5]),parseInt(p[6])].filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5)draws.push({concurso:isNaN(parseInt(p[0]))?i:parseInt(p[0]),arr:nums,set:new Set(nums)});}draws.sort((a,b)=>a.concurso-b.concurso);}
 function freqRaw(raw){let f={};for(let i=1;i<=28;i++)f[i]=0;raw.forEach(n=>f[n]++);return f;}
 function ranking(f){let a=[];for(let i=1;i<=28;i++)a.push(i);a.sort((x,y)=>{let fx=f[x]||0,fy=f[y]||0;if(fy!==fx)return fy-fx;return x-y;});return a;}
@@ -81,7 +104,51 @@ function predictFromHistory(historyDraws){let idx_a=historyDraws.length-1;let so
 async function cargar(){document.getElementById('status').textContent='Descargando...';const url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';const text=await (await fetch(url+'?t='+Date.now())).text();parseCSV(text);document.getElementById('status').textContent='✅ '+draws.length+' sorteos | Último '+draws[draws.length-1].concurso;renderCurrent();renderHistorico();}
 function renderCurrent(){const pred=predictFromHistory(draws);if(!pred)return;document.getElementById('topReco').innerHTML='<b>🔢 RECOMENDADOS ('+pred.inter.length+') CONCURSO '+(pred.sorteo_a.concurso+1)+'</b><span class="nums">'+pred.inter.join(' ')+'</span>';document.getElementById('boxPool2').innerHTML='<b>POOL 2 (21)</b><div class="pool-inner p2">'+pred.pool2.join(' ')+'</div>';document.getElementById('boxPool3').innerHTML='<b>POOL 3 (21)</b><div class="pool-inner p3">'+pred.pool3.join(' ')+'</div>';let buildTable=(s,e)=>{let h='<table><tr><th>#</th><th>P2</th><th>P3</th></tr>';for(let n=s;n<=e;n++){let n_p2=TABLA_P2[n];let shift=(BASE+(pred.sorteo_a.set.has(n)?A:0)+(pred.c_top5.has(n)||pred.d_top5.has(n)?TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let n_p3=nc===n?nd:nc;h+='<tr><td>'+n+'</td><td>'+n_p2+'</td><td>'+n_p3+'</td></tr>';}return h+'</table>';};document.getElementById('tablaConversion').innerHTML='<div class="conversion-wrap"><div>'+buildTable(1,14)+'</div><div>'+buildTable(15,28)+'</div></div>';}
 function getColorClass(a){if(a>=5)return 'hit-purple';if(a>=4)return 'hit-green';return '';}
-function renderHistorico(){let rows=[];let start=Math.max(0,draws.length-21);for(let i=draws.length-2;i>=start&&rows.length<20;i--){let history=draws.slice(0,i+1);let nextReal=draws[i+1];let pred=predictFromHistory(history);if(!pred)continue;let realSet=new Set(nextReal.arr);let acInter=[...realSet].filter(n=>new Set(pred.inter).has(n)).length;let acP2=[...realSet].filter(n=>new Set(pred.pool2).has(n)).length;let acP3=[...realSet].filter(n=>new Set(pred.pool3).has(n)).length;rows.push({sorteo:nextReal.concurso,inter:pred.inter,acInter,acP2,acP3});}let html='<table><tr><th>Sorteo</th><th>Aciertos<br>Inter<br>P2nP3</th><th>Aciertos<br>pool P2</th><th>Aciertos<br>pool P3</th></tr>';rows.forEach(r=>{html+='<tr><td>'+r.sorteo+'</td><td class="'+getColorClass(r.acInter)+'">'+r.acInter+'/'+r.inter.length+'</td><td class="'+getColorClass(r.acP2)+'">'+r.acP2+'/21</td><td class="'+getColorClass(r.acP3)+'">'+r.acP3+'/21</td></tr>';});html+='</table>';document.getElementById('historico').innerHTML=html;}
+function renderHistorico(){
+  historicoData=[]; let rows=[];
+  let start=Math.max(0,draws.length-21);
+  for(let i=draws.length-2;i>=start&&rows.length<20;i--){
+    let history=draws.slice(0,i+1);
+    let nextReal=draws[i+1];
+    let pred=predictFromHistory(history);
+    if(!pred)continue;
+    let realSet=new Set(nextReal.arr);
+    let acInter=[...realSet].filter(n=>new Set(pred.inter).has(n)).length;
+    let acP2=[...realSet].filter(n=>new Set(pred.pool2).has(n)).length;
+    let acP3=[...realSet].filter(n=>new Set(pred.pool3).has(n)).length;
+    rows.push({sorteo:nextReal.concurso,real:nextReal.arr,inter:pred.inter,pool2:pred.pool2,pool3:pred.pool3,acInter,acP2,acP3});
+  }
+  historicoData=rows;
+  let html='<table><tr><th>Sorteo</th><th>Aciertos<br>Inter<br>P2nP3</th><th>Aciertos<br>pool P2</th><th>Aciertos<br>pool P3</th></tr>';
+  rows.forEach((r,idx)=>{
+    html+='<tr><td>'+r.sorteo+'</td><td class="'+getColorClass(r.acInter)+'" onclick="openModal('+idx+',\'inter\')">'+r.acInter+'/'+r.inter.length+'</td><td class="'+getColorClass(r.acP2)+'" onclick="openModal('+idx+',\'p2\')">'+r.acP2+'/21</td><td class="'+getColorClass(r.acP3)+'" onclick="openModal('+idx+',\'p3\')">'+r.acP3+'/21</td></tr>';
+  });
+  html+='</table>';
+  document.getElementById('historico').innerHTML=html;
+}
+function openModal(idx,type){
+  const r=historicoData[idx];
+  const realSet=new Set(r.real);
+  document.getElementById('modalTitle').textContent='Sorteo '+r.sorteo;
+  let title='', nums=[], bg='';
+  if(type=='inter'){title='INTERSECCIÓN P2nP3 ('+r.inter.length+' nums) - '+r.acInter+' aciertos'; nums=r.inter; bg='#fff'}
+  if(type=='p2'){title='POOL 2 (Estático) - '+r.acP2+'/21'; nums=r.pool2; bg='#b6d4f0'}
+  if(type=='p3'){title='POOL 3 (Dinámico) - '+r.acP3+'/21'; nums=r.pool3; bg='#a8c4a0'}
+  let numsHtml=nums.map(n=>{
+    let isHit=realSet.has(n);
+    let cls=isHit? (r.acInter>=5 || r.acP2>=5 || r.acP3>=5? 'hit5' : 'hit') : '';
+    if(type=='inter' &&!isHit) cls='';
+    if(type=='inter' && isHit) cls='hit';
+    return '<span class="num '+cls+'">'+n+'</span>';
+  }).join('');
+  let html=`
+    <div class="real-box"><b>🎯 GANADORES REALES</b><div class="real-nums">${r.real.join(' ')}</div></div>
+    <div class="pred-box" style="background:${bg}"><b>${title}</b><div class="pred-nums">${numsHtml}</div><div class="legend">● Verde/Morado = número ganador acertado</div></div>
+  `;
+  document.getElementById('modalBody').innerHTML=html;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
 window.onload=cargar;
 </script>
 </body>
