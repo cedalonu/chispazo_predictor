@@ -7,13 +7,13 @@
 <style>
 :root{--yellow:#fef08a;--black:#000}
 body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8px;color:#000}
-.card{background:#fff;border:3px solid #000;border-radius:16px;max-width:1100px;margin:auto;box-shadow:7px 7px 0 #000;overflow:hidden}
+.card{background:#fff;border:3px solid #000;border-radius:16px;max-width:1150px;margin:auto;box-shadow:7px 7px 0 #000;overflow:hidden}
 .header{background:#000;color:#facc15;padding:16px;text-align:center}
 .header h1{margin:0;font-size:20px;line-height:1.3}
 .top-reco{background:#fff;border-bottom:3px solid #000;padding:12px;text-align:center}
 .top-reco b{display:block;font-size:14px;margin-bottom:6px}
 .top-reco.nums{font-size:19px;font-weight:900;background:#000;color:#facc15;padding:8px 14px;border-radius:8px;display:inline-block;letter-spacing:1px}
-.btn-bar{background:#000;color:#facc15;padding:10px;text-align:center;font-weight:900;font-size:13px;cursor:pointer;border-bottom:3px solid #000;letter-spacing:0.5px}
+.btn-bar{background:#000;color:#facc15;padding:10px;text-align:center;font-weight:900;font-size:13px;cursor:pointer;border-bottom:3px solid #000}
 .pools-top{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:3px solid #000;background:#fff}
 .pool-box{padding:10px;text-align:center;border-right:3px solid #000}
 .pool-box:last-child{border-right:none}
@@ -29,7 +29,16 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8p
 .conversion-wrap th{background:#000;color:#facc15;font-size:12px;padding:6px;border:1px solid #000;text-align:center}
 .conversion-wrap td{border:1px solid #000;padding:6px;text-align:center;color:#000;font-weight:900;font-size:14px;background:#fff}
 @media(max-width:700px){.conversion-wrap{grid-template-columns:1fr}}
-.hist{max-height:400px;overflow:auto;border:2px solid #000;border-radius:10px;margin-top:6px}
+.hist{max-height:520px;overflow:auto;border:2px solid #000;border-radius:10px;margin-top:6px;background:#fff}
+.hist table{width:100%;border-collapse:collapse;font-size:12px}
+.hist th{background:#000;color:#facc15;border:1px solid #000;padding:6px;font-size:11px;text-align:center}
+.hist td{border:1px solid #000;padding:4px;text-align:center;vertical-align:middle;background:#fff}
+.pool-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.pool-cell{border:1px solid #aaa;padding:2px 3px;font-weight:900;font-size:11px;text-align:center;background:#fff}
+.pool-cell.hit{background:#8aa8d8;color:#000;font-weight:900;border:1px solid #000}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;max-width:70px;margin:auto}
+.result-grid.single{grid-column:1 / span 2;justify-self:center}
+.result-cell{border:1px solid #000;padding:2px 4px;font-weight:900;background:#fff;font-size:12px}
 .acierto-5{background:#22c55e;color:#fff;font-weight:900}
 .acierto-4{background:#facc15;font-weight:900}
 </style>
@@ -58,7 +67,7 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8p
 <h3 style="margin:12px 0 4px">⚙️ DETALLE DE LA CONVERSIÓN (28 números)</h3>
 <div id="tablaConversion" class="box" style="overflow:auto">Cargando...</div>
 <h3 style="margin:14px 0 4px">📜 HISTÓRICO - Últimos 20 sorteos</h3>
-<div id="historico" class="hist" style="background:#fff">Cargando histórico...</div>
+<div id="historico" class="hist">Cargando histórico...</div>
 <div style="font-size:10px;text-align:center;margin-top:10px" id="status">Cargando datos...</div>
 </div>
 </div>
@@ -74,7 +83,7 @@ function overlapSet(a,b){let c=0;for(let x of a)if(b.has(x))c++;return c;}
 function predictFromHistory(historyDraws){let idx_a=historyDraws.length-1;let sorteo_a=historyDraws[idx_a];let a_nums=sorteo_a.set;let a_arr=[...a_nums].sort((x,y)=>x-y);let indices_b=[];for(let i=0;i<idx_a;i++){if(overlapSet(a_nums,historyDraws[i].set)>=3)indices_b.push(i);}let c_raw=[],d_raw=[];for(let ib of indices_b){if(ib+2<historyDraws.length){c_raw.push(...[...historyDraws[ib+1].set]);d_raw.push(...[...historyDraws[ib+2].set]);}}if(c_raw.length<10)return null;let fc=freqRaw(c_raw),fd=freqRaw(d_raw);let rc=ranking(fc),rd=ranking(fd);let c_top5=new Set(rc.slice(0,5)),d_top5=new Set(rd.slice(0,5));let c2=c_raw.map(n=>TABLA_P2[n]),d2=d_raw.map(n=>TABLA_P2[n]);let rc2=ranking(freqRaw(c2)),rd2=ranking(freqRaw(d2));let pool2=get_top_n(rc2,rd2,TOP_N);let c3=c_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let d3=d_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let rc3=ranking(freqRaw(c3)),rd3=ranking(freqRaw(d3));let pool3=get_top_n(rc3,rd3,TOP_N);let master=[];let seen=new Set();for(let num of [...rc,...rd]){if(!seen.has(num)){master.push(num);seen.add(num);}}let interSet=new Set(pool2.filter(x=>new Set(pool3).has(x)));let interOrdered=master.filter(n=>interSet.has(n));return {sorteo_a,a_arr,indices_b,c_top5,d_top5,pool2,pool3,inter:interOrdered,rc,rd};}
 async function cargar(){document.getElementById('status').textContent='Descargando datos desde GitHub...';const url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';const text=await (await fetch(url+'?t='+Date.now())).text();parseCSV(text);document.getElementById('status').textContent='✅ '+draws.length+' sorteos | Último Concurso '+draws[draws.length-1].concurso+' ('+draws[draws.length-1].fecha+')';renderCurrent();renderHistorico();}
 function renderCurrent(){const pred=predictFromHistory(draws);if(!pred)return;const {sorteo_a,pool2,pool3,inter}=pred;const proximoConcurso = sorteo_a.concurso + 1;const interStr = inter.join(' ');const pool2Str = pool2.join(' ');const pool3Str = pool3.join(' ');document.getElementById('topReco').innerHTML='<b>🔢 NÚMEROS RECOMENDADOS ('+inter.length+') PARA EL CONCURSO '+proximoConcurso+'</b><span class="nums">'+interStr+'</span>';document.getElementById('boxPool2').innerHTML='<b>POOL 2 (Estático) - 21 números</b><div class="pool-inner p2">'+pool2Str+'</div>';document.getElementById('boxPool3').innerHTML='<b>POOL 3 (Dinámico) - 21 números</b><div class="pool-inner p3">'+pool3Str+'</div>';let buildTable = (start,end) => {let h='<table><tr><th>Num</th><th>Estática (P2)</th><th>Dinámica (P3)</th></tr>';for(let n=start;n<=end;n++){let n_p2=TABLA_P2[n];let shift=(BASE+(pred.sorteo_a.set.has(n)?A:0)+(pred.c_top5.has(n)||pred.d_top5.has(n)?TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let n_p3=nc===n?nd:nc;h+='<tr><td>'+n+'</td><td>'+n_p2+'</td><td>'+n_p3+'</td></tr>';}h+='</table>';return h;};let html='<div class="conversion-wrap"><div>'+buildTable(1,14)+'</div><div>'+buildTable(15,28)+'</div></div>';document.getElementById('tablaConversion').innerHTML=html;}
-function renderHistorico(){let rows=[];let start=Math.max(0,draws.length-21);for(let i=draws.length-2;i>=start&&rows.length<20;i--){let history=draws.slice(0,i+1);let nextReal=draws[i+1];let pred=predictFromHistory(history);if(!pred)continue;let interSet=new Set(pred.inter);let aciertos=[...nextReal.set].filter(n=>interSet.has(n)).length;rows.push({nextConcurso:nextReal.concurso,nextArr:nextReal.arr,inter:pred.inter,aciertos});}let html='<table style="width:100%;border-collapse:collapse;font-size:11.5px"><tr><th>Sorteo</th><th>Resultado</th><th>Inter P2nP3</th><th>Aciertos</th></tr>';rows.forEach(r=>{let cls=r.aciertos>=5?'acierto-5':r.aciertos==4?'acierto-4':'';html+='<tr><td style="font-weight:900;text-align:center"><b>'+r.nextConcurso+'</b></td><td style="font-weight:900;text-align:center"><b>'+r.nextArr.join(' ')+'</b></td><td style="text-align:left"><small>'+r.inter.join(' ')+'</small></td><td class="'+cls+'" style="text-align:center">'+r.aciertos+'/5</td></tr>';});html+='</table>';document.getElementById('historico').innerHTML=html;}
+function renderHistorico(){let rows=[];let start=Math.max(0,draws.length-21);for(let i=draws.length-2;i>=start&&rows.length<20;i--){let history=draws.slice(0,i+1);let nextReal=draws[i+1];let pred=predictFromHistory(history);if(!pred)continue;let realSet=new Set(nextReal.arr);let interSet=new Set(pred.inter);let p2Set=new Set(pred.pool2);let p3Set=new Set(pred.pool3);let acInter=[...realSet].filter(n=>interSet.has(n)).length;let acP2=[...realSet].filter(n=>p2Set.has(n)).length;let acP3=[...realSet].filter(n=>p3Set.has(n)).length;rows.push({nextConcurso:nextReal.concurso,nextArr:nextReal.arr,inter:pred.inter,pool2:pred.pool2,pool3:pred.pool3,acInter,acP2,acP3,realSet});}let html='<table><tr><th>Sorteo</th><th>Resultado</th><th>Aciertos<br>Interseccion<br>P2nP3</th><th>Pool P2</th><th>Aciertos</th><th>Pool P3</th><th>Aciertos</th></tr>';rows.forEach(r=>{let res=r.nextArr;let resHtml='<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;justify-items:center;min-width:60px"><span style="border:1px solid #000;padding:2px 6px;font-weight:900">'+res[0]+'</span><span style="border:1px solid #000;padding:2px 6px;font-weight:900">'+res[1]+'</span><span style="grid-column:1/3;border:1px solid #000;padding:2px 6px;font-weight:900">'+res[2]+'</span><span style="border:1px solid #000;padding:2px 6px;font-weight:900">'+res[3]+'</span><span style="border:1px solid #000;padding:2px 6px;font-weight:900">'+res[4]+'</span></div>';let pool2Html='<div class="pool-grid">'+r.pool2.map(n=>'<div class="pool-cell '+(r.realSet.has(n)?'hit':'')+'">'+n+'</div>').join('')+'</div>';let pool3Html='<div class="pool-grid">'+r.pool3.map(n=>'<div class="pool-cell '+(r.realSet.has(n)?'hit':'')+'">'+n+'</div>').join('')+'</div>';let clsInter = r.acInter>=4?'acierto-5':r.acInter==3?'acierto-4':'';let clsP2 = r.acP2>=5?'acierto-5':r.acP2==4?'acierto-4':'';let clsP3 = r.acP3>=5?'acierto-5':r.acP3==4?'acierto-4':'';html+='<tr><td><b>'+r.nextConcurso+'</b></td><td>'+resHtml+'</td><td class="'+clsInter+'"><b>'+r.acInter+'/'+r.inter.length+'</b></td><td>'+pool2Html+'</td><td class="'+clsP2+'"><b>'+r.acP2+'/21</b></td><td>'+pool3Html+'</td><td class="'+clsP3+'"><b>'+r.acP3+'/21</b></td></tr>';});html+='</table>';document.getElementById('historico').innerHTML=html;}
 window.onload=cargar;
 </script>
 </body>
