@@ -9,8 +9,11 @@
 body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6px;color:#000;font-size:14px}
 .card{background:#fff;border:3px solid #000;border-radius:14px;max-width:400px;margin:auto;box-shadow:6px 6px 0 #000;overflow:hidden}
 @media(min-width:600px){.card{max-width:850px}}
-.header{background:#000;color:#facc15;padding:12px;text-align:center}
+.header{background:#000;color:#facc15;padding:12px 12px 14px;text-align:center}
 .header h1{margin:0;font-size:18px;line-height:1.2}
+.wa-link{display:inline-flex;align-items:center;gap:6px;background:#25D366;color:#fff;text-decoration:none;font-weight:900;font-size:11px;padding:6px 12px;border-radius:20px;margin-top:8px;border:2px solid #fff;letter-spacing:0.3px}
+.wa-link:hover{background:#1ebe57}
+.wa-icon{width:16px;height:16px;display:inline-block}
 .top-reco{background:#fff;border-bottom:3px solid #000;padding:10px;text-align:center}
 .top-reco b{display:block;font-size:13px;margin-bottom:4px}
 .top-reco.nums{font-size:16px;font-weight:900;background:#000;color:#facc15;padding:6px 10px;border-radius:8px;display:inline-block;letter-spacing:0.5px;line-height:1.4;word-spacing:4px}
@@ -43,6 +46,10 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6p
 <div class="card">
 <div class="header">
 <h1>🔮 CHISPAZO PREDICTOR v2<br>ESTRATEGIA DE CONVERSIONES</h1>
+<a class="wa-link" href="https://chat.whatsapp.com/EMZmHW2KojDFGPKuFTidzu" target="_blank">
+<svg class="wa-icon" viewBox="0 0 24 24" fill="white"><path d="M19.05 4.94A9.91 9.91 0 0 0 12.04 2C6.51 2 2.02 6.48 2.02 12a9.9 9.9 0 0 0 1.48 5.18L2 22l4.99-1.31A9.9 9.9 0 0 0 12.04 22c5.53 0 10.01-4.48 10.01-10a9.9 9.9 0 0 0-3-7.06zM12.04 20a7.93 7.93 0 0 1-4.05-1.11l-.29-.17-2.96.78.79-2.88-.19-.3A7.92 7.92 0 0 1 4.02 12c0-4.41 3.59-8 8.02-8 2.14 0 4.15.83 5.66 2.34a7.95 7.95 0 0 1 2.34 5.66c0 4.41-3.59 8-8 8zm4.39-5.96c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.02-.37.1-.49.1-.1.24-.26.36-.39.12-.13.16-.22.24-.37.08-.15.04-.28-.02-.39-.06-.11-.54-1.3-.74-1.78-.2-.46-.39-.4-.54-.41h-.46c-.16 0-.42.06-.64.28-.22.22-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/></svg>
+Unidos contra el chispazo
+</a>
 </div>
 <div class="top-reco" id="topReco">
 <b>🔢 NÚMEROS RECOMENDADOS - Cargando...</b>
@@ -73,32 +80,8 @@ function overlapSet(a,b){let c=0;for(let x of a)if(b.has(x))c++;return c;}
 function predictFromHistory(historyDraws){let idx_a=historyDraws.length-1;let sorteo_a=historyDraws[idx_a];let a_nums=sorteo_a.set;let indices_b=[];for(let i=0;i<idx_a;i++){if(overlapSet(a_nums,historyDraws[i].set)>=3)indices_b.push(i);}let c_raw=[],d_raw=[];for(let ib of indices_b){if(ib+2<historyDraws.length){c_raw.push(...[...historyDraws[ib+1].set]);d_raw.push(...[...historyDraws[ib+2].set]);}}if(c_raw.length<10)return null;let fc=freqRaw(c_raw),fd=freqRaw(d_raw);let rc=ranking(fc),rd=ranking(fd);let c_top5=new Set(rc.slice(0,5)),d_top5=new Set(rd.slice(0,5));let c2=c_raw.map(n=>TABLA_P2[n]),d2=d_raw.map(n=>TABLA_P2[n]);let rc2=ranking(freqRaw(c2)),rd2=ranking(freqRaw(d2));let pool2=get_top_n(rc2,rd2,TOP_N);let c3=c_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let d3=d_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let rc3=ranking(freqRaw(c3)),rd3=ranking(freqRaw(d3));let pool3=get_top_n(rc3,rd3,TOP_N);let master=[];let seen=new Set();for(let num of [...rc,...rd]){if(!seen.has(num)){master.push(num);seen.add(num);}}let interSet=new Set(pool2.filter(x=>new Set(pool3).has(x)));let interOrdered=master.filter(n=>interSet.has(n));return {sorteo_a,pool2,pool3,inter:interOrdered,rc,rd,c_top5,d_top5};}
 async function cargar(){document.getElementById('status').textContent='Descargando...';const url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';const text=await (await fetch(url+'?t='+Date.now())).text();parseCSV(text);document.getElementById('status').textContent='✅ '+draws.length+' sorteos | Último '+draws[draws.length-1].concurso;renderCurrent();renderHistorico();}
 function renderCurrent(){const pred=predictFromHistory(draws);if(!pred)return;document.getElementById('topReco').innerHTML='<b>🔢 RECOMENDADOS ('+pred.inter.length+') CONCURSO '+(pred.sorteo_a.concurso+1)+'</b><span class="nums">'+pred.inter.join(' ')+'</span>';document.getElementById('boxPool2').innerHTML='<b>POOL 2 (21)</b><div class="pool-inner p2">'+pred.pool2.join(' ')+'</div>';document.getElementById('boxPool3').innerHTML='<b>POOL 3 (21)</b><div class="pool-inner p3">'+pred.pool3.join(' ')+'</div>';let buildTable=(s,e)=>{let h='<table><tr><th>#</th><th>P2</th><th>P3</th></tr>';for(let n=s;n<=e;n++){let n_p2=TABLA_P2[n];let shift=(BASE+(pred.sorteo_a.set.has(n)?A:0)+(pred.c_top5.has(n)||pred.d_top5.has(n)?TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let n_p3=nc===n?nd:nc;h+='<tr><td>'+n+'</td><td>'+n_p2+'</td><td>'+n_p3+'</td></tr>';}return h+'</table>';};document.getElementById('tablaConversion').innerHTML='<div class="conversion-wrap"><div>'+buildTable(1,14)+'</div><div>'+buildTable(15,28)+'</div></div>';}
-function getColorClass(aciertos){
-  if(aciertos>=5) return 'hit-purple';
-  if(aciertos>=4) return 'hit-green';
-  return '';
-}
-function renderHistorico(){
-  let rows=[];
-  let start=Math.max(0,draws.length-21);
-  for(let i=draws.length-2;i>=start&&rows.length<20;i--){
-    let history=draws.slice(0,i+1);
-    let nextReal=draws[i+1];
-    let pred=predictFromHistory(history);
-    if(!pred) continue;
-    let realSet=new Set(nextReal.arr);
-    let acInter=[...realSet].filter(n=>new Set(pred.inter).has(n)).length;
-    let acP2=[...realSet].filter(n=>new Set(pred.pool2).has(n)).length;
-    let acP3=[...realSet].filter(n=>new Set(pred.pool3).has(n)).length;
-    rows.push({sorteo:nextReal.concurso,inter:pred.inter,acInter,acP2,acP3});
-  }
-  let html='<table><tr><th>Sorteo</th><th>Aciertos<br>Inter<br>P2nP3</th><th>Aciertos<br>pool P2</th><th>Aciertos<br>pool P3</th></tr>';
-  rows.forEach(r=>{
-    html+='<tr><td>'+r.sorteo+'</td><td class="'+getColorClass(r.acInter)+'">'+r.acInter+'/'+r.inter.length+'</td><td class="'+getColorClass(r.acP2)+'">'+r.acP2+'/21</td><td class="'+getColorClass(r.acP3)+'">'+r.acP3+'/21</td></tr>';
-  });
-  html+='</table>';
-  document.getElementById('historico').innerHTML=html;
-}
+function getColorClass(a){if(a>=5)return 'hit-purple';if(a>=4)return 'hit-green';return '';}
+function renderHistorico(){let rows=[];let start=Math.max(0,draws.length-21);for(let i=draws.length-2;i>=start&&rows.length<20;i--){let history=draws.slice(0,i+1);let nextReal=draws[i+1];let pred=predictFromHistory(history);if(!pred)continue;let realSet=new Set(nextReal.arr);let acInter=[...realSet].filter(n=>new Set(pred.inter).has(n)).length;let acP2=[...realSet].filter(n=>new Set(pred.pool2).has(n)).length;let acP3=[...realSet].filter(n=>new Set(pred.pool3).has(n)).length;rows.push({sorteo:nextReal.concurso,inter:pred.inter,acInter,acP2,acP3});}let html='<table><tr><th>Sorteo</th><th>Aciertos<br>Inter<br>P2nP3</th><th>Aciertos<br>pool P2</th><th>Aciertos<br>pool P3</th></tr>';rows.forEach(r=>{html+='<tr><td>'+r.sorteo+'</td><td class="'+getColorClass(r.acInter)+'">'+r.acInter+'/'+r.inter.length+'</td><td class="'+getColorClass(r.acP2)+'">'+r.acP2+'/21</td><td class="'+getColorClass(r.acP3)+'">'+r.acP3+'/21</td></tr>';});html+='</table>';document.getElementById('historico').innerHTML=html;}
 window.onload=cargar;
 </script>
 </body>
