@@ -6,38 +6,40 @@
 <title>Chispazo Predictor v2 - Estrategia de Conversiones</title>
 <style>
 :root{--yellow:#fef08a;--black:#000}
-body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8px;color:#000}
+body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8px;color:#000;font-size:15px}
 .card{background:#fff;border:3px solid #000;border-radius:16px;max-width:1150px;margin:auto;box-shadow:7px 7px 0 #000;overflow:hidden}
 .header{background:#000;color:#facc15;padding:16px;text-align:center}
-.header h1{margin:0;font-size:20px;line-height:1.3}
-.top-reco{background:#fff;border-bottom:3px solid #000;padding:12px;text-align:center}
-.top-reco b{display:block;font-size:14px;margin-bottom:6px}
-.top-reco.nums{font-size:19px;font-weight:900;background:#000;color:#facc15;padding:8px 14px;border-radius:8px;display:inline-block;letter-spacing:1px}
-.btn-bar{background:#000;color:#facc15;padding:10px;text-align:center;font-weight:900;font-size:13px;cursor:pointer;border-bottom:3px solid #000}
+.header h1{margin:0;font-size:22px;line-height:1.3}
+.top-reco{background:#fff;border-bottom:3px solid #000;padding:14px;text-align:center}
+.top-reco b{display:block;font-size:16px;margin-bottom:6px}
+.top-reco.nums{font-size:21px;font-weight:900;background:#000;color:#facc15;padding:10px 16px;border-radius:8px;display:inline-block;letter-spacing:1px}
+.btn-bar{background:#000;color:#facc15;padding:12px;text-align:center;font-weight:900;font-size:15px;cursor:pointer;border-bottom:3px solid #000}
 .pools-top{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:3px solid #000;background:#fff}
-.pool-box{padding:10px;text-align:center;border-right:3px solid #000}
+.pool-box{padding:12px;text-align:center;border-right:3px solid #000}
 .pool-box:last-child{border-right:none}
-.pool-box b{display:block;font-size:12px;margin-bottom:8px}
-.pool-inner{border:2px solid #000;border-radius:12px;padding:10px 12px;display:inline-block;font-weight:900;font-size:14px;max-width:96%;line-height:1.5;letter-spacing:0.8px;word-spacing:6px}
+.pool-box b{display:block;font-size:14px;margin-bottom:8px}
+.pool-inner{border:2px solid #000;border-radius:12px;padding:10px 12px;display:inline-block;font-weight:900;font-size:16px;max-width:96%;line-height:1.5;letter-spacing:0.8px;word-spacing:6px}
 .pool-inner.p2{background:#b6d4f0;}
 .pool-inner.p3{background:#a8c4a0;}
 @media(max-width:700px){.pools-top{grid-template-columns:1fr}.pool-box{border-right:none;border-bottom:3px solid #000}.pool-box:last-child{border-bottom:none}}
-.body{padding:12px}
+.body{padding:14px}
+.body h3{font-size:16px}
 .box{background:#fff;border:2px solid #000;border-radius:10px;padding:8px}
 .conversion-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.conversion-wrap table{width:100%;border-collapse:collapse;font-size:14px;font-weight:900}
-.conversion-wrap th{background:#000;color:#facc15;font-size:12px;padding:6px;border:1px solid #000;text-align:center}
-.conversion-wrap td{border:1px solid #000;padding:6px;text-align:center;color:#000;font-weight:900;font-size:14px;background:#fff}
+.conversion-wrap table{width:100%;border-collapse:collapse;font-size:16px;font-weight:900}
+.conversion-wrap th{background:#000;color:#facc15;font-size:14px;padding:8px;border:1px solid #000;text-align:center}
+.conversion-wrap td{border:1px solid #000;padding:7px;text-align:center;color:#000;font-weight:900;font-size:16px;background:#fff}
 @media(max-width:700px){.conversion-wrap{grid-template-columns:1fr}}
-.hist{max-height:520px;overflow:auto;border:2px solid #000;border-radius:10px;margin-top:6px;background:#fff}
-.hist table{width:100%;border-collapse:collapse;font-size:12px}
-.hist th{background:#000;color:#facc15;border-right:2px solid #facc15;border-left:1px solid #333;border-top:1px solid #000;border-bottom:2px solid #000;padding:8px 6px;font-size:13px;font-weight:900;text-align:center;letter-spacing:0.3px}
+.hist{max-height:560px;overflow:auto;border:2px solid #000;border-radius:10px;margin-top:6px;background:#fff}
+.hist table{width:100%;border-collapse:collapse;font-size:14px}
+.hist th{background:#000;color:#facc15;border-right:2px solid #facc15;border-left:1px solid #333;border-top:1px solid #000;border-bottom:2px solid #000;padding:10px 6px;font-size:14px;font-weight:900;text-align:center;letter-spacing:0.3px}
 .hist th:last-child{border-right:1px solid #000}
-.hist td{border:1px solid #000;padding:6px 4px;text-align:center;vertical-align:middle;background:#fff}
-.pool-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px 6px}
-.pool-cell{padding:3px 2px;font-weight:900;font-size:12px;text-align:center;background:transparent;border:none}
+.hist td{border:1px solid #000;padding:8px 4px;text-align:center;vertical-align:middle;background:#fff;font-size:14px}
+.pool-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px 8px}
+.pool-cell{padding:4px 2px;font-weight:900;font-size:13px;text-align:center;background:transparent;border:none}
 .pool-cell.hit{background:#8aa8d8;color:#000;font-weight:900;border-radius:4px}
-.resultado-wrap{line-height:1.6;font-weight:900;font-size:13px}
+.resultado-wrap{line-height:1.7;font-weight:900;font-size:15px}
+#status{font-size:12px!important}
 </style>
 </head>
 <body>
@@ -65,7 +67,7 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:8p
 <div id="tablaConversion" class="box" style="overflow:auto">Cargando...</div>
 <h3 style="margin:14px 0 4px">📜 HISTÓRICO - Últimos 20 sorteos</h3>
 <div id="historico" class="hist">Cargando histórico...</div>
-<div style="font-size:10px;text-align:center;margin-top:10px" id="status">Cargando datos...</div>
+<div style="text-align:center;margin-top:10px" id="status">Cargando datos...</div>
 </div>
 </div>
 <script>
