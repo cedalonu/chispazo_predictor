@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Chispazo Predictor v2</title>
 <style>
-:root{--yellow:#fef08a;--black:#000;--green-militar:#a8c4a0}
+:root{--yellow:#fef08a;--black:#000;--green-militar:#a8c4a0;--purple-pastel:#c9a8d8}
 body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6px;color:#000;font-size:14px}
 .card{background:#fff;border:3px solid #000;border-radius:14px;max-width:400px;margin:auto;box-shadow:6px 6px 0 #000;overflow:hidden}
 @media(min-width:600px){.card{max-width:850px}}
@@ -31,17 +31,12 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6p
 .conversion-wrap td{border:1px solid #000;padding:4px 2px;text-align:center;font-weight:900;font-size:12px;background:#fff}
 .hist{border:2px solid #000;border-radius:8px;margin-top:6px;background:#fff;overflow:hidden}
 .hist table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-.hist th{background:#000;color:#facc15;border-right:1px solid #facc15;padding:6px 2px;font-size:10px;font-weight:900;text-align:center;line-height:1.1;word-wrap:break-word}
+.hist th{background:#000;color:#facc15;border-right:1px solid #facc15;padding:6px 2px;font-size:10px;font-weight:900;text-align:center;line-height:1.1}
 .hist th:last-child{border-right:none}
-.hist td{border:1px solid #000;padding:8px 2px;text-align:center;font-size:13px;font-weight:900;word-wrap:break-word}
+.hist td{border:1px solid #000;padding:8px 2px;text-align:center;font-size:13px;font-weight:900}
 .hit-green{background:var(--green-militar)!important}
+.hit-purple{background:var(--purple-pastel)!important}
 #status{font-size:9px!important;text-align:center;margin-top:6px}
-@media(max-width:400px){
-.hist th{font-size:9px;padding:5px 1px}
-.hist td{font-size:12px;padding:6px 1px}
-.conversion-wrap table{font-size:11px}
-.pool-inner{font-size:11px}
-}
 </style>
 </head>
 <body>
@@ -55,14 +50,8 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6p
 </div>
 <div class="btn-bar" onclick="cargar()">🔄 ACTUALIZAR</div>
 <div class="pools-top">
-<div class="pool-box" id="boxPool2">
-<b>POOL 2 (21)</b>
-<div class="pool-inner p2">...</div>
-</div>
-<div class="pool-box" id="boxPool3">
-<b>POOL 3 (21)</b>
-<div class="pool-inner p3">...</div>
-</div>
+<div class="pool-box" id="boxPool2"><b>POOL 2 (21)</b><div class="pool-inner p2">...</div></div>
+<div class="pool-box" id="boxPool3"><b>POOL 3 (21)</b><div class="pool-inner p3">...</div></div>
 </div>
 <div class="body">
 <h3>⚙️ CONVERSIÓN (28 números)</h3>
@@ -76,7 +65,7 @@ body{background:var(--yellow);font-family:Consolas,monospace;margin:0;padding:6p
 const TABLA_P2={1:28,2:22,3:13,4:18,5:25,6:26,7:24,8:14,9:8,10:6,11:23,12:9,13:11,14:10,15:4,16:17,17:27,18:3,19:21,20:7,21:2,22:12,23:15,24:16,25:1,26:5,27:19,28:20};
 const BASE=8,A=10,TOP=5,TOP_N=21;
 let draws=[];
-function parseCSV(t){draws=[];const lines=t.trim().split('\n');const hasCon=lines[0].toLowerCase().includes('concurso');const s=hasCon?1:0;for(let i=s;i<lines.length;i++){const p=lines[i].split(',').map(x=>x.trim());if(p.length<6)continue;const conc=parseInt(p[0]);const nums=[parseInt(p[2]),parseInt(p[3]),parseInt(p[4]),parseInt(p[5]),parseInt(p[6])].filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5)draws.push({concurso:isNaN(parseInt(p[0]))?i:parseInt(p[0]),fecha:p[1],arr:nums,set:new Set(nums)});}draws.sort((a,b)=>a.concurso-b.concurso);}
+function parseCSV(t){draws=[];const lines=t.trim().split('\n');const hasCon=lines[0].toLowerCase().includes('concurso');const s=hasCon?1:0;for(let i=s;i<lines.length;i++){const p=lines[i].split(',').map(x=>x.trim());if(p.length<6)continue;const conc=parseInt(p[0]);const nums=[parseInt(p[2]),parseInt(p[3]),parseInt(p[4]),parseInt(p[5]),parseInt(p[6])].filter(n=>!isNaN(n)&&n>=1&&n<=28);if(nums.length>=5)draws.push({concurso:isNaN(parseInt(p[0]))?i:parseInt(p[0]),arr:nums,set:new Set(nums)});}draws.sort((a,b)=>a.concurso-b.concurso);}
 function freqRaw(raw){let f={};for(let i=1;i<=28;i++)f[i]=0;raw.forEach(n=>f[n]++);return f;}
 function ranking(f){let a=[];for(let i=1;i<=28;i++)a.push(i);a.sort((x,y)=>{let fx=f[x]||0,fy=f[y]||0;if(fy!==fx)return fy-fx;return x-y;});return a;}
 function get_top_n(rc,rd,n){let setN=new Set([...rc.slice(0,n),...rd.slice(0,n)]);let comb=[...rc,...rd];let res=[],seen=new Set();for(let num of comb){if(setN.has(num)&&!seen.has(num)){res.push(num);seen.add(num);}if(res.length>=n)break;}return res;}
@@ -84,6 +73,11 @@ function overlapSet(a,b){let c=0;for(let x of a)if(b.has(x))c++;return c;}
 function predictFromHistory(historyDraws){let idx_a=historyDraws.length-1;let sorteo_a=historyDraws[idx_a];let a_nums=sorteo_a.set;let indices_b=[];for(let i=0;i<idx_a;i++){if(overlapSet(a_nums,historyDraws[i].set)>=3)indices_b.push(i);}let c_raw=[],d_raw=[];for(let ib of indices_b){if(ib+2<historyDraws.length){c_raw.push(...[...historyDraws[ib+1].set]);d_raw.push(...[...historyDraws[ib+2].set]);}}if(c_raw.length<10)return null;let fc=freqRaw(c_raw),fd=freqRaw(d_raw);let rc=ranking(fc),rd=ranking(fd);let c_top5=new Set(rc.slice(0,5)),d_top5=new Set(rd.slice(0,5));let c2=c_raw.map(n=>TABLA_P2[n]),d2=d_raw.map(n=>TABLA_P2[n]);let rc2=ranking(freqRaw(c2)),rd2=ranking(freqRaw(d2));let pool2=get_top_n(rc2,rd2,TOP_N);let c3=c_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let d3=d_raw.map(n=>{let sh=(BASE+(a_nums.has(n)?A:0)+(c_top5.has(n)||d_top5.has(n)?TOP:0))%28;let nc=((n-1+sh)%28)+1;let nd=(nc%28)+1;return nc===n?nd:nc;});let rc3=ranking(freqRaw(c3)),rd3=ranking(freqRaw(d3));let pool3=get_top_n(rc3,rd3,TOP_N);let master=[];let seen=new Set();for(let num of [...rc,...rd]){if(!seen.has(num)){master.push(num);seen.add(num);}}let interSet=new Set(pool2.filter(x=>new Set(pool3).has(x)));let interOrdered=master.filter(n=>interSet.has(n));return {sorteo_a,pool2,pool3,inter:interOrdered,rc,rd,c_top5,d_top5};}
 async function cargar(){document.getElementById('status').textContent='Descargando...';const url='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';const text=await (await fetch(url+'?t='+Date.now())).text();parseCSV(text);document.getElementById('status').textContent='✅ '+draws.length+' sorteos | Último '+draws[draws.length-1].concurso;renderCurrent();renderHistorico();}
 function renderCurrent(){const pred=predictFromHistory(draws);if(!pred)return;document.getElementById('topReco').innerHTML='<b>🔢 RECOMENDADOS ('+pred.inter.length+') CONCURSO '+(pred.sorteo_a.concurso+1)+'</b><span class="nums">'+pred.inter.join(' ')+'</span>';document.getElementById('boxPool2').innerHTML='<b>POOL 2 (21)</b><div class="pool-inner p2">'+pred.pool2.join(' ')+'</div>';document.getElementById('boxPool3').innerHTML='<b>POOL 3 (21)</b><div class="pool-inner p3">'+pred.pool3.join(' ')+'</div>';let buildTable=(s,e)=>{let h='<table><tr><th>#</th><th>P2</th><th>P3</th></tr>';for(let n=s;n<=e;n++){let n_p2=TABLA_P2[n];let shift=(BASE+(pred.sorteo_a.set.has(n)?A:0)+(pred.c_top5.has(n)||pred.d_top5.has(n)?TOP:0))%28;let nc=((n-1+shift)%28)+1;let nd=(nc%28)+1;let n_p3=nc===n?nd:nc;h+='<tr><td>'+n+'</td><td>'+n_p2+'</td><td>'+n_p3+'</td></tr>';}return h+'</table>';};document.getElementById('tablaConversion').innerHTML='<div class="conversion-wrap"><div>'+buildTable(1,14)+'</div><div>'+buildTable(15,28)+'</div></div>';}
+function getColorClass(aciertos){
+  if(aciertos>=5) return 'hit-purple';
+  if(aciertos>=4) return 'hit-green';
+  return '';
+}
 function renderHistorico(){
   let rows=[];
   let start=Math.max(0,draws.length-21);
@@ -100,7 +94,7 @@ function renderHistorico(){
   }
   let html='<table><tr><th>Sorteo</th><th>Aciertos<br>Inter<br>P2nP3</th><th>Aciertos<br>pool P2</th><th>Aciertos<br>pool P3</th></tr>';
   rows.forEach(r=>{
-    html+='<tr><td>'+r.sorteo+'</td><td class="'+(r.acInter>=4?'hit-green':'')+'">'+r.acInter+'/'+r.inter.length+'</td><td class="'+(r.acP2>=4?'hit-green':'')+'">'+r.acP2+'/21</td><td class="'+(r.acP3>=4?'hit-green':'')+'">'+r.acP3+'/21</td></tr>';
+    html+='<tr><td>'+r.sorteo+'</td><td class="'+getColorClass(r.acInter)+'">'+r.acInter+'/'+r.inter.length+'</td><td class="'+getColorClass(r.acP2)+'">'+r.acP2+'/21</td><td class="'+getColorClass(r.acP3)+'">'+r.acP3+'/21</td></tr>';
   });
   html+='</table>';
   document.getElementById('historico').innerHTML=html;
