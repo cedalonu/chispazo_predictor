@@ -39,13 +39,13 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 </div>
 <div class="container">
 <div class="neon-title">CHISPAZO PREDICTOR <span>V3</span></div>
-<div style="text-align:center;margin:12px 0"><span class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">18 Oct 2026 • 15:00 hrs • De las Tres • Sorteo 12319</span></div>
+<div style="text-align:center;margin:12px 0"><span id="pill-fecha" class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">19 Oct 2026 • 15:00 hrs • De las Tres • Sorteo 12320</span></div>
 <div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><span class="pill mono" style="background:#1e1e1e;border:1px solid #333;color:#aaa;font-size:10px">Basado en Chispazo Predictor v2</span><span class="pill mono" style="background:#1e1e1e;border:1px solid #333;color:#aaa;font-size:10px">Fuente oficial pakin/Chispazo.csv at master</span></div>
 <div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
 <button onclick="downloadCSV()" style="border:1px solid rgba(0,229,255,.4);background:rgba(0,229,255,.15);color:var(--cyan);padding:3px 12px;border-radius:999px;font-size:11px;font-weight:800;cursor:pointer">csv</button>
 <button onclick="downloadTXT()" style="border:1px solid rgba(255,235,59,.4);background:rgba(255,235,59,.1);color:var(--yellow);padding:3px 12px;border-radius:999px;font-size:11px;font-weight:800;cursor:pointer">txt</button>
-<h2 style="font-size:19px;font-weight:900">Sorteo 12319</h2>
+<h2 id="sorteo-title" style="font-size:19px;font-weight:900">Sorteo 12320</h2>
 </div>
 <div id="pools" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
 <div style="margin-top:14px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center">
@@ -123,7 +123,7 @@ function openBacktest(){document.getElementById('modal-root').innerHTML=`<div cl
 
 function downloadTXT(){
 try{
-let sorteoNum=12319;
+let sorteoNum=parseInt((document.getElementById("sorteo-title")?.textContent||"12320").replace(/\D/g,""))||12320;
 let lines=[];
 lines.push('CHISPAZO PREDICTOR V3 '+sorteoNum);
 lines.push('Fecha: 18 Oct 2026 15:00 hrs Sorteo '+sorteoNum);
@@ -151,7 +151,7 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 }
 function downloadCSV(){
 try{
-let sorteoNum=12319;
+let sorteoNum=parseInt((document.getElementById("sorteo-title")?.textContent||"12320").replace(/\D/g,""))||12320;
 let rows=[];
 rows.push('sorteo,pool,pool_label,wheeling_k,base_numeros,combo_num,n1,n2,n3,n4,n5,total_posibles,reducido');
 pools.forEach(function(p){
@@ -179,7 +179,47 @@ function generateAuditTxt(){downloadTXT()}
 renderPools();renderResults();
 
 </script>
-<!-- AUTO UPDATE: ultimo=12318 fecha=2026-10-17 siguiente=12319 18 Oct 2026 15:00 hrs — Chispazo De las Tres generado=2026-10-18T06:12:00.107443Z -->
+<!-- AUTO UPDATE: ultimo=12319 fecha=2026-10-18 siguiente=12320 19 Oct 2026 15:00 hrs — Chispazo De las Tres generado=2026-10-19T00:00:00Z -->
+
+<script>
+// AUTO-UPDATE CLIENTE - lee CSV oficial y corrige pill y titulo si el CSV ya avanzo
+async function autoUpdateFromCSV(){
+  try{
+    const url = 'https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv?'+Date.now();
+    const res = await fetch(url, {cache:'no-store'});
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    const head = lines[0].split(',').map(h=>h.trim());
+    const iC = head.indexOf('CONCURSO');
+    const iF = head.indexOf('FECHA');
+    if(iC<0) return;
+    let maxC=0, maxF='';
+    for(let i=1;i<lines.length;i++){
+      if(!lines[i]) continue;
+      const cols = lines[i].split(',');
+      const c = parseInt(cols[iC]);
+      if(!isNaN(c) && c>maxC){ maxC=c; maxF=(cols[iF]||'').trim(); }
+    }
+    if(!maxC) return;
+    const nextC = maxC+1;
+    let base;
+    try{ base = new Date(maxF); }catch{ base = new Date(); }
+    if(isNaN(base)) base = new Date();
+    const isNextDeLasTres = (maxC % 2 === 0);
+    let nextDate = isNextDeLasTres ? new Date(base.getTime()+86400000) : base;
+    const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const fmt = `${nextDate.getDate()} ${meses[nextDate.getMonth()]} ${nextDate.getFullYear()}`;
+    const hora = isNextDeLasTres ? '15:00 hrs — De las Tres' : '21:00 hrs — Clásico';
+    const pill = document.getElementById('pill-fecha');
+    if(pill) pill.textContent = `${fmt} • ${hora} • Sorteo ${nextC}`;
+    const title = document.getElementById('sorteo-title');
+    if(title) title.textContent = `Sorteo ${nextC}`;
+    console.log(`[AutoUpdate] ultimo=${maxC} fecha=${maxF} siguiente=${nextC} ${fmt} ${hora}`);
+  }catch(e){ console.log('autoUpdate fail', e); }
+}
+autoUpdateFromCSV();
+</script>
+
 <script data-goatcounter="https://cedalonu.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
