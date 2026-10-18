@@ -1,10 +1,9 @@
-
 name: Update Chispazo Predictor
 
 on:
   schedule:
-    - cron: '30 22 * * *' # 16:30 CDMX = 22:30 UTC (De las Tres +1.5h)
-    - cron: '30 4 * * *'  # 22:30 CDMX = 04:30 UTC dia siguiente (Clasico +1.5h)
+    - cron: '30 22 * * *'
+    - cron: '30 4 * * *'
   workflow_dispatch:
 
 jobs:
@@ -13,95 +12,57 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout repo predictor
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Checkout pakin repo para CSV
-        uses: actions/checkout@v4
-        with:
-          repository: pakinja/pakin
-          path: pakin
-          sparse-checkout: Chispazo.csv
+      - name: Bajar CSV oficial
+        run: |
+          curl -L -o Chispazo.csv https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv
+          echo "Lineas:" && wc -l Chispazo.csv && head -n 3 Chispazo.csv
 
-      - name: Actualizar index.html con ultimo sorteo
+      - name: Actualizar index.html
         run: |
           python3 - << 'PY'
           import csv, re, pathlib, datetime
-          csv_path = pathlib.Path('pakin/Chispazo.csv')
-          if not csv_path.exists():
-              # fallback raw fetch
-              import urllib.request
-              urllib.request.urlretrieve('https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv', csv_path)
-          max_concurso=0
-          max_fecha=''
-          with open(csv_path, newline='', encoding='utf-8') as f:
-              reader = csv.DictReader(f)
-              for row in reader:
+          csv_path = pathlib.Path('Chispazo.csv')
+          max_c=0; max_f=''
+          with open(csv_path, encoding='utf-8') as f:
+              for row in csv.DictReader(f):
                   try:
                       c=int(row['CONCURSO'])
-                  except:
-                      continue
-                  if c>max_concurso:
-                      max_concurso=c
-                      max_fecha=row.get('FECHA','')
-          next_concurso=max_concurso+1
-          print(f"Ultimo: {max_concurso} {max_fecha} -> Siguiente: {next_concurso}")
-
-          # Determinar siguiente fecha
-          try:
-              base=datetime.datetime.strptime(max_fecha.strip(), '%Y-%m-%d')
-          except:
-              base=datetime.datetime.now()
-          if max_concurso%2==0: # ultimo fue Clasico 21:00 -> siguiente De las Tres dia siguiente
-              next_date=base+datetime.timedelta(days=1)
-              hour='15:00 hrs — Chispazo De las Tres'
-              short='De las Tres'
+                      if c>max_c:
+                          max_c=c; max_f=row.get('FECHA','').strip()
+                  except: continue
+          next_c=max_c+1
+          print(f"Ultimo {max_c} {max_f} -> Siguiente {next_c}")
+          try: base=datetime.datetime.strptime(max_f, '%Y-%m-%d')
+          except: base=datetime.datetime.now()
+          # Chispazo: De las Tres 15:00 y Clasico 21:00, se alternan
+          if max_c % 2 == 1:
+              next_date=base; hour='21:00 hrs — Chispazo Clásico'; short='Clásico'
           else:
-              next_date=base
-              hour='21:00 hrs — Chispazo Clásico'
-              short='Clásico'
-
+              next_date=base+datetime.timedelta(days=1); hour='15:00 hrs — Chispazo De las Tres'; short='De las Tres'
           meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
           fmt=f"{next_date.day} {meses[next_date.month-1]} {next_date.year}"
-
-          index_path=pathlib.Path('index.html')
-          if not index_path.exists():
-              # buscar en subcarpetas
-              for p in pathlib.Path('.').rglob('index.html'):
-                  if 'chispazo' in str(p).lower() or p.parent.name=='.':
-                      index_path=p
-                      break
-
-          text=index_path.read_text(encoding='utf-8', errors='ignore')
-
-          # Reemplazar Sorteo 12319 por Sorteo next en titulo visible (no romper React minificado)
-          # Busca patrones Sorteo 12319
-          text=re.sub(r'Sorteo\s+12319', f'Sorteo {next_concurso}', text)
-          text=re.sub(r'sorteo-12319', f'sorteo-{next_concurso}', text, flags=re.I)
-          text=re.sub(r'18 Oct 2026', fmt, text) # actualiza fecha ejemplo
-          # Guardar metadata como comentario para debug
-          marker=f"<!-- AUTO UPDATE: ultimo={max_concurso} fecha={max_fecha} siguiente={next_concurso} {fmt} {hour} generado={datetime.datetime.utcnow().isoformat()}Z -->"
-          if "<!-- AUTO UPDATE" in text:
-              text=re.sub(r'<!-- AUTO UPDATE.*?-->', marker, text, flags=re.S)
-          else:
-              text=text.replace('</body>', marker+'\n</body>')
-
-          index_path.write_text(text, encoding='utf-8')
-          # Guardar datos para commit message
-          pathlib.Path('/tmp/next.txt').write_text(f"{max_concurso} {max_fecha} {next_concurso} {fmt} {short}")
+          p=pathlib.Path('index.html')
+          t=p.read_text(encoding='utf-8')
+          # GENERICO, no 12319 fijo
+          t=re.sub(r'Sorteo\s+\d{4,5}', f'Sorteo {next_c}', t)
+          t=re.sub(r'sorteo-\d{4,5}', f'sorteo-{next_c}', t, flags=re.I)
+          t=re.sub(r'\d{1,2}\s+(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic)\s+\d{4}', fmt, t)
+          t=re.sub(r'(let|var|const)\s+sorteoNum\s*=\s*\d+', rf'\1 sorteoNum = {next_c}', t)
+          t=re.sub(r'\(\d+-\d+\)', f'({max_c-199}-{max_c})', t)
+          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_f} siguiente={next_c} {fmt} {hour} generado={datetime.datetime.utcnow().isoformat()}Z -->"
+          if "<!-- AUTO UPDATE" in t: t=re.sub(r'<!-- AUTO UPDATE.*?-->', marker, t, flags=re.S)
+          else: t=t.replace('</body>', marker+'\n</body>')
+          p.write_text(t, encoding='utf-8')
+          pathlib.Path('/tmp/next.txt').write_text(f"{max_c} {max_f} {next_c} {fmt} {short}")
           PY
 
-      - name: Commit y push si hay cambios
+      - name: Commit y push
         run: |
-          if git diff --quiet; then
-            echo "Sin cambios"
-            exit 0
-          fi
-          NEXT=$(cat /tmp/next.txt)
+          git diff --quiet && echo "Sin cambios" && exit 0
           git config user.name "chispazo-bot"
-          git config user.email "bot@cedalonu.github.io"
+          git config user.email "bot@github.com"
           git add index.html
-          git commit -m "Auto: ultimo $NEXT"
+          git commit -m "Auto: $(cat /tmp/next.txt)"
           git push
