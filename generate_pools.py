@@ -1,40 +1,35 @@
 """
-CHISPAZO PREDICTOR V3 - generador de pools
-Implementa la misma logica descrita en tu index:
-- Pool2 HOT first (Freq Decay 200)
-- Pool3 BALANCED (Gap/Overdue)
-- Pool4 BALANCED RECENCY (Recencia x Stickiness)
-- Pool FINAL CONSENSUS 16
-
-Lee Chispazo.csv y genera Tr, zr, Lr, Rr para siguiente sorteo
+V4 - Guarda historial de pools para no re-evaluar pasado con pools futuros
 """
-import csv, math, pathlib
+import csv, pathlib, json, datetime
 from collections import defaultdict, Counter
 
 CSV = pathlib.Path('Chispazo.csv')
+HIST = pathlib.Path('history')
+HIST.mkdir(exist_ok=True)
+
+# Cargar CSV limpiando lineas vacias
 ROWS=[]
 with open(CSV, encoding='utf-8') as f:
-    for r in csv.DictReader(f):
+    clean=[l for l in f if l.strip()!='']
+    reader=csv.DictReader(clean)
+    for r in reader:
         try:
             c=int(r['CONCURSO'])
             R=[int(r['R1']),int(r['R2']),int(r['R3']),int(r['R4']),int(r['R5'])]
             ROWS.append({"c":c,"R":R,"fecha":r['FECHA']})
         except: continue
 ROWS.sort(key=lambda x: x["c"])
-LAST200=ROWS[-200:]  # para backtesting usas 200
+LAST200=ROWS[-200:]
 
-# Freq Decay 200: peso exponencial, reciente vale mas
 def freq_decay():
     scores=defaultdict(float)
-    # decay 0.985 por sorteo de antiguedad
-    for i, row in enumerate(reversed(LAST200)): # i=0 mas reciente
-        w = 0.985 ** i
+    for i, row in enumerate(reversed(LAST200)):
+        w=0.985**i
         for n in row["R"]:
-            scores[n] += w
-    # ordenar
-    return sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            scores[n]+=w
+    return sorted(scores.items(), key=lambda x:x[1], reverse=True)
 
-# Gap / Overdue
 def gap_overdue():
     last_seen={}
     for row in ROWS:
@@ -43,21 +38,15 @@ def gap_overdue():
     max_c=ROWS[-1]["c"]
     gaps=[]
     for n in range(1,29):
-        last=last_seen.get(n,0)
-        gap=max_c-last
-        gaps.append((n,gap))
-    # los que tienen mayor gap = mas overdue
-    gaps.sort(key=lambda x: x[1], reverse=True)
+        gaps.append((n, max_c-last_seen.get(n,0)))
+    gaps.sort(key=lambda x:x[1], reverse=True)
     return gaps
 
-# Recency x Stickiness
 def recency_stickiness():
-    # stickiness = veces que aparece en ultimos 50 y rachas
     last50=ROWS[-50:]
     cnt=Counter()
     for r in last50:
         cnt.update(r["R"])
-    # recencia = 1/(1+gap)
     last_seen={}
     for row in ROWS:
         for n in row["R"]:
@@ -66,51 +55,49 @@ def recency_stickiness():
     scores=[]
     for n in range(1,29):
         gap=max_c-last_seen.get(n,0)
-        recency=1/(1+gap)
-        stick=cnt.get(n,0)
-        score=recency*2 + stick*0.3
-        scores.append((n,score))
-    scores.sort(key=lambda x: x[1], reverse=True)
+        rec=1/(1+gap)
+        scores.append((n, rec*2 + cnt.get(n,0)*0.3))
+    scores.sort(key=lambda x:x[1], reverse=True)
     return scores
 
 freq=freq_decay()
 gap=gap_overdue()
 rec=recency_stickiness()
 
-# Pool2: HOT first 21 por freq decay
 zr=[n for n,_ in freq[:21]]
-# Pool3: BALANCED gap/overdue - combina gap con freq para no ir solo frio
-# tomamos top 14 gap + 7 freq que no esten
-pool3= [n for n,_ in gap[:14]]
+Lr_tmp=[n for n,_ in gap[:14]]
 for n,_ in freq:
-    if n not in pool3 and len(pool3)<21:
-        pool3.append(n)
-Lr=pool3[:21]
-
-# Pool4: BALANCED RECENCY
+    if n not in Lr_tmp and len(Lr_tmp)<21:
+        Lr_tmp.append(n)
+Lr=Lr_tmp[:21]
 Rr=[n for n,_ in rec[:21]]
-
-# Pool FINAL CONSENSUS 16: interseccion de los 3 + hot
-# votos por numero en cuantos pools aparece
 votes=Counter()
 for lst in [zr, Lr, Rr]:
     votes.update(lst)
-# consenso = los que estan en al menos 2 pools + top freq
 consensus=[n for n,c in votes.most_common() if c>=2]
-# completar a 16 con freq
 for n,_ in freq:
     if n not in consensus and len(consensus)<16:
         consensus.append(n)
 Tr=consensus[:16]
 
-print(f"Pool2 HOT 21: {zr}")
-print(f"Pool3 BALANCED 21: {Lr}")
-print(f"Pool4 RECENCY 21: {Rr}")
-print(f"Pool FINAL 16: {Tr}")
+# Guardar prediccion actual para historial futuro
+max_c=ROWS[-1]["c"]
+next_c=max_c+1
+# Si existe index.html, leer su sorteoNum actual (prediccion que se va a convertir en resultado)
+# Lo guardamos como history/{sorteoNum}.json con pools que se usaron para predecirlo
+# Para eso, si ya tenemos un archivo previo de pools para next_c-1, lo respetamos
+# Ahora generamos el nuevo para next_c
+payload={
+    "sorteo": next_c,
+    "generado": datetime.datetime.utcnow().isoformat()+"Z",
+    "con_datos_hasta": max_c,
+    "fecha_csv": ROWS[-1]["fecha"],
+    "pools": {"Tr": Tr, "zr": zr, "Lr": Lr, "Rr": Rr}
+}
+pathlib.Path(f'/tmp/next_prediction.json').write_text(json.dumps(payload, indent=2), encoding='utf-8')
 
-# Guardar para que el yml lo inserte en index.html
-out=pathlib.Path('/tmp/pools.txt')
-out.write_text(f"Tr={Tr}\nzr={Lr}\nLr={Lr}\nRr={Rr}\nFINAL={Tr}\n", encoding='utf-8')
-# Formato JS directo
+# Tambien guardar historial de este next_c como referencia
+# El workflow se encargará de guardar el ANTERIOR antes de sobreescribir
 js=f"const Tr={Tr};\nconst zr={zr};\nconst Lr={Lr};\nconst Rr={Rr};\n"
-pathlib.Path('/tmp/pools.js').write_text(js)
+pathlib.Path('/tmp/pools.js').write_text(js, encoding='utf-8')
+print(f"NEXT {next_c} Tr={Tr} zr={zr}")
