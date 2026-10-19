@@ -47,12 +47,12 @@ jobs:
           f.write_text(json.dumps(payload, indent=2), encoding='utf-8')
           print(f"Guardado historial {f}")
           PY
-      - name: Generar Pools V7 determinista
+      - name: Generar Pools V8 determinista rotacion 4
         run: |
           python3 generate_pools.py
           cat /tmp/pools.js
           cat /tmp/next_prediction.json
-      - name: Actualizar index.html con historial y tabla fija
+      - name: Actualizar index.html V8 tabla fija
         run: |
           python3 << 'PY'
           import csv, re, pathlib, datetime, json
@@ -104,11 +104,10 @@ jobs:
           hist_json=json.dumps(hist_pools)
           p=pathlib.Path('index.html')
           t=p.read_text(encoding='utf-8')
-          # Quitar fixes viejos rotos
           t=re.sub(r'<script id="hist-fix">.*?</script>', '', t, flags=re.S)
           t=re.sub(r'<script id="hist-fix-safe">.*?</script>', '', t, flags=re.S)
+          t=re.sub(r'<script id="hist-fix-v7">.*?</script>', '', t, flags=re.S)
           t=re.sub(r'window\.HIST_POOLS=.*?;\n', '', t)
-          # Reemplazar pools
           t=re.sub(r'const Tr=\[.*?\];', f"const Tr={pools_js.split('const Tr=')[1].split(';')[0]};", t, flags=re.S)
           t=re.sub(r'const zr=\[.*?\];', f"const zr={pools_js.split('const zr=')[1].split(';')[0]};", t, flags=re.S)
           t=re.sub(r'const Lr=\[.*?\];', f"const Lr={pools_js.split('const Lr=')[1].split(';')[0]};", t, flags=re.S)
@@ -117,15 +116,13 @@ jobs:
           t=re.sub(r'<h2[^>]*>Sorteo\s+\d+</h2>', f'<h2 style="font-size:19px;font-weight:900">Sorteo {next_c}</h2>', t)
           t=re.sub(r'let sorteoNum=\d+;', f'let sorteoNum={next_c};', t)
           t=re.sub(r'const sorteos=\[.*?];', sorteos_js, t, flags=re.S)
-          # Inyectar historial
           t=t.replace('const sorteos=[', f'window.HIST_POOLS={hist_json};\nconst sorteos=[')
           back_start=next_c-201; back_end=next_c-1
           t=re.sub(r'Backtesting\s+\d+\s+sorteos\s+\(\d+-\d+\)', f'Backtesting 200 sorteos ({back_start}-{back_end})', t)
-          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_row['FECHA']} siguiente={next_c} {fmt_next} {hour_label} pools=V7_determinista generado={datetime.datetime.utcnow().isoformat()}Z -->"
+          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_row['FECHA']} siguiente={next_c} {fmt_next} {hour_label} pools=V8_rotacion_4_determinista generado={datetime.datetime.utcnow().isoformat()}Z -->"
           t=re.sub(r'<!-- AUTO UPDATE.*?-->', marker, t, flags=re.S)
-          # Fix seguro para tabla que usa historial sin romper render
           safe_fix="""
-          <script id="hist-fix-v7">
+          <script id="hist-fix-v8">
           (function(){
             function renderWithHist(){
               const body=document.getElementById('results-body');
@@ -149,24 +146,19 @@ jobs:
                 body.appendChild(tr);
               });
             }
-            // Ejecutar despues de que render original haya pasado
             setTimeout(renderWithHist, 300);
-            setInterval(()=>{
-              const body=document.getElementById('results-body');
-              if(body && body.children.length===0) renderWithHist();
-            }, 1000);
           })();
           </script>
           """
           t=t.replace('</body>', safe_fix+'\n</body>')
           p.write_text(t, encoding='utf-8')
-          print(f"V7 OK siguiente={next_c} historial={len(hist_pools)}")
+          print(f"V8 OK siguiente={next_c} historial={len(hist_pools)}")
           PY
-      - name: Commit V7
+      - name: Commit V8
         run: |
           git config user.name "chispazo-bot"
           git config user.email "bot@github.com"
           git add index.html history/ || git add index.html
-          git commit -m "V7: modelo determinista restaurado con backtesting 200 y tabla fija" || echo "sin cambios"
+          git commit -m "V8: rotacion forzada 4 numeros determinista, tabla fija" || echo "sin cambios"
           git push
 
