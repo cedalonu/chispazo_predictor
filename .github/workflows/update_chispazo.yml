@@ -2,6 +2,8 @@ name: Update Chispazo Predictor V5 - pools distintos fijos
 on:
   schedule:
     - cron: '*/15 * * * *'
+  push:
+    branches: [ main ]
   workflow_dispatch:
 jobs:
   update:
