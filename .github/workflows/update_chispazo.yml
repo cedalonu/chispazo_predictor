@@ -1,12 +1,12 @@
-name: Update Chispazo Predictor V3 - con Pools dinámicos
+name: Update Chispazo Predictor V4 - historial fijo
 on:
   schedule:
-    - cron: '5,15,25,35,45,55 21 * * *'  # 15:00 MX
-    - cron: '5,15,25,35,45,55 3 * * *'   # 21:00 MX
-    - cron: '30 22 * * *' # 16:30 MX garantizado
-    - cron: '30 4 * * *'  # 22:30 MX garantizado
-    - cron: '30 23 * * *' # backup
-    - cron: '30 5 * * *'  # backup
+    - cron: '5,15,25,35,45,55 21 * * *'
+    - cron: '5,15,25,35,45,55 3 * * *'
+    - cron: '30 22 * * *'
+    - cron: '30 4 * * *'
+    - cron: '30 23 * * *'
+    - cron: '30 5 * * *'
   workflow_dispatch:
 jobs:
   update:
@@ -19,41 +19,70 @@ jobs:
         run: |
           curl -L -H "Cache-Control: no-cache" -o Chispazo.csv "https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv?t=$(date +%s)"
           wc -l Chispazo.csv
-          head -3 Chispazo.csv
-      - name: Generar Pools V3
+      - name: Guardar prediccion anterior en historial
         run: |
-          python3 generate_pools.py
+          # Si index.html existe, extrae su sorteoNum y pools actuales (los que se usaron para predecirlo)
+          python3 << 'PY'
+          import re, json, pathlib
+          p=pathlib.Path('index.html')
+          if not p.exists():
+              print("No index, no historial previo")
+              exit(0)
+          t=p.read_text(encoding='utf-8')
+          m=re.search(r'let sorteoNum=(\d+);', t)
+          if not m:
+              print("No sorteoNum")
+              exit(0)
+          sorteo=int(m.group(1))
+          # extraer pools
+          def get_pool(name):
+              mm=re.search(rf'const {name}=\[(.*?)\];', t, re.S)
+              return [int(x) for x in mm.group(1).split(',') if x.strip().isdigit()] if mm else []
+          Tr=get_pool('Tr'); zr=get_pool('zr'); Lr=get_pool('Lr'); Rr=get_pool('Rr')
+          hist=pathlib.Path('history'); hist.mkdir(exist_ok=True)
+          f=hist / f'{sorteo}.json'
+          if f.exists():
+              print(f"Historial {sorteo} ya existe, no sobreescribo")
+              exit(0)
+          # Solo guardamos si Tr no esta vacio
+          if not Tr:
+              print("No pools")
+              exit(0)
+          payload={"sorteo": sorteo, "pools": {"Tr": Tr, "zr": zr, "Lr": Lr, "Rr": Rr}}
+          f.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+          print(f"Guardado historial {f}")
+          PY
+      - name: Generar Pools V4
+        run: |
+          python3 generate_pools_v4.py
           cat /tmp/pools.js
-      - name: Actualizar index.html completo
+          cat /tmp/next_prediction.json
+      - name: Actualizar index.html y guardar historial nuevo
         run: |
           python3 << 'PY'
-          import csv, re, pathlib, datetime
-          from datetime import timezone
+          import csv, re, pathlib, datetime, json
           from collections import defaultdict
-
-          # Cargar CSV
+          # Cargar CSV limpio
           csv_path=pathlib.Path('Chispazo.csv')
           rows=[]
           with open(csv_path, encoding='utf-8') as f:
-              for r in csv.DictReader(f):
+              clean=[l for l in f if l.strip()!='']
+              import csv as csvm
+              for r in csvm.DictReader(clean):
                   try:
                       c=int(r['CONCURSO']); R=[int(r['R1']),int(r['R2']),int(r['R3']),int(r['R4']),int(r['R5'])]
                       rows.append({"CONCURSO":c,"R":R,"FECHA":r['FECHA']})
                   except: continue
           rows.sort(key=lambda x: x["CONCURSO"])
-          max_row=rows[-1]; max_c=max_row["CONCURSO"]; max_f=max_row["FECHA"]
-          next_c=max_c+1
+          max_row=rows[-1]; max_c=max_row["CONCURSO"]; next_c=max_c+1
 
-          # Cargar pools generados
+          # Cargar pools nuevos
           pools_js=pathlib.Path('/tmp/pools.js').read_text()
-          # pools_js contiene const Tr=[...]; const zr=[...]; etc
-
           # Fechas
           meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
           por_fecha=defaultdict(list)
           for r in rows: por_fecha[r["FECHA"]].append(r)
           for k in por_fecha: por_fecha[k]=sorted(por_fecha[k], key=lambda x: x["CONCURSO"])
-
           def to_label(r):
               same=por_fecha[r["FECHA"]]
               idx=same.index(r)
@@ -61,55 +90,136 @@ jobs:
               hour='15:00 hrs - De las Tres' if is_tres else '21:00 hrs - Chispazo Clásico'
               d=datetime.datetime.strptime(r["FECHA"],"%Y-%m-%d")
               return f"{d.day:02d} {meses[d.month-1]} {d.year} - {hour}", hour
-
-          # siguiente fecha
-          base=datetime.datetime.strptime(max_f,"%Y-%m-%d")
-          if max_c%2==1:
-              next_date=base; hour_label='21:00 hrs - Chispazo Clásico'
-          else:
-              next_date=base+datetime.timedelta(days=1); hour_label='15:00 hrs - De las Tres'
+          base=datetime.datetime.strptime(max_row["FECHA"],"%Y-%m-%d")
+          hour_label='21:00 hrs - Chispazo Clásico' if max_c%2==1 else '15:00 hrs - De las Tres'
+          next_date=base if max_c%2==1 else base+datetime.timedelta(days=1)
           fmt_next=f"{next_date.day} {meses[next_date.month-1]} {next_date.year}"
           pill=f"{fmt_next} • {hour_label} • Sorteo {next_c}"
 
-          # ultimos 20 para tabla
+          # Leer historial existente para resultados
+          hist_path=pathlib.Path('history')
+          hist_pools={}
+          if hist_path.exists():
+              for jf in hist_path.glob('*.json'):
+                  try:
+                      data=json.loads(jf.read_text())
+                      s=data.get('sorteo')
+                      if s:
+                          hist_pools[int(s)]=data.get('pools',{})
+                  except: pass
+          # Si no hay historial para un sorteo, usaremos pools actuales (fallback)
+
+          # Construir sorteos JS con info de aciertos usando historial cuando exista
           ultimos=sorted(rows, key=lambda x: x["CONCURSO"], reverse=True)[:20]
+          # Para el render de resultados necesitamos guardar aciertos pre-calculados? 
+          # Por ahora solo guardamos los sorteos, pero index.html calculará aciertos usando historial si está disponible.
+          # Inyectaremos un JSON de historial en index.html como window.HIST_POOLS
           js_lines=[]
           for r in ultimos:
               label,_=to_label(r)
+              # Si tenemos historial para este sorteo, calcular aciertos reales
+              hp=hist_pools.get(r["CONCURSO"])
+              # guardaremos info extra para JS
               js_lines.append(f"{{num:{r['CONCURSO']},win:[{','.join(map(str,r['R']))}],date:'{label}'}}")
           sorteos_js="const sorteos=[\n"+",\n".join(js_lines)+"\n];"
+          # JSON de historial para el frontend
+          hist_json=json.dumps(hist_pools)
 
           # leer index
           p=pathlib.Path('index.html')
           t=p.read_text(encoding='utf-8')
 
-          # --- REEMPLAZAR POOLS ---
-          # Reemplaza const Tr=...; const zr=...; const Lr=...; const Rr=...;
+          # Reemplazar pools
           t=re.sub(r'const Tr=\[.*?\];', f"const Tr={pools_js.split('const Tr=')[1].split(';')[0]};", t, flags=re.S)
           t=re.sub(r'const zr=\[.*?\];', f"const zr={pools_js.split('const zr=')[1].split(';')[0]};", t, flags=re.S)
           t=re.sub(r'const Lr=\[.*?\];', f"const Lr={pools_js.split('const Lr=')[1].split(';')[0]};", t, flags=re.S)
           t=re.sub(r'const Rr=\[.*?\];', f"const Rr={pools_js.split('const Rr=')[1].split(';')[0]};", t, flags=re.S)
 
-          # --- Actualizar UI ---
           t=re.sub(r'<span class="pill"[^>]*>[^<]*Sorteo\s+\d+[^<]*</span>', f'<span class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">{pill}</span>', t)
           t=re.sub(r'<h2[^>]*>Sorteo\s+\d+</h2>', f'<h2 style="font-size:19px;font-weight:900">Sorteo {next_c}</h2>', t)
           t=re.sub(r'let sorteoNum=\d+;', f'let sorteoNum={next_c};', t)
           t=re.sub(r'const sorteos=\[.*?];', sorteos_js, t, flags=re.S)
+          # Inyectar historial antes de sorteos
+          if 'window.HIST_POOLS' not in t:
+              t=t.replace('const sorteos=[', f'window.HIST_POOLS={hist_json};\nconst sorteos=[')
+          else:
+              t=re.sub(r'window\.HIST_POOLS=.*?;', f'window.HIST_POOLS={hist_json};', t, flags=re.S)
+
           back_start=next_c-201; back_end=next_c-1
           t=re.sub(r'Backtesting\s+\d+\s+sorteos\s+\(\d+-\d+\)', f'Backtesting 200 sorteos ({back_start}-{back_end})', t)
-
-          # Marker
-          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_f} siguiente={next_c} {fmt_next} {hour_label} generado={datetime.datetime.now(timezone.utc).isoformat()}Z pools=dinamicos -->"
+          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_row['FECHA']} siguiente={next_c} {fmt_next} {hour_label} pools=v4_historial generado={datetime.datetime.utcnow().isoformat()}Z -->"
           t=re.sub(r'<!-- AUTO UPDATE.*?-->', marker, t, flags=re.S)
 
           p.write_text(t, encoding='utf-8')
-          print(f"OK siguiente={next_c} pools regenerados")
+          print(f"OK siguiente={next_c} con historial {len(hist_pools)} sorteos guardados")
+
+          # Guardar también el nuevo como historial futuro? No, se guarda cuando se va a reemplazar
+          # Pero guardamos next como referencia en history/next.json temporal
+          pathlib.Path('history').mkdir(exist_ok=True)
+          # Copiar next_prediction a history/{next_c}.json SOLO si no existe (para que quede trazabilidad)
+          # En realidad lo guardaremos en el proximo ciclo como "anterior", pero lo dejamos ya
+          import shutil
+          src=pathlib.Path('/tmp/next_prediction.json')
+          dst=pathlib.Path(f'history/{next_c}.json')
+          if not dst.exists():
+              # No lo creamos ahora, se crea al rotar
+              pass
+
+          PY
+      - name: Inyectar fix JS para usar historial en tabla
+        run: |
+          python3 << 'PY'
+          import pathlib, re
+          p=pathlib.Path('index.html')
+          t=p.read_text(encoding='utf-8')
+          # Buscar funcion renderResults y parchear para que use HIST_POOLS si existe
+          # Simple: si HIST_POOLS[num] existe, usar ese Tr para calcular aciertos, no el Tr actual
+          fix="""
+          <script id="hist-fix">
+          // Fix: usa pools historicos para calcular aciertos de resultados
+          (function(){
+            const origRender = window.renderResults;
+            if(!origRender) return;
+            window.renderResults = function(){
+              const body=document.getElementById('results-body');
+              if(!body) return origRender();
+              body.innerHTML='';
+              const hist=window.HIST_POOLS||{};
+              (window.sorteos||[]).forEach(s=>{
+                const tr=document.createElement('tr');
+                const winSet=new Set(s.win);
+                // Pool a usar: si hay historial para este sorteo, usar su Tr, si no, usar Tr actual
+                const poolsToUse = hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
+                const pFinal = poolsToUse.Tr || window.Tr;
+                const p2 = poolsToUse.zr || window.zr;
+                const p3 = poolsToUse.Lr || window.Lr;
+                const p4 = poolsToUse.Rr || window.Rr;
+                const cFinal = pFinal.filter(n=>winSet.has(n)).length;
+                const c2 = p2.filter(n=>winSet.has(n)).length;
+                const c3 = p3.filter(n=>winSet.has(n)).length;
+                const c4 = p4.filter(n=>winSet.has(n)).length;
+                tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cFinal}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
+                // click para ver detalle igual que antes
+                tr.style.cursor='pointer';
+                tr.addEventListener('click', ()=>{ if(window.showResultDetail) window.showResultDetail(s.num); });
+                body.appendChild(tr);
+              });
+            };
+            // re-render si ya se renderizo
+            if(document.getElementById('results-body')) window.renderResults();
+          })();
+          </script>
+          """
+          if 'id="hist-fix"' not in t:
+              t=t.replace('</body>', fix+'\n</body>')
+              p.write_text(t, encoding='utf-8')
+              print("Fix inyectado")
           PY
       - name: Commit
         run: |
           if git diff --quiet; then echo "Sin cambios"; exit 0; fi
           git config user.name "chispazo-bot"
           git config user.email "bot@github.com"
-          git add index.html
-          git commit -m "Auto: siguiente sorteo con pools dinamicos"
+          git add index.html history/ || git add index.html
+          git commit -m "Auto V4: guarda historial y usa pools historicos para resultados"
           git push
