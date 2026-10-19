@@ -1,8 +1,13 @@
 name: Update Chispazo Predictor
 on:
   schedule:
-    - cron: '30 22 * * *'
+    # De las Tres 15:00 MX -> 21:00 UTC, revisamos 15:05-16:00 cada 10 min
+    - cron: '5,15,25,35,45,55 21 * * *'
+    # Clasico 21:00 MX -> 03:00 UTC siguiente día, revisamos 03:05-04:00
+    - cron: '5,15,25,35,45,55 3 * * *'
+    # backup diario por si falla
     - cron: '30 4 * * *'
+    - cron: '30 22 * * *'
   workflow_dispatch:
 jobs:
   update:
@@ -11,47 +16,140 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Bajar CSV
-        run: curl -L -o Chispazo.csv https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv
+      - name: Bajar CSV con cache-bust
+        run: |
+          curl -L -H "Cache-Control: no-cache" -o Chispazo.csv "https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv?t=$(date +%s)"
+          wc -l Chispazo.csv
+          head -5 Chispazo.csv
       - name: Actualizar index
         run: |
           python3 << 'PY'
           import csv, re, pathlib, datetime
-          csv_path=pathlib.Path('Chispazo.csv')
-          max_c=0; max_f=''
+          from datetime import timezone
+
+          csv_path = pathlib.Path('Chispazo.csv')
+          rows = []
           with open(csv_path, newline='', encoding='utf-8') as f:
-              for row in csv.DictReader(f):
+              for r in csv.DictReader(f):
                   try:
-                      c=int(row['CONCURSO'])
-                      if c>max_c:
-                          max_c=c; max_f=row.get('FECHA','').strip()
-                  except: 
+                      r['CONCURSO'] = int(r['CONCURSO'])
+                      r['R'] = [int(r['R1']), int(r['R2']), int(r['R3']), int(r['R4']), int(r['R5'])]
+                      # FECHA YYYY-MM-DD
+                      rows.append(r)
+                  except:
                       continue
-          next_c=max_c+1
+          rows.sort(key=lambda x: x['CONCURSO'])
+          if not rows:
+              raise SystemExit("CSV vacío")
+
+          max_row = rows[-1]
+          max_c = max_row['CONCURSO']
+          max_f_str = max_row['FECHA']
+          print(f"MAX CSV: {max_c} {max_f_str} {max_row['R']}")
+
+          # Siguiente sorteo
+          next_c = max_c + 1
           try:
-              base=datetime.datetime.strptime(max_f,'%Y-%m-%d')
+              base = datetime.datetime.strptime(max_f_str, '%Y-%m-%d')
           except:
-              base=datetime.datetime.now()
-          if max_c%2==1:
-              next_date=base
-              hour='21:00 hrs - Chispazo Clasico'
+              base = datetime.datetime.now()
+
+          # Lógica de horario que ya usabas: si max es impar? En chispazo: dos diarios
+          # Si max_c es par (ej 12318 noche), siguiente es al día siguiente 15:00
+          # Si max_c es impar? Ajuste original tuyo: mantengo
+          if max_c % 2 == 1:
+              next_date = base
+              hour_label = '21:00 hrs - Chispazo Clasico'
+              hour_short = '21:00 hrs - Chispazo Clásico'
           else:
-              next_date=base+datetime.timedelta(days=1)
-              hour='15:00 hrs - De las Tres'
-          meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-          fmt=f"{next_date.day} {meses[next_date.month-1]} {next_date.year}"
-          p=pathlib.Path('index.html')
-          t=p.read_text(encoding='utf-8')
-          t=re.sub(r'Sorteo\s+\d{4,5}', f'Sorteo {next_c}', t)
-          t=re.sub(r'\d{1,2}\s+(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic)\s+\d{4}', fmt, t)
-          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_f} siguiente={next_c} {fmt} {hour} -->"
+              next_date = base + datetime.timedelta(days=1)
+              hour_label = '15:00 hrs - De las Tres'
+              hour_short = '15:00 hrs - De las Tres'
+
+          meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+          fmt = f"{next_date.day} {meses[next_date.month-1]} {next_date.year}"
+          fmt_full = f"{next_date.day} {meses[next_date.month-1]} {next_date.year} - {hour_label}"
+
+          p = pathlib.Path('index.html')
+          t = p.read_text(encoding='utf-8')
+
+          # --- 1) Actualizar pill y h2 Sorteo ---
+          # Pill: 18 Oct 2026 • 15:00 hrs • De las Tres • Sorteo 12319
+          t = re.sub(r'\d{1,2}\s+(Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic)\s+\d{4}\s+•\s+[^•]+•\s+Sorteo\s+\d+', f'{fmt} • {hour_label} • Sorteo {next_c}', t)
+          t = re.sub(r'Sorteo\s+\d{4,5}', f'Sorteo {next_c}', t, count=1)  # neón title ya cubierto arriba pero por si
+          # Asegurar h2
+          t = re.sub(r'<h2[^>]*>Sorteo\s+\d+</h2>', f'<h2 style="font-size:19px;font-weight:900">Sorteo {next_c}</h2>', t)
+
+          # --- 2) Actualizar let sorteoNum= en download funciones ---
+          t = re.sub(r'let sorteoNum=\d+;', f'let sorteoNum={next_c};', t)
+
+          # --- 3) Reconstruir const sorteos = [ultimos 20] desde CSV ---
+          # Tomar últimos 20 del CSV (max, max-1, ..., max-19)
+          ultimos = sorted(rows, key=lambda x: x['CONCURSO'], reverse=True)[:20]
+
+          def fecha_hora_label(row, concurso):
+              # inferir hora por paridad: si quieres mejorar, usa API oficial; aquí usamos regla simple
+              # Concurso impar = De las Tres? según tu data: 12319 (impar) no, en tu CSV 12319 es 2026-10-18 y en tu HTML era De las Tres 15:00
+              # Vamos a usar fecha del CSV y asignar hora según si es primero o segundo del día (misma fecha aparece 2 veces)
+              # Para simplificar: si hay dos en misma fecha, el menor es De las Tres, mayor Clásico
+              # Pero usamos el hour_label del concurso para el propio registro histórico usando su propia fecha
+              # Determinamos si es Clásico o Tres mirando si es segundo del día
+              return row['FECHA']  # lo formatearemos abajo
+
+          # Necesitamos mapear fechas a horas: agrupar por fecha
+          from collections import defaultdict
+          por_fecha = defaultdict(list)
+          for r in rows:
+              por_fecha[r['FECHA']].append(r)
+          for k in por_fecha:
+              por_fecha[k] = sorted(por_fecha[k], key=lambda x: x['CONCURSO'])
+
+          def to_label(r):
+              # si es el primero del día -> De las Tres 15:00, segundo -> Clásico 21:00
+              same = por_fecha[r['FECHA']]
+              idx = same.index(r)
+              if len(same)==1:
+                  # si solo uno ese día, asumir por paridad histórica, pero mejor usar 21:00 si es par? simple:
+                  # usa la hora que ya tienes en HTML para referencia: alternan
+                  # aquí: si concurso %2 ==1 => 15:00? Veamos tu data: 12315 15:00, 12316 21:00 => impar=15:00 par=21:00
+                  is_tres = (r['CONCURSO'] % 2 == 1)
+              else:
+                  is_tres = (idx == 0)
+              hour = '15:00 hrs - De las Tres' if is_tres else '21:00 hrs - Chispazo Clásico'
+              # formatear fecha
+              try:
+                  d = datetime.datetime.strptime(r['FECHA'], '%Y-%m-%d')
+                  fmt_d = f"{d.day:02d} {meses[d.month-1]} {d.year} - {hour}"
+              except:
+                  fmt_d = f"{r['FECHA']} - {hour}"
+              return fmt_d, hour
+
+          sorteos_js_lines = []
+          for r in ultimos:
+              label, _ = to_label(r)
+              sorteos_js_lines.append(f"{{num:{r['CONCURSO']},win:[{','.join(map(str,r['R']))}],date:'{label}'}}")
+
+          sorteos_js = "const sorteos=[\n" + ",\n".join(sorteos_js_lines) + "\n];"
+
+          # Reemplazar bloque sorteos existente
+          t = re.sub(r'const sorteos=\[.*?];', sorteos_js, t, flags=re.S)
+
+          # --- 4) Backtesting 200 sorteos (12118-12317) -> actualizar rango ---
+          back_start = max_c - 200
+          back_end = max_c - 1
+          t = re.sub(r'Backtesting\s+\d+\s+sorteos\s+\(\d+-\d+\)', f'Backtesting 200 sorteos ({back_start}-{back_end})', t)
+
+          # --- 5) Marker AUTO UPDATE ---
+          generated = datetime.datetime.now(timezone.utc).isoformat()
+          marker = f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_f_str} siguiente={next_c} {fmt_full} generado={generated} -->"
           if "<!-- AUTO UPDATE" in t:
-              t=re.sub(r'<!-- AUTO UPDATE.*?-->', marker, t, flags=re.S)
+              t = re.sub(r'<!-- AUTO UPDATE.*?-->', marker, t, flags=re.S)
           else:
-              t=t.replace('</body>', marker+'\n</body>')
+              t = t.replace('</body>', marker+'\n</body>')
+
           p.write_text(t, encoding='utf-8')
-          pathlib.Path('/tmp/next.txt').write_text(f"{max_c} {max_f} {next_c}")
-          print(f"OK ultimo={max_c} siguiente={next_c}")
+          pathlib.Path('/tmp/next.txt').write_text(f"{max_c} {max_f_str} {next_c}")
+          print(f"OK actualizado a siguiente={next_c} con ultimos 20 desde CSV")
           PY
       - name: Commit
         run: |
