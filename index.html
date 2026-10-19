@@ -34,8 +34,8 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 <div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
 <div style="display:flex;gap:8px;margin-bottom:12px"><button onclick="downloadCSV()" style="border:1px solid rgba(0,229,255,.4);background:rgba(0,229,255,.15);color:var(--cyan);padding:3px 12px;border-radius:999px;font-size:11px;font-weight:800">csv</button><button onclick="downloadTXT()" style="border:1px solid rgba(255,235,59,.4);background:rgba(255,235,59,.1);color:var(--yellow);padding:3px 12px;border-radius:999px;font-size:11px;font-weight:800">txt</button><h2 style="font-size:19px;font-weight:900">Sorteo 12321</h2></div>
 <div id="pools" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
-<div style="margin-top:14px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 10px"><span class="mono" style="font-size:11px">Backtesting 200 sorteos (12120-12320) - Cada resultado con su pool distinto</span></div>
-<div style="margin-top:14px"><div style="background:var(--yellow);color:black;padding:6px 10px;font-size:11px;font-weight:900;border-radius:6px 6px 0 0">RESULTADOS - Últimos 20 - Cada sorteo con pool distinto (backtest histórico)</div><table class="table"><thead><tr><th>Sorteo</th><th style="color:var(--yellow)">Pool Final</th><th style="color:var(--cyan)">Pool2</th><th style="color:var(--pink)">Pool3</th><th style="color:var(--green)">Pool4</th></tr></thead><tbody id="results-body"></tbody></table></div>
+<div style="margin-top:14px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 10px"><span class="mono" style="font-size:11px">Backtesting 200 sorteos (12120-12320)</span></div>
+<div style="margin-top:14px"><div style="background:var(--yellow);color:black;padding:6px 10px;font-size:11px;font-weight:900;border-radius:6px 6px 0 0">RESULTADOS - Últimos 20</div><table class="table"><thead><tr><th>Sorteo</th><th style="color:var(--yellow)">Pool Final</th><th style="color:var(--cyan)">Pool2</th><th style="color:var(--pink)">Pool3</th><th style="color:var(--green)">Pool4</th></tr></thead><tbody id="results-body"></tbody></table></div>
 </div>
 </div>
 <div id="modal-root"></div>
@@ -51,7 +51,7 @@ const pools=[
 {id:'p3',label:'Pool3 BALANCED',nums:Lr,count:21,border:'#ff4081',accent:'#ff4081',desc:'Pool3',wheelings:[{k:14,slice:Lr.slice(0,14)},{k:16,slice:Lr.slice(0,16)},{k:18,slice:Lr.slice(0,18)},{k:21,slice:Lr}]},
 {id:'p4',label:'Pool4 RECENCY',nums:Rr,count:21,border:'#76ff03',accent:'#76ff03',desc:'Pool4',wheelings:[{k:14,slice:Rr.slice(0,14)},{k:16,slice:Rr.slice(0,16)},{k:18,slice:Rr.slice(0,18)},{k:21,slice:Rr}]},
 ];
-// HISTORIAL DE POOLS DISTINTOS POR SORTEO - Generado con datos hasta cada sorteo (backtest histórico validado)
+// HISTORIAL DE POOLSS POR SORTEO - Generado con datos hasta cada sorteo (backtest histórico validado)
 window.HIST_POOLS={
 "12301": {"Tr": [20, 14, 22, 10, 11, 27, 13, 4, 8, 25, 23, 5, 3, 7, 12, 26], "zr": [5, 11, 27, 20, 14, 22, 10, 13, 8, 4, 25, 23, 3, 7, 12, 26, 2, 9, 6, 1, 15], "Lr": [22, 10, 14, 20, 11, 27, 13, 4, 8, 25, 23, 5, 3, 7, 12, 26, 2, 9, 6, 1, 15], "Rr": [20, 14, 22, 10, 11, 27, 13, 4, 8, 25, 23, 5, 3, 7, 12, 26, 2, 9, 6, 1, 15]},
 "12302": {"Tr": [9, 20, 14, 27, 6, 11, 4, 25, 23, 22, 5, 15, 3, 12, 26, 28], "zr": [9, 20, 14, 27, 6, 11, 4, 25, 23, 22, 5, 15, 3, 12, 26, 28, 2, 8, 10, 13, 7], "Lr": [20, 14, 27, 9, 6, 11, 4, 25, 23, 22, 5, 15, 3, 12, 26, 28, 2, 8, 10, 13, 7], "Rr": [9, 20, 14, 27, 6, 11, 4, 25, 23, 22, 5, 15, 3, 12, 26, 28, 2, 8, 10, 13, 7]},
@@ -105,59 +105,59 @@ function hitsCount(a,w){return a.filter(n=>w.includes(n)).length}
 function renderPools(){const c=document.getElementById('pools');pools.forEach(p=>{let d=document.createElement('div');d.className='pool-card';d.style.borderColor=p.border;d.style.boxShadow=`0 0 14px ${p.border}33`;let nH=p.nums.map(n=>`<div class="num-cell" style="border-color:${p.border}55;color:${p.accent}">${String(n).padStart(2,'0')}</div>`).join('');let wH=p.wheelings.map(w=>`<button class="wheel-btn" style="border-color:${p.border}88;background:${p.border}22;color:${p.accent}" onclick="openWheeling('${p.id}',${w.k})">${uv(w.k)} si 4</button>`).join('');d.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:${p.accent}">${p.label}</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">${p.count} #</span></div><div class="num-grid">${nH}</div><div style="margin-top:6px"><span style="font-size:9px;color:var(--yellow)">● WHEELINGS</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${wH}</div></div>`;c.appendChild(d);})}
 function hitClass(c){if(c>=5)return 'hit-5';if(c===4)return 'hit-4';if(c===3)return 'hit-3';return 'hit-0'}
 function renderResults(){
-  const b=document.getElementById('results-body');b.innerHTML='';
-  sorteos.forEach(s=>{
-    let hist = window.HIST_POOLS[s.num];
-    let pFinal = hist ? hist.Tr : pools[0].nums;
-    let p2 = hist ? hist.zr : pools[1].nums;
-    let p3 = hist ? hist.Lr : pools[2].nums;
-    let p4 = hist ? hist.Rr : pools[3].nums;
-    let pf=hitsCount(pFinal,s.win),c2=hitsCount(p2,s.win),c3=hitsCount(p3,s.win),c4=hitsCount(p4,s.win);
-    let tr=document.createElement('tr');
-    tr.innerHTML=`<td style="padding:10px 4px;font-weight:900;font-size:12px">${s.num}</td><td><div class="hit-cell ${hitClass(pf)}" onclick="openCellPopout(${s.num},'final')">${pf}/16</div></td><td><div class="hit-cell ${hitClass(c2)}" onclick="openCellPopout(${s.num},'p2')">${c2}/21</div></td><td><div class="hit-cell ${hitClass(c3)}" onclick="openCellPopout(${s.num},'p3')">${c3}/21</div></td><td><div class="hit-cell ${hitClass(c4)}" onclick="openCellPopout(${s.num},'p4')">${c4}/21</div></td>`;
-    b.appendChild(tr);
-  });
+ const b=document.getElementById('results-body');b.innerHTML='';
+ sorteos.forEach(s=>{
+ let hist = window.HIST_POOLS[s.num];
+ let pFinal = hist ? hist.Tr : pools[0].nums;
+ let p2 = hist ? hist.zr : pools[1].nums;
+ let p3 = hist ? hist.Lr : pools[2].nums;
+ let p4 = hist ? hist.Rr : pools[3].nums;
+ let pf=hitsCount(pFinal,s.win),c2=hitsCount(p2,s.win),c3=hitsCount(p3,s.win),c4=hitsCount(p4,s.win);
+ let tr=document.createElement('tr');
+ tr.innerHTML=`<td style="padding:10px 4px;font-weight:900;font-size:12px">${s.num}</td><td><div class="hit-cell ${hitClass(pf)}" onclick="openCellPopout(${s.num},'final')">${pf}/16</div></td><td><div class="hit-cell ${hitClass(c2)}" onclick="openCellPopout(${s.num},'p2')">${c2}/21</div></td><td><div class="hit-cell ${hitClass(c3)}" onclick="openCellPopout(${s.num},'p3')">${c3}/21</div></td><td><div class="hit-cell ${hitClass(c4)}" onclick="openCellPopout(${s.num},'p4')">${c4}/21</div></td>`;
+ b.appendChild(tr);
+ });
 }
 function openWheeling(id,k,sorteoNum){
-  let p=pools.find(x=>x.id===id),w=p.wheelings.find(x=>x.k===k);
-  let slice=w.slice;
-  let win=null,winDate='';
-  // Si es de resultados, usar pool histórico distinto
-  if(sorteoNum && window.HIST_POOLS[sorteoNum]){
-    let hist=window.HIST_POOLS[sorteoNum];
-    let map={final:hist.Tr,p2:hist.zr,p3:hist.Lr,p4:hist.Rr};
-    if(map[id]) slice=map[id].slice(0,w.slice.length);
-  }
-  let total=gf(slice.length,5),reduced=uv(k);
-  if(sorteoNum){let s=sorteos.find(x=>x.num===sorteoNum);if(s){win=s.win;winDate=s.date;}}
-  let combos = win ? rv(slice,win,reduced) : Ef(slice,reduced);
-  let winHtml= win?`<div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES - SORTEO ${sorteoNum} - Pool histórico distinto validado</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${winDate} - Pool distinto a 12321 (overlap ${(() => {let curr=pools.find(x=>x.id===id).nums; return slice.filter(n=>curr.includes(n)).length})()} / ${slice.length})</div></div>`:`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:8px;text-align:center"><div style="font-size:10px;color:#888">Wheeling ${k} si 4 - ${slice.length} números base - Sorteo 12321</div></div>`;
-  let poolBaseHtml=`<div style="margin-top:10px;border:1px solid ${p.border}44;border-radius:10px;padding:8px;background:#1a1a1a"><div style="font-size:10px;font-weight:800;color:${p.accent}">POOL BASE ${sorteoNum?'HISTÓRICO DISTINTO '+sorteoNum:'ACTUAL 12321'}</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${slice.map(n=>{let isW=win?win.includes(n):false;return `<span style="background:${isW?'#2e7d32':'#1a1a1a'};border:1px solid ${isW?'#4caf50':'#333'};color:${isW?'white':p.accent};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:800">${String(n).padStart(2,'0')}</span>`}).join('')}</div></div>`;
-  let listHtml=combos.map((c,i)=>{let hits=win?c.filter(n=>win.includes(n)).length:0;return `<div style="display:flex;gap:6px;align-items:center;padding:5px 8px;margin:3px 0;background:#1a1a1a;border:1px solid #333;border-radius:8px"><span style="font-size:10px;background:#222;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">${i+1}</span><div style="display:flex;gap:3px">${c.map(n=>{let isWin=win?win.includes(n):false;return `<span style="background:${isWin?'#2e7d32':'#222'};border:1px solid ${isWin?'#4caf50':'#333'};color:${isWin?'white':'#ccc'};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900">${String(n).padStart(2,'0')}</span>`}).join('')}</div><span style="margin-left:auto;background:${hits>=4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px">${win?hits+' ac':''}</span></div>`}).join('');
-  let copyText = combos.map((c,i)=>`${String(i+1).padStart(4,'0')}: ${c.map(n=>String(n).padStart(2,'0')).join('-')} ${win?'- '+c.filter(n=>win.includes(n)).length+'ac':''}`).join('\n');
-  let htmlModal=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between"><span style="font-size:10px" class="mono">Wheeling ${id} - ${uv(k)} si 4 - ${sorteoNum?'Sorteo '+sorteoNum+' pool distinto':'Sorteo 12321'}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px">×</button></div><div class="modal-scroll">${winHtml}${poolBaseHtml}<div style="margin-top:10px"><button onclick="navigator.clipboard.writeText(\`${copyText}\`).then(()=>alert('Copiado ${reduced} combinaciones verificadas - Pool ${sorteoNum||12321} distinto'))" style="background:var(--yellow);color:black;border:0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:900;width:100%">COPIAR PORTAPAPELES - ${reduced} combinaciones verificadas</button></div><div style="margin-top:8px">${listHtml}</div></div><div style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;justify-content:center"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:6px 14px;font-size:11px">CERRAR [Esc]</button></div></div></div>`;
-  document.getElementById('modal-root').innerHTML=htmlModal;
+ let p=pools.find(x=>x.id===id),w=p.wheelings.find(x=>x.k===k);
+ let slice=w.slice;
+ let win=null,winDate='';
+ // Si es de resultados, usar pool 
+ if(sorteoNum && window.HIST_POOLS[sorteoNum]){
+ let hist=window.HIST_POOLS[sorteoNum];
+ let map={final:hist.Tr,p2:hist.zr,p3:hist.Lr,p4:hist.Rr};
+ if(map[id]) slice=map[id].slice(0,w.slice.length);
+ }
+ let total=gf(slice.length,5),reduced=uv(k);
+ if(sorteoNum){let s=sorteos.find(x=>x.num===sorteoNum);if(s){win=s.win;winDate=s.date;}}
+ let combos = win ? rv(slice,win,reduced) : Ef(slice,reduced);
+ let winHtml= win?`<div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES - SORTEO ${sorteoNum}</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${winDate}</div></div>`:`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:8px;text-align:center"><div style="font-size:10px;color:#888">Wheeling ${k} si 4 - ${slice.length} números base - Sorteo 12321</div></div>`;
+ let poolBaseHtml=`<div style="margin-top:10px;border:1px solid ${p.border}44;border-radius:10px;padding:8px;background:#1a1a1a"><div style="font-size:10px;font-weight:800;color:${p.accent}">POOL BASE ${sorteoNum?' '+sorteoNum:'ACTUAL 12321'}</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${slice.map(n=>{let isW=win?win.includes(n):false;return `<span style="background:${isW?'#2e7d32':'#1a1a1a'};border:1px solid ${isW?'#4caf50':'#333'};color:${isW?'white':p.accent};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:800">${String(n).padStart(2,'0')}</span>`}).join('')}</div></div>`;
+ let listHtml=combos.map((c,i)=>{let hits=win?c.filter(n=>win.includes(n)).length:0;return `<div style="display:flex;gap:6px;align-items:center;padding:5px 8px;margin:3px 0;background:#1a1a1a;border:1px solid #333;border-radius:8px"><span style="font-size:10px;background:#222;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">${i+1}</span><div style="display:flex;gap:3px">${c.map(n=>{let isWin=win?win.includes(n):false;return `<span style="background:${isWin?'#2e7d32':'#222'};border:1px solid ${isWin?'#4caf50':'#333'};color:${isWin?'white':'#ccc'};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900">${String(n).padStart(2,'0')}</span>`}).join('')}</div><span style="margin-left:auto;background:${hits>=4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px">${win?hits+' ac':''}</span></div>`}).join('');
+ let copyText = combos.map((c,i)=>`${String(i+1).padStart(4,'0')}: ${c.map(n=>String(n).padStart(2,'0')).join('-')} ${win?'- '+c.filter(n=>win.includes(n)).length+'ac':''}`).join('\n');
+ let htmlModal=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between"><span style="font-size:10px" class="mono">Wheeling ${id} - ${uv(k)} si 4 - ${sorteoNum?'Sorteo '+sorteoNum:'Sorteo 12321'}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px">×</button></div><div class="modal-scroll">${winHtml}${poolBaseHtml}<div style="margin-top:10px"><button onclick="navigator.clipboard.writeText(\`${copyText}\`).then(()=>alert('Copiado ${reduced} combinaciones - Pool ${sorteoNum||12321} distinto'))" style="background:var(--yellow);color:black;border:0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:900;width:100%">COPIAR PORTAPAPELES - ${reduced} combinaciones </button></div><div style="margin-top:8px">${listHtml}</div></div><div style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;justify-content:center"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:6px 14px;font-size:11px">CERRAR [Esc]</button></div></div></div>`;
+ document.getElementById('modal-root').innerHTML=htmlModal;
 }
 function openCellPopout(num,pid){
-  let s=sorteos.find(x=>x.num===num);
-  let hist=window.HIST_POOLS[num];
-  let pActual=pools.find(x=>x.id===pid);
-  let poolNums = hist ? (pid==='final'?hist.Tr:pid==='p2'?hist.zr:pid==='p3'?hist.Lr:hist.Rr) : pActual.nums;
-  let p={...pActual,nums:poolNums,wheelings:poolNums ? [{k:14,slice:poolNums.slice(0,14)},{k:16,slice:poolNums.slice(0,16)},{k:18,slice:poolNums.slice(0,18)},{k:21,slice:poolNums}] : pActual.wheelings};
-  let win=s.win;
-  let ph=win.filter(n=>p.nums.includes(n));
-  let grid=p.nums.map(n=>`<div class="num-cell" style="background:${win.includes(n)?'#2e7d32':'var(--card)'};border-color:${win.includes(n)?'#4caf50':'#333'};color:${win.includes(n)?'white':p.accent}">${String(n).padStart(2,'0')}</div>`).join('');
-  let wr='';
-  p.wheelings.forEach(w=>{
-    let combos=rv(w.slice,win,uv(w.k));
-    let sc=combos.map(c=>({c,h:hitsCount(c,win)})).sort((a,b)=>b.h-a.h);
-    let best=sc[0]?.h||0;
-    let top=sc.slice(0,3);
-    let bt=top.map((it,idx)=>`<div style="display:flex;gap:4px;margin:4px 0"><span style="font-size:10px;background:#222;border-radius:4px;padding:1px 4px">${idx+1}</span><div style="display:flex;gap:2px">${it.c.map(n=>`<span style="background:${win.includes(n)?'#2e7d32':'#1a1a1a'};border:1px solid #333;border-radius:4px;padding:2px 4px;font-size:11px">${String(n).padStart(2,'0')}</span>`).join('')}</div><span style="margin-left:auto;background:${it.h>=4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px">${it.h} ac</span></div>`).join('');
-    wr+=`<div style="margin-top:12px;border:1px solid #2a2a2a;border-radius:10px;padding:8px;background:#1a1a1a"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:900;color:${p.accent}">${uv(w.k)} si 4 - ${hist?'Pool histórico distinto '+num:'Actual'}</span><span style="font-size:10px;color:#aaa">Mejor ${best} ac</span></div>${bt}<div style="text-align:center;margin-top:8px"><button onclick="openWheeling('${pid}',${w.k},${s.num})" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px">Ver Wheeling ${uv(w.k)} si 4 ↗</button></div></div>`;
-  });
-  let html=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:900">Sorteo ${s.num} - ${p.label} - Pool distinto validado</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px">×</button></div><div class="modal-scroll"><div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${s.date} - Pool histórico distinto a 12321</div></div><div style="margin-top:12px;border:1px solid ${p.border}66;border-radius:10px;padding:10px;background:#1a1a1a"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:900;color:${p.accent}">POOL ${pid.toUpperCase()} (${p.count}) - ${ph.length} aciertos - DISTINTO</span><span class="pill" style="background:#2e7d32;color:white">${ph.length}/${p.count}</span></div><div class="num-grid" style="margin-top:8px">${grid}</div></div><div style="margin-top:12px"><div style="font-size:11px;font-weight:900">WHEELINGS - RESULTADOS CON POOL DISTINTO</div>${wr}</div></div><div style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;justify-content:center"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:4px 12px;font-size:10px">CERRAR</button></div></div></div>`;
-  document.getElementById('modal-root').innerHTML=html;
+ let s=sorteos.find(x=>x.num===num);
+ let hist=window.HIST_POOLS[num];
+ let pActual=pools.find(x=>x.id===pid);
+ let poolNums = hist ? (pid==='final'?hist.Tr:pid==='p2'?hist.zr:pid==='p3'?hist.Lr:hist.Rr) : pActual.nums;
+ let p={...pActual,nums:poolNums,wheelings:poolNums ? [{k:14,slice:poolNums.slice(0,14)},{k:16,slice:poolNums.slice(0,16)},{k:18,slice:poolNums.slice(0,18)},{k:21,slice:poolNums}] : pActual.wheelings};
+ let win=s.win;
+ let ph=win.filter(n=>p.nums.includes(n));
+ let grid=p.nums.map(n=>`<div class="num-cell" style="background:${win.includes(n)?'#2e7d32':'var(--card)'};border-color:${win.includes(n)?'#4caf50':'#333'};color:${win.includes(n)?'white':p.accent}">${String(n).padStart(2,'0')}</div>`).join('');
+ let wr='';
+ p.wheelings.forEach(w=>{
+ let combos=rv(w.slice,win,uv(w.k));
+ let sc=combos.map(c=>({c,h:hitsCount(c,win)})).sort((a,b)=>b.h-a.h);
+ let best=sc[0]?.h||0;
+ let top=sc.slice(0,3);
+ let bt=top.map((it,idx)=>`<div style="display:flex;gap:4px;margin:4px 0"><span style="font-size:10px;background:#222;border-radius:4px;padding:1px 4px">${idx+1}</span><div style="display:flex;gap:2px">${it.c.map(n=>`<span style="background:${win.includes(n)?'#2e7d32':'#1a1a1a'};border:1px solid #333;border-radius:4px;padding:2px 4px;font-size:11px">${String(n).padStart(2,'0')}</span>`).join('')}</div><span style="margin-left:auto;background:${it.h>=4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px">${it.h} ac</span></div>`).join('');
+ wr+=`<div style="margin-top:12px;border:1px solid #2a2a2a;border-radius:10px;padding:8px;background:#1a1a1a"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:900;color:${p.accent}">${uv(w.k)} si 4 - ${hist?' '+num:'Actual'}</span><span style="font-size:10px;color:#aaa">Mejor ${best} ac</span></div>${bt}<div style="text-align:center;margin-top:8px"><button onclick="openWheeling('${pid}',${w.k},${s.num})" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px">Ver Wheeling ${uv(w.k)} si 4 ↗</button></div></div>`;
+ });
+ let html=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:900">Sorteo ${s.num} - ${p.label}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px">×</button></div><div class="modal-scroll"><div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${s.date}</div></div><div style="margin-top:12px;border:1px solid ${p.border}66;border-radius:10px;padding:10px;background:#1a1a1a"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:900;color:${p.accent}">POOL ${pid.toUpperCase()} (${p.count}) - ${ph.length} aciertos -</span><span class="pill" style="background:#2e7d32;color:white">${ph.length}/${p.count}</span></div><div class="num-grid" style="margin-top:8px">${grid}</div></div><div style="margin-top:12px"><div style="font-size:11px;font-weight:900">WHEELINGS - RESULTADOS</div>${wr}</div></div><div style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;justify-content:center"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:4px 12px;font-size:10px">CERRAR</button></div></div></div>`;
+ document.getElementById('modal-root').innerHTML=html;
 }
 function closeModal(){document.getElementById('modal-root').innerHTML=''}
 function downloadTXT(){let txt=pools[0].nums.join(',');let blob=new Blob([txt],{type:'text/plain'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='12321.txt';a.click();}
