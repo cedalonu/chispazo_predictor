@@ -32,7 +32,7 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 <body>
 <div class="container">
 <div class="neon-title">CHISPAZO PREDICTOR <span>V3 AUDITADO</span></div>
-<div style="text-align:center;margin:12px 0"><span class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">19 Oct 2026 • 15:00 hrs - De las Tres • Sorteo 12321</span></div>
+<div style="text-align:center;margin:12px 0"><span class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">19 Oct 2026 • 15:00 hrs - De las Tres • Sorteo 12321 - SIN HISTORIAL FALSO</span></div>
 <div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
 <button onclick="downloadCSV()" style="border:1px solid rgba(0,229,255,.4);background:rgba(0,229,255,.15);color:var(--cyan);padding:3px 12px;border-radius:999px;font-size:11px;font-weight:800;cursor:pointer">csv</button>
@@ -68,7 +68,6 @@ function rv(e,n,t){let r=e.filter((c)=>n.includes(c)).sort((c,m)=>c-m),l=e.filte
 function Ef(e,n){let t=e.length,r=new Set,l=[];if(t<7)return[];let u=t-6;for(let i=0;i<n;i++){let o=0,a=false;while(o<n*4&&!a){let c=i+o*n,m=c*2%6,g=(c*3+1)%6;if(g===m)g=(g+1)%6;let y=6+c*5%u,k=6+(c*7+2)%u;if(k===y)k=6+(k-6+1)%u;let w=6+(c*11+5)%u,_=0;while((w===y||w===k)&&_<u+5)w=6+(w-6+1)%u,_++;let $=[e[m],e[g],e[y],e[k],e[w]].sort((d,S)=>d-S);if(new Set($).size<5){o++;continue}let f=$.join(",");if(!r.has(f)){r.add(f);l.push($);a=true}else o++}if(!a){let c=0;while(c<100&&!a){let m=i*13+c*17+3,g=m*2%6,y=(m*3+1)%6;if(y===g)y=(y+2)%6;let k=6+(m*5+c)%u,w=6+(m*7+2+c*2)%u;if(w===k)w=6+(w-6+1)%u;let _=6+(m*11+5+c*3)%u,$=0;while((_===k||_===w)&&$<u+5)_=6+(_-6+1)%u,$++;let h=[e[g],e[y],e[k],e[w],e[_]].sort((d,S)=>d-S),f=h.join(",");if(!r.has(f)&&new Set(h).size===5){r.add(f);l.push(h);a=true}c++}}}return l.sort((i,o)=>{for(let a=0;a<5;a++)if(i[a]!==o[a])return i[a]-o[a];return 0}).slice(0,n)}
 
 // SIN HISTORIAL FALSO - solo prediccion actual
-window.HIST_POOLS={"12321": {"Tr": [7, 6, 23, 12, 14, 11, 19, 13, 20, 15, 22, 27, 1, 25, 4, 10], "zr": [2, 3, 1, 5, 4, 8, 6, 9, 7, 10, 11, 13, 12, 19, 14, 23, 27, 22, 15, 20, 25], "Lr": [1, 10, 7, 11, 8, 18, 20, 4, 28, 9, 15, 19, 21, 2, 3, 6, 13, 12, 14, 23, 5], "Rr": [25, 22, 23, 27, 3, 14, 2, 8, 12, 17, 20, 7, 6, 19, 15, 13, 21, 24, 26, 18, 11]}};
 const sorteos=[
 {num:12320,win:[3,12,14,17,22],date:'18 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
 {num:12319,win:[19,22,23,25,26],date:'18 Oct 2026 - 15:00 hrs - De las Tres'},
@@ -80,16 +79,6 @@ const sorteos=[
 {num:12313,win:[2,7,9,11,22],date:'15 Oct 2026 - 15:00 hrs - De las Tres'},
 {num:12312,win:[8,13,18,20,23],date:'14 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
 {num:12311,win:[1,7,10,11,28],date:'14 Oct 2026 - 15:00 hrs - De las Tres'},
-{num:12310,win:[4,7,8,13,20],date:'13 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
-{num:12309,win:[3,7,16,23,24],date:'13 Oct 2026 - 15:00 hrs - De las Tres'},
-{num:12308,win:[5,7,13,19,26],date:'12 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
-{num:12307,win:[8,9,10,15,23],date:'12 Oct 2026 - 15:00 hrs - De las Tres'},
-{num:12306,win:[1,11,15,20,27],date:'11 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
-{num:12305,win:[2,3,5,18,25],date:'11 Oct 2026 - 15:00 hrs - De las Tres'},
-{num:12304,win:[2,6,12,20,24],date:'10 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
-{num:12303,win:[4,8,15,21,25],date:'10 Oct 2026 - 15:00 hrs - De las Tres'},
-{num:12302,win:[3,6,9,10,24],date:'09 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
-{num:12301,win:[2,6,12,25,26],date:'09 Oct 2026 - 15:00 hrs - De las Tres'}
 ];
 function hitsCount(a,w){return a.filter(n=>w.includes(n)).length}
 function renderPools(){const c=document.getElementById('pools');pools.forEach(p=>{let d=document.createElement('div');d.className='pool-card';d.style.borderColor=p.border;d.style.boxShadow=`0 0 14px ${p.border}33`;let nH=p.nums.map(n=>`<div class="num-cell" style="border-color:${p.border}55;color:${p.accent}">${String(n).padStart(2,'0')}</div>`).join('');let wH=p.wheelings.map(w=>`<button class="wheel-btn" style="border-color:${p.border}88;background:${p.border}22;color:${p.accent}" onclick="openWheeling('${p.id}',${w.k})">${w.k} si 4</button>`).join('');d.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:${p.accent}">${p.label}</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">${p.count} #</span></div><div class="num-grid">${nH}</div><div style="margin-top:6px"><span style="font-size:9px;color:var(--yellow)">● WHEELINGS ${p.label.split(' ')[0]}</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${wH}</div><div class="mono" style="font-size:8px;color:#666;margin-top:4px">${p.desc}</div></div>`;c.appendChild(d);})}
@@ -170,34 +159,5 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 }
 renderPools();renderResults();
 </script>
-
-<script id="hist-fix-v82">
-(function(){
-  function renderWithHist(){
-    const body=document.getElementById('results-body');
-    const hist=window.HIST_POOLS||{};
-    if(!body || !window.sorteos) return;
-    if(Object.keys(hist).length===0) return;
-    body.innerHTML='';
-    window.sorteos.forEach(s=>{
-      const winSet=new Set(s.win);
-      const pools=hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
-      const pF=pools.Tr||window.Tr;
-      const p2=pools.zr||window.zr;
-      const p3=pools.Lr||window.Lr;
-      const p4=pools.Rr||window.Rr;
-      const cF=pF.filter(n=>winSet.has(n)).length;
-      const c2=p2.filter(n=>winSet.has(n)).length;
-      const c3=p3.filter(n=>winSet.has(n)).length;
-      const c4=p4.filter(n=>winSet.has(n)).length;
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cF}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
-      body.appendChild(tr);
-    });
-  }
-  setTimeout(renderWithHist, 400);
-})();
-</script>
-
 </body>
 </html>
