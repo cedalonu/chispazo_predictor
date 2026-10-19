@@ -1,1 +1,165 @@
+name: Update Chispazo V8.2 - historial + fix hang + rotacion 4
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 4 * * *'
+    - cron: '30 22 * * *'
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bajar CSV con timeout
+        run: |
+          curl -L --max-time 20 -H "Cache-Control: no-cache" -o Chispazo.csv "https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv" || echo "CSV download fail, usando cache"
+          wc -l Chispazo.csv
+      - name: Guardar prediccion anterior en historial
+        run: |
+          python3 << 'PY'
+          import re, json, pathlib
+          p=pathlib.Path('index.html')
+          if not p.exists():
+              print("No index")
+              exit(0)
+          t=p.read_text(encoding='utf-8')
+          m=re.search(r'let sorteoNum=(\d+);', t)
+          if not m:
+              print("No sorteoNum")
+              exit(0)
+          sorteo=int(m.group(1))
+          def get_pool(name):
+              mm=re.search(rf'const {name}=\[(.*?)\];', t, re.S)
+              return [int(x) for x in mm.group(1).split(',') if x.strip().isdigit()] if mm else []
+          Tr=get_pool('Tr'); zr=get_pool('zr'); Lr=get_pool('Lr'); Rr=get_pool('Rr')
+          hist=pathlib.Path('history'); hist.mkdir(exist_ok=True)
+          f=hist / f'{sorteo}.json'
+          if f.exists():
+              print(f"Historial {sorteo} ya existe")
+              exit(0)
+          if not Tr:
+              print("No pools")
+              exit(0)
+          payload={"sorteo": sorteo, "pools": {"Tr": Tr, "zr": zr, "Lr": Lr, "Rr": Rr}}
+          f.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+          print(f"Guardado historial {f}")
+          PY
+      - name: Generar Pools V8.1 fix loop
+        run: |
+          python3 generate_pools.py
+          cat /tmp/pools.js
+          cat /tmp/next_prediction.json
+      - name: Actualizar index.html con historial
+        run: |
+          python3 << 'PY'
+          import csv, re, pathlib, datetime, json
+          from collections import defaultdict
+          csv_path=pathlib.Path('Chispazo.csv')
+          rows=[]
+          with open(csv_path, encoding='utf-8') as f:
+              clean=[l for l in f if l.strip()!='']
+              for r in csv.DictReader(clean):
+                  try:
+                      c=int(r['CONCURSO']); R=[int(r['R1']),int(r['R2']),int(r['R3']),int(r['R4']),int(r['R5'])]
+                      rows.append({"CONCURSO":c,"R":R,"FECHA":r['FECHA']})
+                  except: continue
+          rows.sort(key=lambda x: x["CONCURSO"])
+          max_row=rows[-1]; max_c=max_row["CONCURSO"]; next_c=max_c+1
+          pools_js=pathlib.Path('/tmp/pools.js').read_text()
+          meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+          por_fecha=defaultdict(list)
+          for r in rows: por_fecha[r["FECHA"]].append(r)
+          for k in por_fecha: por_fecha[k]=sorted(por_fecha[k], key=lambda x: x["CONCURSO"])
+          def to_label(r):
+              same=por_fecha[r["FECHA"]]
+              idx=same.index(r)
+              is_tres = (idx==0) if len(same)>1 else (r["CONCURSO"]%2==1)
+              hour='15:00 hrs - De las Tres' if is_tres else '21:00 hrs - Chispazo Clásico'
+              d=datetime.datetime.strptime(r["FECHA"],"%Y-%m-%d")
+              return f"{d.day:02d} {meses[d.month-1]} {d.year} - {hour}"
+          base=datetime.datetime.strptime(max_row["FECHA"],"%Y-%m-%d")
+          hour_label='21:00 hrs - Chispazo Clásico' if max_c%2==1 else '15:00 hrs - De las Tres'
+          next_date=base if max_c%2==1 else base+datetime.timedelta(days=1)
+          fmt_next=f"{next_date.day} {meses[next_date.month-1]} {next_date.year}"
+          pill=f"{fmt_next} • {hour_label} • Sorteo {next_c}"
+          hist_path=pathlib.Path('history')
+          hist_pools={}
+          if hist_path.exists():
+              for jf in hist_path.glob('*.json'):
+                  try:
+                      data=json.loads(jf.read_text())
+                      s=data.get('sorteo')
+                      if s:
+                          hist_pools[int(s)]=data.get('pools',{})
+                  except: pass
+          ultimos=sorted(rows, key=lambda x: x["CONCURSO"], reverse=True)[:20]
+          js_lines=[]
+          for r in ultimos:
+              label=to_label(r)
+              js_lines.append(f"{{num:{r['CONCURSO']},win:[{','.join(map(str,r['R']))}],date:'{label}'}}")
+          sorteos_js="const sorteos=[\n"+",\n".join(js_lines)+"\n];"
+          hist_json=json.dumps(hist_pools)
+          p=pathlib.Path('index.html')
+          t=p.read_text(encoding='utf-8')
+          # Limpiar fixes viejos
+          t=re.sub(r'<script id="hist-fix.*?</script>', '', t, flags=re.S)
+          t=re.sub(r'window\.HIST_POOLS=.*?;\n', '', t)
+          # Reemplazar pools
+          t=re.sub(r'const Tr=\[.*?\];', f"const Tr={pools_js.split('const Tr=')[1].split(';')[0]};", t, flags=re.S)
+          t=re.sub(r'const zr=\[.*?\];', f"const zr={pools_js.split('const zr=')[1].split(';')[0]};", t, flags=re.S)
+          t=re.sub(r'const Lr=\[.*?\];', f"const Lr={pools_js.split('const Lr=')[1].split(';')[0]};", t, flags=re.S)
+          t=re.sub(r'const Rr=\[.*?\];', f"const Rr={pools_js.split('const Rr=')[1].split(';')[0]};", t, flags=re.S)
+          t=re.sub(r'<span class="pill"[^>]*>[^<]*Sorteo\s+\d+[^<]*</span>', f'<span class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">{pill}</span>', t)
+          t=re.sub(r'<h2[^>]*>Sorteo\s+\d+</h2>', f'<h2 style="font-size:19px;font-weight:900">Sorteo {next_c}</h2>', t)
+          t=re.sub(r'let sorteoNum=\d+;', f'let sorteoNum={next_c};', t)
+          t=re.sub(r'const sorteos=\[.*?];', sorteos_js, t, flags=re.S)
+          t=t.replace('const sorteos=[', f'window.HIST_POOLS={hist_json};\nconst sorteos=[')
+          back_start=next_c-201; back_end=next_c-1
+          t=re.sub(r'Backtesting\s+\d+\s+sorteos\s+\(\d+-\d+\)', f'Backtesting 200 sorteos ({back_start}-{back_end})', t)
+          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_row['FECHA']} siguiente={next_c} {fmt_next} {hour_label} V8.2_historial_rot4 generado={datetime.datetime.utcnow().isoformat()}Z -->"
+          t=re.sub(r'<!-- AUTO UPDATE.*?-->', marker, t, flags=re.S)
+          # Fix seguro que no rompe tabla
+          safe_fix="""
+          <script id="hist-fix-v82">
+          (function(){
+            function renderWithHist(){
+              const body=document.getElementById('results-body');
+              const hist=window.HIST_POOLS||{};
+              if(!body || !window.sorteos) return;
+              if(Object.keys(hist).length===0) return;
+              body.innerHTML='';
+              window.sorteos.forEach(s=>{
+                const winSet=new Set(s.win);
+                const pools=hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
+                const pF=pools.Tr||window.Tr;
+                const p2=pools.zr||window.zr;
+                const p3=pools.Lr||window.Lr;
+                const p4=pools.Rr||window.Rr;
+                const cF=pF.filter(n=>winSet.has(n)).length;
+                const c2=p2.filter(n=>winSet.has(n)).length;
+                const c3=p3.filter(n=>winSet.has(n)).length;
+                const c4=p4.filter(n=>winSet.has(n)).length;
+                const tr=document.createElement('tr');
+                tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cF}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
+                body.appendChild(tr);
+              });
+            }
+            setTimeout(renderWithHist, 400);
+          })();
+          </script>
+          """
+          t=t.replace('</body>', safe_fix+'\n</body>')
+          p.write_text(t, encoding='utf-8')
+          print(f"V8.2 OK siguiente={next_c} historial={len(hist_pools)} pools rotados")
+          PY
+      - name: Commit V8.2
+        run: |
+          git config user.name "chispazo-bot"
+          git config user.email "bot@github.com"
+          git add index.html history/ || git add index.html
+          git diff --staged --quiet && echo "Sin cambios" && exit 0
+          git commit -m "V8.2: historial + rotacion 4 numeros + fix hang"
+          git push
 
