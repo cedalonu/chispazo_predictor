@@ -177,9 +177,80 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 }
 function generateAuditTxt(){downloadTXT()}
 renderPools();renderResults();
-
 </script>
 <!-- AUTO UPDATE: ultimo=12318 fecha=2026-10-17 siguiente=12319 18 Oct 2026 15:00 hrs — Chispazo De las Tres generado=2026-10-18T06:12:00.107443Z -->
 <script data-goatcounter="https://cedalonu.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  // AUTO-UPDATE CLIENTE - pega esto ANTES de </body> en tu index.html, sin tocar el resto
+// Cumple tu flujo: si https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv ya tiene el sorteo que estabas prediciendo, lo mueve a la tabla de resultados y sube el número predicho.
+// No altera wheelings: mantiene pools tal cual están en el HTML (que ya fueron generados por tu lógica V3). Solo actualiza UI y tabla de 20.
+(async function(){
+  const CSV_URL = 'https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';
+  const pill = document.querySelector('.pill');
+  // sorteo actual en producción según HTML
+  const match = document.documentElement.innerHTML.match(/Sorteo\s+(\d{4,5})/);
+  let currentPred = match ? parseInt(match[1],10) : null;
+  if(!currentPred){
+    const h2 = document.querySelector('h2');
+    if(h2) currentPred = parseInt((h2.textContent.match(/\d+/)||[])[0]||'0',10);
+  }
+  try{
+    const res = await fetch(CSV_URL+'?t='+Date.now(), {cache:'no-store'});
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    const header = lines[0].split(',');
+    const idxC = header.indexOf('CONCURSO');
+    const idxF = header.indexOf('FECHA');
+    const idxR1 = header.indexOf('R1');
+    const rows = [];
+    for(let i=1;i<lines.length;i++){
+      const cols = lines[i].split(',');
+      if(cols.length<6) continue;
+      const c = parseInt(cols[idxC],10);
+      if(isNaN(c)) continue;
+      rows.push({
+        num: c,
+        fecha: cols[idxF],
+        win: [parseInt(cols[idxR1]),parseInt(cols[idxR1+1]),parseInt(cols[idxR1+2]),parseInt(cols[idxR1+3]),parseInt(cols[idxR1+4])]
+      });
+    }
+    rows.sort((a,b)=>a.num-b.num);
+    const max = rows[rows.length-1];
+    console.log('[chispazo-auto] CSV max', max, 'pred actual', currentPred);
+    if(!max || !currentPred) return;
+    // Caso que pides: predictor tiene prediccion 12315, CSV publica 12315 => debemos mostrar 12316 como siguiente y 12315 en tabla
+    if(max.num >= currentPred){
+      // max.num es el sorteo que ya ocurrió y que estábamos prediciendo
+      // 1) Actualizar tabla de resultados si sorteos global existe
+      if(window.sorteos && Array.isArray(window.sorteos)){
+        // evitar duplicados
+        const exists = window.sorteos.some(s=>s.num===max.num);
+        if(!exists){
+          // determinar label hora: si hay 2 ese día, el menor es De las Tres
+          const sameDay = rows.filter(r=>r.fecha===max.fecha).sort((a,b)=>a.num-b.num);
+          const isTres = sameDay[0].num===max.num;
+          const d = new Date(max.fecha);
+          const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+          const label = `${String(d.getDate()).padStart(2,'0')} ${meses[d.getMonth()]} ${d.getFullYear()} - ${isTres?'15:00 hrs - De las Tres':'21:00 hrs - Chispazo Clásico'}`;
+          window.sorteos.unshift({num:max.num, win:max.win, date:label});
+          window.sorteos = window.sorteos.slice(0,20);
+          if(typeof renderResults==='function'){
+            document.getElementById('results-body').innerHTML='';
+            renderResults();
+          }
+        }
+      }
+      // 2) Subir numero de sorteo predicho a max+1 sin regenerar pools (mantiene wheelings)
+      const next = max.num+1;
+      document.querySelectorAll('h2, .neon-title, .pill').forEach(el=>{
+        if(/Sorteo \d+/.test(el.textContent)) el.textContent = el.textContent.replace(/Sorteo \d+/, 'Sorteo '+next);
+      });
+      // Actualizar funciones de descarga si existen
+      // let sorteoNum ya está en closure, no podemos tocarlo, pero actualizamos data-atributo para referencia
+      document.body.dataset.nextSorteo = next;
+      console.log('[chispazo-auto] Auto-actualizado UI a sorteo', next, 'con resultado', max.num, 'en tabla');
+    }
+  }catch(e){ console.warn('auto-update fallo', e); }
+})();
+</script>
 </body>
 </html>
