@@ -179,7 +179,7 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 function generateAuditTxt(){downloadTXT()}
 renderPools();renderResults();
 </script>
-<!-- AUTO UPDATE: ultimo=12320 fecha=2026-10-18 siguiente=12321 19 Oct 2026 15:00 hrs - De las Tres V8-fix-hang generado=2026-10-19T07:49:41.342892Z -->
+<!-- AUTO UPDATE: ultimo=12320 fecha=2026-10-18 siguiente=12321 19 Oct 2026 15:00 hrs - De las Tres V8.2_historial_rot4 generado=2026-10-19T07:54:16.699539Z -->
 <script data-goatcounter="https://cedalonu.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 
 <script id="chispazo-auto-client">
@@ -235,7 +235,13 @@ renderPools();renderResults();
 
 
 
-<script id="hist-fix-v7">
+
+
+
+
+
+
+<script id="hist-fix-v82">
 (function(){
   function renderWithHist(){
     const body=document.getElementById('results-body');
@@ -259,46 +265,7 @@ renderPools();renderResults();
       body.appendChild(tr);
     });
   }
-  // Ejecutar despues de que render original haya pasado
-  setTimeout(renderWithHist, 300);
-  setInterval(()=>{
-    const body=document.getElementById('results-body');
-    if(body && body.children.length===0) renderWithHist();
-  }, 1000);
-})();
-</script>
-
-
-<script id="hist-fix-v7">
-(function(){
-  function renderWithHist(){
-    const body=document.getElementById('results-body');
-    const hist=window.HIST_POOLS||{};
-    if(!body || !window.sorteos) return;
-    if(Object.keys(hist).length===0) return;
-    body.innerHTML='';
-    window.sorteos.forEach(s=>{
-      const winSet=new Set(s.win);
-      const pools=hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
-      const pF=pools.Tr||window.Tr;
-      const p2=pools.zr||window.zr;
-      const p3=pools.Lr||window.Lr;
-      const p4=pools.Rr||window.Rr;
-      const cF=pF.filter(n=>winSet.has(n)).length;
-      const c2=p2.filter(n=>winSet.has(n)).length;
-      const c3=p3.filter(n=>winSet.has(n)).length;
-      const c4=p4.filter(n=>winSet.has(n)).length;
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cF}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
-      body.appendChild(tr);
-    });
-  }
-  // Ejecutar despues de que render original haya pasado
-  setTimeout(renderWithHist, 300);
-  setInterval(()=>{
-    const body=document.getElementById('results-body');
-    if(body && body.children.length===0) renderWithHist();
-  }, 1000);
+  setTimeout(renderWithHist, 400);
 })();
 </script>
 
