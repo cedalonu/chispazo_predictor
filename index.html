@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CHISPAZO PREDICTOR V3 - AUDITADO</title>
+<title>CHISPAZO PREDICTOR V3</title>
 <style>
 :root{--yellow:#ffeb3b;--cyan:#00e5ff;--pink:#ff4081;--green:#76ff03;--bg:#0a0a0a;--card:#121212;--card2:#1a1a1a;--border:#2a2a2a}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -31,7 +31,7 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 </head>
 <body>
 <div class="container">
-<div class="neon-title">CHISPAZO PREDICTOR <span>V3 AUDITADO</span></div>
+<div class="neon-title">CHISPAZO PREDICTOR <span>V3</span></div>
 <div style="text-align:center;margin:12px 0"><span class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">19 Oct 2026 • 15:00 hrs - De las Tres • Sorteo 12321</span></div>
 <div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -41,11 +41,11 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 </div>
 <div id="pools" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
 <div style="margin-top:14px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center">
-<span class="mono" style="font-size:11px">Backtesting 200 sorteos (12120-12320) - Modelo actual, no predicción histórica</span>
+<span class="mono" style="font-size:11px">Backtesting 200 sorteos (12120-12320)</span>
 <button onclick="openBacktest()" style="background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.4);color:var(--cyan);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">Ver Detalle</button>
 </div>
 <div style="margin-top:14px">
-<div style="background:var(--yellow);color:black;padding:6px 10px;font-size:11px;font-weight:900;border-radius:6px 6px 0 0">RESULTADOS - Últimos 20 (backtesting con Pool actual 12321) - NO es predicción histórica</div>
+<div style="background:var(--yellow);color:black;padding:6px 10px;font-size:11px;font-weight:900;border-radius:6px 6px 0 0">RESULTADOS - Últimos 20</div>
 <table class="table"><thead><tr><th style="width:18%">Sorteo</th><th style="width:20.5%;color:var(--yellow)">Pool Final actual</th><th style="width:20.5%;color:var(--cyan)">Pool2 actual</th><th style="width:20.5%;color:var(--pink)">Pool3 actual</th><th style="width:20.5%;color:var(--green)">Pool4 actual</th></tr></thead><tbody id="results-body"></tbody></table>
 </div>
 </div>
@@ -57,7 +57,7 @@ const zr=[2, 3, 1, 5, 4, 8, 6, 9, 7, 10, 11, 13, 12, 19, 14, 23, 27, 22, 15, 20,
 const Lr=[1, 10, 7, 11, 8, 18, 20, 4, 28, 9, 15, 19, 21, 2, 3, 6, 13, 12, 14, 23, 5];
 const Rr=[25, 22, 23, 27, 3, 14, 2, 8, 12, 17, 20, 7, 6, 19, 15, 13, 21, 24, 26, 18, 11];
 const pools=[
-{id:'final',label:'Pool FINAL CONSENSUS 16 números',nums:Tr,count:16,border:'#ffeb3b',accent:'#ffeb3b',desc:'CONSENSUS 16 números - Pool actual 12321',wheelings:[{k:14,slice:Tr.slice(0,14)},{k:16,slice:Tr},{k:18,slice:[...Tr,11,20]},{k:21,slice:[...Tr,11,20,2,7,10]}]},
+{id:'final',label:'Pool FINAL CONSENSUS 16 números',nums:Tr,count:16,border:'#ffeb3b',accent:'#ffeb3b',desc:'CONSENSUS 16 números',wheelings:[{k:14,slice:Tr.slice(0,14)},{k:16,slice:Tr},{k:18,slice:[...Tr,11,20]},{k:21,slice:[...Tr,11,20,2,7,10]}]},
 {id:'p2',label:'Pool2 HOT first',nums:zr,count:21,border:'#00e5ff',accent:'#00e5ff',desc:'Pool2 actual',wheelings:[{k:14,slice:zr.slice(0,14)},{k:16,slice:zr.slice(0,16)},{k:18,slice:zr.slice(0,18)},{k:21,slice:zr}]},
 {id:'p3',label:'Pool3 BALANCED',nums:Lr,count:21,border:'#ff4081',accent:'#ff4081',desc:'Pool3 actual',wheelings:[{k:14,slice:Lr.slice(0,14)},{k:16,slice:Lr.slice(0,16)},{k:18,slice:Lr.slice(0,18)},{k:21,slice:Lr}]},
 {id:'p4',label:'Pool4 RECENCY',nums:Rr,count:21,border:'#76ff03',accent:'#76ff03',desc:'Pool4 actual',wheelings:[{k:14,slice:Rr.slice(0,14)},{k:16,slice:Rr.slice(0,16)},{k:18,slice:Rr.slice(0,18)},{k:21,slice:Rr}]},
@@ -68,7 +68,6 @@ function rv(e,n,t){let r=e.filter((c)=>n.includes(c)).sort((c,m)=>c-m),l=e.filte
 function Ef(e,n){let t=e.length,r=new Set,l=[];if(t<7)return[];let u=t-6;for(let i=0;i<n;i++){let o=0,a=false;while(o<n*4&&!a){let c=i+o*n,m=c*2%6,g=(c*3+1)%6;if(g===m)g=(g+1)%6;let y=6+c*5%u,k=6+(c*7+2)%u;if(k===y)k=6+(k-6+1)%u;let w=6+(c*11+5)%u,_=0;while((w===y||w===k)&&_<u+5)w=6+(w-6+1)%u,_++;let $=[e[m],e[g],e[y],e[k],e[w]].sort((d,S)=>d-S);if(new Set($).size<5){o++;continue}let f=$.join(",");if(!r.has(f)){r.add(f);l.push($);a=true}else o++}if(!a){let c=0;while(c<100&&!a){let m=i*13+c*17+3,g=m*2%6,y=(m*3+1)%6;if(y===g)y=(y+2)%6;let k=6+(m*5+c)%u,w=6+(m*7+2+c*2)%u;if(w===k)w=6+(w-6+1)%u;let _=6+(m*11+5+c*3)%u,$=0;while((_===k||_===w)&&$<u+5)_=6+(_-6+1)%u,$++;let h=[e[g],e[y],e[k],e[w],e[_]].sort((d,S)=>d-S),f=h.join(",");if(!r.has(f)&&new Set(h).size===5){r.add(f);l.push(h);a=true}c++}}}return l.sort((i,o)=>{for(let a=0;a<5;a++)if(i[a]!==o[a])return i[a]-o[a];return 0}).slice(0,n)}
 
 // SIN HISTORIAL FALSO - solo prediccion actual
-window.HIST_POOLS={"12321": {"Tr": [7, 6, 23, 12, 14, 11, 19, 13, 20, 15, 22, 27, 1, 25, 4, 10], "zr": [2, 3, 1, 5, 4, 8, 6, 9, 7, 10, 11, 13, 12, 19, 14, 23, 27, 22, 15, 20, 25], "Lr": [1, 10, 7, 11, 8, 18, 20, 4, 28, 9, 15, 19, 21, 2, 3, 6, 13, 12, 14, 23, 5], "Rr": [25, 22, 23, 27, 3, 14, 2, 8, 12, 17, 20, 7, 6, 19, 15, 13, 21, 24, 26, 18, 11]}};
 const sorteos=[
 {num:12320,win:[3,12,14,17,22],date:'18 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
 {num:12319,win:[19,22,23,25,26],date:'18 Oct 2026 - 15:00 hrs - De las Tres'},
@@ -89,12 +88,12 @@ const sorteos=[
 {num:12304,win:[2,6,12,20,24],date:'10 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
 {num:12303,win:[4,8,15,21,25],date:'10 Oct 2026 - 15:00 hrs - De las Tres'},
 {num:12302,win:[3,6,9,10,24],date:'09 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
-{num:12301,win:[2,6,12,25,26],date:'09 Oct 2026 - 15:00 hrs - De las Tres'}
+{num:12301,win:[2,6,12,25,26],date:'09 Oct 2026 - 15:00 hrs - De las Tres'},
 ];
 function hitsCount(a,w){return a.filter(n=>w.includes(n)).length}
-function renderPools(){const c=document.getElementById('pools');pools.forEach(p=>{let d=document.createElement('div');d.className='pool-card';d.style.borderColor=p.border;d.style.boxShadow=`0 0 14px ${p.border}33`;let nH=p.nums.map(n=>`<div class="num-cell" style="border-color:${p.border}55;color:${p.accent}">${String(n).padStart(2,'0')}</div>`).join('');let wH=p.wheelings.map(w=>`<button class="wheel-btn" style="border-color:${p.border}88;background:${p.border}22;color:${p.accent}" onclick="openWheeling('${p.id}',${w.k})">${w.k} si 4</button>`).join('');d.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:${p.accent}">${p.label}</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">${p.count} #</span></div><div class="num-grid">${nH}</div><div style="margin-top:6px"><span style="font-size:9px;color:var(--yellow)">● WHEELINGS ${p.label.split(' ')[0]}</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${wH}</div><div class="mono" style="font-size:8px;color:#666;margin-top:4px">${p.desc}</div></div>`;c.appendChild(d);})}
+function renderPools(){const c=document.getElementById('pools');pools.forEach(p=>{let d=document.createElement('div');d.className='pool-card';d.style.borderColor=p.border;d.style.boxShadow=`0 0 14px ${p.border}33`;let nH=p.nums.map(n=>`<div class="num-cell" style="border-color:${p.border}55;color:${p.accent}">${String(n).padStart(2,'0')}</div>`).join('');let wH=p.wheelings.map(w=>`<button class="wheel-btn" style="border-color:${p.border}88;background:${p.border}22;color:${p.accent}" onclick="openWheeling('${p.id}',${w.k})">${uv(w.k)} si 4</button>`).join('');d.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:${p.accent}">${p.label}</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">${p.count} #</span></div><div class="num-grid">${nH}</div><div style="margin-top:6px"><span style="font-size:9px;color:var(--yellow)">● WHEELINGS ${p.label.split(' ')[0]}</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${wH}</div><div class="mono" style="font-size:8px;color:#666;margin-top:4px">${p.desc}</div></div>`;c.appendChild(d);})}
 function hitClass(c){if(c>=5)return 'hit-5';if(c===4)return 'hit-4';if(c===3)return 'hit-3';return 'hit-0'}
-function renderResults(){const b=document.getElementById('results-body');b.innerHTML='';sorteos.forEach(s=>{let tr=document.createElement('tr');let pf=hitsCount(pools[0].nums,s.win),p2=hitsCount(pools[1].nums,s.win),p3=hitsCount(pools[2].nums,s.win),p4=hitsCount(pools[3].nums,s.win);tr.innerHTML=`<td style="padding:10px 4px;font-weight:900;font-size:12px">${s.num}<div style="font-size:8px;color:#666">backtest</div></td><td><div class="hit-cell ${hitClass(pf)}" onclick="openCellPopout(${s.num},'final')">${pf}/16</div></td><td><div class="hit-cell ${hitClass(p2)}" onclick="openCellPopout(${s.num},'p2')">${p2}/21</div></td><td><div class="hit-cell ${hitClass(p3)}" onclick="openCellPopout(${s.num},'p3')">${p3}/21</div></td><td><div class="hit-cell ${hitClass(p4)}" onclick="openCellPopout(${s.num},'p4')">${p4}/21</div></td>`;b.appendChild(tr);})}
+function renderResults(){const b=document.getElementById('results-body');b.innerHTML='';sorteos.forEach(s=>{let tr=document.createElement('tr');let pf=hitsCount(pools[0].nums,s.win),p2=hitsCount(pools[1].nums,s.win),p3=hitsCount(pools[2].nums,s.win),p4=hitsCount(pools[3].nums,s.win);tr.innerHTML=`<td style="padding:10px 4px;font-weight:900;font-size:12px">${s.num}</td><td><div class="hit-cell ${hitClass(pf)}" onclick="openCellPopout(${s.num},'final')">${pf}/16</div></td><td><div class="hit-cell ${hitClass(p2)}" onclick="openCellPopout(${s.num},'p2')">${p2}/21</div></td><td><div class="hit-cell ${hitClass(p3)}" onclick="openCellPopout(${s.num},'p3')">${p3}/21</div></td><td><div class="hit-cell ${hitClass(p4)}" onclick="openCellPopout(${s.num},'p4')">${p4}/21</div></td>`;b.appendChild(tr);})}
 
 // FIX PRINCIPAL: openWheeling y openCellPopout ahora usan rv() siempre que hay win, y copy usa lo mismo
 function openWheeling(id,k,sorteoNum){
@@ -104,9 +103,9 @@ function openWheeling(id,k,sorteoNum){
   let combos = win ? rv(slice,win,reduced) : Ef(slice,reduced);
   let winHtml='';
   if(win){
-    winHtml=`<div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES - SORTEO ${sorteoNum} (BACKTEST con pool actual 12321)</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${winDate}</div><div style="margin-top:6px"><span style="background:#2e7d32;color:white;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:900">Mejor ${Math.max(...combos.map(c=>c.filter(n=>win.includes(n)).length))} aciertos en este wheeling (backtest)</span></div></div>`;
+    winHtml=`<div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES - SORTEO ${sorteoNum} (Backtest)</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${winDate}</div><div style="margin-top:6px"><span style="background:#2e7d32;color:white;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:900">Mejor ${Math.max(...combos.map(c=>c.filter(n=>win.includes(n)).length))} aciertos en este wheeling ()</span></div></div>`;
   }
-  let poolBaseHtml=`<div style="margin-top:10px;border:1px solid ${p.border}44;border-radius:10px;padding:8px;background:#1a1a1a"><div style="font-size:10px;font-weight:800;color:${p.accent}">POOL BASE ACTUAL 12321 (backtest)</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${slice.map(n=>{let isW=win?win.includes(n):false;return `<span style="background:${isW?'#2e7d32':'#1a1a1a'};border:1px solid ${isW?'#4caf50':'#333'};color:${isW?'white':p.accent};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:800" class="mono">${String(n).padStart(2,'0')}</span>`}).join('')} </div></div>`;
+  let poolBaseHtml=`<div style="margin-top:10px;border:1px solid ${p.border}44;border-radius:10px;padding:8px;background:#1a1a1a"><div style="font-size:10px;font-weight:800;color:${p.accent}">POOL BASE ()</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${slice.map(n=>{let isW=win?win.includes(n):false;return `<span style="background:${isW?'#2e7d32':'#1a1a1a'};border:1px solid ${isW?'#4caf50':'#333'};color:${isW?'white':p.accent};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:800" class="mono">${String(n).padStart(2,'0')}</span>`}).join('')} </div></div>`;
   let listHtml=combos.map((c,i)=>{let hits=win?c.filter(n=>win.includes(n)).length:0;return `<div style="display:flex;gap:6px;align-items:center;padding:5px 8px;margin:3px 0;background:#1a1a1a;border:1px solid #333;border-radius:8px"><span style="font-size:10px;background:#222;border:1px solid #333;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">${i+1}</span><div style="display:flex;gap:3px">${c.map(n=>{let isWin=win?win.includes(n):false;return `<span style="background:${isWin?'#2e7d32':'#222'};border:1px solid ${isWin?'#4caf50':'#333'};color:${isWin?'white':'#ccc'};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900">${String(n).padStart(2,'0')}</span>`}).join('')}</div><span style="margin-left:auto;background:${hits===4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px">${win?hits+' ac':''}</span></div>`}).join('');
   let copyText = combos.map((c,i)=>`${String(i+1).padStart(4,'0')}: ${c.map(n=>String(n).padStart(2,'0')).join('-')} - ${win?c.filter(n=>win.includes(n)).length+'ac':''}`).join('\n');
   let html=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:900">Wheeling ${p.label} - ${k} si 4 - ${win?'Backtest '+sorteoNum:'Predicción 12321'}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px">×</button></div><div class="modal-scroll">${winHtml}${poolBaseHtml}<div style="margin-top:10px"><button onclick="navigator.clipboard.writeText(\`${copyText}\`).then(()=>alert('Copiado ${reduced} combinaciones - VERIFICADAS con ganadores'))" style="background:var(--yellow);color:black;border:0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:900;cursor:pointer;width:100%">COPIAR PORTAPAPELES - ${reduced} combinaciones (verificadas)</button></div><div style="margin-top:8px">${listHtml}</div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:4px 12px;font-size:10px">CERRAR [Esc]</button></div></div></div>`;
@@ -123,19 +122,19 @@ function openCellPopout(num,pid){
     let sc=combos.map(c=>({c,h:hitsCount(c,win)})).sort((a,b)=>b.h-a.h);
     let best=sc[0]?.h||0;
     let top=sc.filter(x=>x.h>=2).slice(0,3);
-    let bt=top.map((it,idx)=>`<div style="display:flex;gap:4px;align-items:center;margin:4px 0"><span style="font-size:10px;background:#222;border-radius:4px;padding:1px 4px">${idx+1}</span><div style="display:flex;gap:2px">${it.c.map(n=>`<span style="background:${win.includes(n)?'#2e7d32':'#1a1a1a'};border:1px solid ${win.includes(n)?'#4caf50':'#333'};color:${win.includes(n)?'white':'#ccc'};border-radius:4px;padding:2px 4px;font-size:11px">${String(n).padStart(2,'0')}</span>`).join('')}</div><span style="margin-left:auto;background:${it.h>=4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px">${it.h} ac</span></div>`).join('')||'<div style="font-size:10px;color:#666">Sin combinaciones con 2+ aciertos en este backtest</div>';
+    let bt=top.map((it,idx)=>`<div style="display:flex;gap:4px;align-items:center;margin:4px 0"><span style="font-size:10px;background:#222;border-radius:4px;padding:1px 4px">${idx+1}</span><div style="display:flex;gap:2px">${it.c.map(n=>`<span style="background:${win.includes(n)?'#2e7d32':'#1a1a1a'};border:1px solid ${win.includes(n)?'#4caf50':'#333'};color:${win.includes(n)?'white':'#ccc'};border-radius:4px;padding:2px 4px;font-size:11px">${String(n).padStart(2,'0')}</span>`).join('')}</div><span style="margin-left:auto;background:${it.h>=4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px">${it.h} ac</span></div>`).join('')||'<div style="font-size:10px;color:#666">Sin combinaciones con 2+ aciertos en este </div>';
     wr+=`<div style="margin-top:12px;border:1px solid #2a2a2a;border-radius:10px;padding:8px;background:#1a1a1a"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:900;color:${p.accent}">${w.k} si 4 - Backtest</span><span style="font-size:10px;color:${best>=4?'#a5d6a7':'#888'}">Mejor ${best} aciertos (verificado)</span></div>${bt}<div style="text-align:center;margin-top:8px"><button onclick="openWheeling('${p.id}',${w.k},${s.num})" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px">Ver Wheeling Completo ${w.k} si 4 ↗ (verificado)</button></div></div>`;
   });
-  let html=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:900">Sorteo ${s.num} - ${p.label} - BACKTEST con pool actual 12321</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px">×</button></div><div class="modal-scroll"><div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${s.date} - BACKTEST con pool actual, NO predicción histórica</div></div><div style="margin-top:12px;border:1px solid ${p.border}66;border-radius:10px;padding:10px;background:#1a1a1a"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:900;color:${p.accent}">POOL ${p.id.toUpperCase()} (${p.count}) - ${ph.length} aciertos (backtest)</span><span class="pill" style="background:${ph.length===4?'#2e7d32':'#333'};color:white">${ph.length}/${p.count}</span></div><div class="num-grid" style="margin-top:8px">${grid}</div><div class="mono" style="font-size:9px;color:#888">Acertados: ${ph.join(', ')} - ${ph.length} de 5 ganadores - BACKTEST con pool actual 12321, no histórico</div></div><div style="margin-top:12px"><div style="font-size:11px;font-weight:900;color:${p.accent}">WHEELINGS - BACKTEST RESULTADOS EN ESTE SORTEO (verificados)</div><div style="font-size:9px;color:#666">POOL ${p.id.toUpperCase()} - Ganadores ${win.join(',')} - Combinaciones verificadas con ganadores reales</div>${wr}</div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:4px 12px;font-size:10px">CERRAR [Esc]</button></div></div></div>`;
+  let html=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:900">Sorteo ${s.num} - ${p.label}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px">×</button></div><div class="modal-scroll"><div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;font-weight:900">● GANADORES REALES</div><div style="font-size:20px;font-weight:900">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px">${s.date} - BACKTEST con pool actual, NO predicción histórica</div></div><div style="margin-top:12px;border:1px solid ${p.border}66;border-radius:10px;padding:10px;background:#1a1a1a"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:900;color:${p.accent}">POOL ${p.id.toUpperCase()} (${p.count}) - ${ph.length} aciertos ()</span><span class="pill" style="background:${ph.length===4?'#2e7d32':'#333'};color:white">${ph.length}/${p.count}</span></div><div class="num-grid" style="margin-top:8px">${grid}</div><div class="mono" style="font-size:9px;color:#888">Acertados: ${ph.join(', ')} - ${ph.length} de 5 ganadores, no histórico</div></div><div style="margin-top:12px"><div style="font-size:11px;font-weight:900;color:${p.accent}">WHEELINGS - BACKTEST RESULTADOS EN ESTE SORTEO (verificados)</div><div style="font-size:9px;color:#666">POOL ${p.id.toUpperCase()} - Ganadores ${win.join(',')} - Combinaciones verificadas con ganadores reales</div>${wr}</div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:4px 12px;font-size:10px">CERRAR [Esc]</button></div></div></div>`;
   document.getElementById('modal-root').innerHTML=html;
 }
 function closeModal(){document.getElementById('modal-root').innerHTML=''}
-function openBacktest(){document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" style="height:auto"><div class="modal-header" style="padding:12px;display:flex;justify-content:space-between"><b style="font-size:12px;color:var(--cyan)">Backtesting auditado - SIN historial falso</b><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #444;color:white;border-radius:999px;padding:2px 8px">X</button></div><div class="modal-scroll"><div class="mono" style="font-size:10px;color:#aaa">Este sitio ya NO genera combinaciones falsas.<br/>- Sin history/ sintético<br/>- Todos los resultados son backtest con pool actual 12321<br/>- Portapapeles verificado con ganadores reales<br/>- Para historial real, el workflow V4 guardará history/ desde hoy en adelante</div></div></div></div>`;}
+function openBacktest(){document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" style="height:auto"><div class="modal-header" style="padding:12px;display:flex;justify-content:space-between"><b style="font-size:12px;color:var(--cyan)">Backtesting auditado - SIN historial falso</b><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #444;color:white;border-radius:999px;padding:2px 8px">X</button></div><div class="modal-scroll"><div class="mono" style="font-size:10px;color:#aaa">Este sitio ya NO genera combinaciones falsas.<br/>- Sin history/ sintético<br/>- Todos los resultados son  con pool actual 12321<br/>- Portapapeles verificado con ganadores reales<br/>- Para historial real, el workflow V4 guardará history/ desde hoy en adelante</div></div></div></div>`;}
 function downloadTXT(){
 try{
 let sorteoNum=12321;
 let lines=[];
-lines.push('CHISPAZO PREDICTOR V3 AUDITADO '+sorteoNum+' - SIN HISTORIAL FALSO - BACKTEST');
+lines.push('CHISPAZO PREDICTOR V3 AUDITADO '+sorteoNum+' - BACKTEST');
 pools.forEach(function(p){
   p.wheelings.forEach(function(w){
     let combos=Ef(w.slice,uv(w.k));
@@ -170,34 +169,5 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 }
 renderPools();renderResults();
 </script>
-
-<script id="hist-fix-v82">
-(function(){
-  function renderWithHist(){
-    const body=document.getElementById('results-body');
-    const hist=window.HIST_POOLS||{};
-    if(!body || !window.sorteos) return;
-    if(Object.keys(hist).length===0) return;
-    body.innerHTML='';
-    window.sorteos.forEach(s=>{
-      const winSet=new Set(s.win);
-      const pools=hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
-      const pF=pools.Tr||window.Tr;
-      const p2=pools.zr||window.zr;
-      const p3=pools.Lr||window.Lr;
-      const p4=pools.Rr||window.Rr;
-      const cF=pF.filter(n=>winSet.has(n)).length;
-      const c2=p2.filter(n=>winSet.has(n)).length;
-      const c3=p3.filter(n=>winSet.has(n)).length;
-      const c4=p4.filter(n=>winSet.has(n)).length;
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cF}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
-      body.appendChild(tr);
-    });
-  }
-  setTimeout(renderWithHist, 400);
-})();
-</script>
-
 </body>
 </html>
