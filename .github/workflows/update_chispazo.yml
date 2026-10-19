@@ -54,7 +54,7 @@ jobs:
           PY
       - name: Generar Pools V4
         run: |
-          python3 generate_pools_v4.py
+          python3 generate_pools.py
           cat /tmp/pools.js
           cat /tmp/next_prediction.json
       - name: Actualizar index.html y guardar historial nuevo
