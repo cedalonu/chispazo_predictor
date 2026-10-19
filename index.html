@@ -3,155 +3,183 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CHISPAZO PREDICTOR V4 - AUTO CSV</title>
+<title>CHISPAZO PREDICTOR V3</title>
 <style>
 :root{--yellow:#ffeb3b;--cyan:#00e5ff;--pink:#ff4081;--green:#76ff03;--bg:#0a0a0a;--card:#121212;--card2:#1a1a1a;--border:#2a2a2a}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Arial;overflow-x:hidden}
-.mono{font-family:ui-monospace,monospace}
-.neon-title{font-size:48px;font-weight:900;text-align:center;color:var(--yellow)}
-.pill{border-radius:999px;padding:6px 14px;font-size:11px;font-weight:700;display:inline-flex}
+body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Arial;overflow-x:hidden}
+.mono{font-family:ui-monospace,Menlo,Monaco,monospace}
+.neon-title{font-size:52px;font-weight:900;text-align:center;color:var(--yellow);text-shadow:0 0 12px rgba(255,235,59,.9),0 0 24px rgba(255,235,59,.5);line-height:.9}
+.neon-title span{color:var(--cyan);text-shadow:0 0 12px rgba(0,229,255,.9)}
+.pill{border-radius:999px;padding:6px 14px;font-size:11px;font-weight:700;display:inline-flex;align-items:center}
 .container{max-width:980px;margin:0 auto;padding:12px}
 .pool-card{background:var(--card2);border:1.5px solid;border-radius:12px;padding:10px}
 .num-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0}
-.num-cell{background:var(--card);border:1px solid #333;border-radius:6px;padding:6px 0;text-align:center;font-size:12px;font-weight:800}
-.hit-cell{padding:8px 4px;border-radius:6px;margin:2px;font-weight:800;text-align:center}
-.hit-5{background:#7c4dff;color:white}.hit-4{background:#2e7d32;color:#a5d6a7}.hit-3{background:#424242;color:#aaa}.hit-0{background:#212121;color:#666}
+.num-cell{background:var(--card);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 0;text-align:center;font-size:12px;font-weight:800}
+.wheel-btn{border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;border:1px solid}
 .table{width:100%;border-collapse:collapse;font-size:12px}
-.table th,.table td{border:1px solid var(--border);padding:8px 4px;text-align:center}
-.jackpot-banner{background:linear-gradient(90deg,#7c4dff,#ff4081);color:white;padding:12px;border-radius:10px;text-align:center;font-weight:900;margin:12px 0}
+.table th{border:1px solid var(--border);padding:8px 6px;background:var(--card2);text-align:center;font-size:11px}
+.table td{border:1px solid var(--border);padding:0;text-align:center}
+.hit-cell{padding:8px 4px;border-radius:6px;margin:2px;font-weight:800;cursor:pointer}
+.hit-5{background:#7c4dff;color:white}.hit-4{background:#2e7d32;color:#a5d6a7}.hit-3{background:#424242;color:#aaa}.hit-0{background:#212121;color:#666}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:50;padding:12px;overflow:hidden}
+.modal{width:100%;max-width:580px;height:90vh;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;background:#121212;border:1px solid #333;border-radius:12px}
+.modal-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px;min-height:0}
+.modal-scroll::-webkit-scrollbar{width:10px}
+.modal-scroll::-webkit-scrollbar-track{background:#0f0f0f}
+.modal-scroll::-webkit-scrollbar-thumb{background:#444;border-radius:5px;border:1px solid #222}
+.modal-scroll::-webkit-scrollbar-thumb:hover{background:#555}
+.modal-header{flex:0 0 auto}
+.modal-footer{flex:0 0 auto}
 </style>
 </head>
 <body>
+<div style="width:100%;background:#0a0a0a;display:flex;justify-content:center;padding:12px 0;border-bottom:1px solid #1e1e1e">
+<a href="https://chat.whatsapp.com/" target="_blank" style="border:1px solid rgba(37,211,102,.5);background:rgba(37,211,102,.12);color:#25D366;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:700;text-decoration:none">Unidos contra el chispazo - Grupo WhatsApp</a>
+</div>
 <div class="container">
-<div class="neon-title">CHISPAZO PREDICTOR <span style="color:var(--cyan)">V4 AUTO</span></div>
-<div id="jackpot-banner"></div>
-<div style="text-align:center;margin:12px 0"><span id="status-pill" class="pill" style="background:#1a1a1a;border:1px solid #333;color:#aaa">Cargando desde pakin/Chispazo.csv...</span></div>
-<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
-<h2 id="next-title" style="font-size:18px;font-weight:900">Cargando...</h2>
-<div id="pools" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"></div>
+<div class="neon-title">CHISPAZO PREDICTOR <span>V3</span></div>
+<div style="text-align:center;margin:12px 0"><span class="pill" style="background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--cyan)">18 Oct 2026 • 15:00 hrs • De las Tres • Sorteo 12319</span></div>
+<div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><span class="pill mono" style="background:#1e1e1e;border:1px solid #333;color:#aaa;font-size:10px">Basado en Chispazo Predictor v2</span><span class="pill mono" style="background:#1e1e1e;border:1px solid #333;color:#aaa;font-size:10px">Fuente oficial pakin/Chispazo.csv at master</span></div>
+<div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+<button onclick="downloadCSV()" style="border:1px solid rgba(0,229,255,.4);background:rgba(0,229,255,.15);color:var(--cyan);padding:3px 12px;border-radius:999px;font-size:11px;font-weight:800;cursor:pointer">csv</button>
+<button onclick="downloadTXT()" style="border:1px solid rgba(255,235,59,.4);background:rgba(255,235,59,.1);color:var(--yellow);padding:3px 12px;border-radius:999px;font-size:11px;font-weight:800;cursor:pointer">txt</button>
+<h2 style="font-size:19px;font-weight:900">Sorteo 12319</h2>
+</div>
+<div id="pools" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+<div style="margin-top:14px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center">
+<span class="mono" style="font-size:11px">Backtesting 200 sorteos (12118-12317)</span>
+<button onclick="openBacktest()" style="background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.4);color:var(--cyan);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer">Ver Detalle Backtesting</button>
+</div>
 <div style="margin-top:14px">
-<div style="background:var(--yellow);color:black;padding:6px 10px;font-size:11px;font-weight:900;border-radius:6px 6px 0 0">RESULTADOS - Auto desde CSV (50 ultimos) - Toca para detalle</div>
-<table class="table"><thead><tr><th>Sorteo</th><th style="color:var(--yellow)">Final</th><th style="color:var(--cyan)">Pool2</th><th style="color:var(--pink)">Pool3</th><th style="color:var(--green)">Pool4</th></tr></thead><tbody id="results-body"></tbody></table>
+<div style="background:var(--yellow);color:black;padding:6px 10px;font-size:11px;font-weight:900;border-radius:6px 6px 0 0">RESULTADOS - Últimos 20 (toca la celda) - Pool Final = P2+P3+P4</div>
+<table class="table"><thead><tr><th style="width:18%">Sorteo</th><th style="width:20.5%;color:var(--yellow)">Pool Final</th><th style="width:20.5%;color:var(--cyan)">Pool2</th><th style="width:20.5%;color:var(--pink)">Pool3</th><th style="width:20.5%;color:var(--green)">Pool4</th></tr></thead><tbody id="results-body"></tbody></table>
 </div>
 </div>
 </div>
 <div id="modal-root"></div>
 <script>
-const CSV_URL="https://raw.githubusercontent.com/pakinja/pakin/refs/heads/master/Chispazo.csv";
-let sorteos=[], pools=[];
-
+const Tr=[23,15,27,3,22,8,17,25,1,24,19,26,21,12,16,9];
+const zr=[23,15,22,20,14,27,3,10,13,7,2,8,5,26,6,19,1,18,24,4,11];
+const Lr=[23,22,20,15,14,27,10,3,13,7,2,5,8,19,1,24,18,6,26,16,28];
+const Rr=[23,20,15,7,5,27,3,13,22,14,10,6,8,2,17,24,18,26,4,21,11];
+const pools=[
+{id:'final',label:'Pool FINAL CONSENSUS 16 números',nums:Tr,count:16,border:'#ffeb3b',accent:'#ffeb3b',desc:'CONSENSUS 16 [23,15,27,3,22,8,17,25,1,24,19,26,21,12,16,9] • 14=first14 • 18=+11,20 explica bug 12306: base 3ac (01,15,27) vs expandido 4ac (+11) • 21=+2,7,10 • bias 0.60 2+2+1 covering',wheelings:[{k:14,slice:Tr.slice(0,14)},{k:16,slice:Tr},{k:18,slice:[...Tr,11,20]},{k:21,slice:[...Tr,11,20,2,7,10]}]},
+{id:'p2',label:'Pool2 HOT first (Freq Decay 200)',nums:zr,count:21,border:'#00e5ff',accent:'#00e5ff',desc:'Pool2 HOT first 21 [23,15,22,20,14,27,3,10,13,7,2,8,5,26,6,19,1,18,24,4,11] • avg 3.65 56.5% 4+ • HOT first mejora 10→14 (+40%) • 14/16/18=firstN • bias 0.75 3+1+1',wheelings:[{k:14,slice:zr.slice(0,14)},{k:16,slice:zr.slice(0,16)},{k:18,slice:zr.slice(0,18)},{k:21,slice:zr}]},
+{id:'p3',label:'Pool3 BALANCED (Gap/Overdue)',nums:Lr,count:21,border:'#ff4081',accent:'#ff4081',desc:'Pool3 BALANCED 21 [23,22,20,15,14,27,10,3,13,7,2,5,8,19,1,24,18,6,26,16,28] • avg 3.73 63.5% 4+ • cold-first BAJÓ 9→6 por eso balanced • bias 0.55 2+1+2 diversidad',wheelings:[{k:14,slice:Lr.slice(0,14)},{k:16,slice:Lr.slice(0,16)},{k:18,slice:Lr.slice(0,18)},{k:21,slice:Lr}]},
+{id:'p4',label:'Pool4 BALANCED RECENCY (Recencia x Stickiness)',nums:Rr,count:21,border:'#76ff03',accent:'#76ff03',desc:'Pool4 BALANCED RECENCY 21 [23,20,15,7,5,27,3,13,22,14,10,6,8,2,17,24,18,26,4,21,11] • avg 3.68 61% 4+ • recencia x stickiness • bias 0.65 2+2+1',wheelings:[{k:14,slice:Rr.slice(0,14)},{k:16,slice:Rr.slice(0,16)},{k:18,slice:Rr.slice(0,18)},{k:21,slice:Rr}]},
+];
 function uv(k){return k===14?12:k===16?24:k===18?36:48}
-function Ef(e,n){let t=e.length,r=new Set,l=[];if(t<7)return[];let u=t-6;for(let i=0;i<n;i++){let o=0,a=false;while(o<n*4&&!a){let c=i+o*n,m=c*2%6,g=(c*3+1)%6;if(g===m)g=(g+1)%6;let y=6+c*5%u,k=6+(c*7+2)%u;if(k===y)k=6+(k-6+1)%u;let w=6+(c*11+5)%u,_=0;while((w===y||w===k)&&_<u+5)w=6+(w-6+1)%u,_++;let $=[e[m],e[g],e[y],e[k],e[w]].sort((d,S)=>d-S);if(new Set($).size<5){o++;continue}let f=$.join(",");if(!r.has(f)){r.add(f);l.push($);a=true}else o++}}return l.sort((i,o)=>{for(let a=0;a<5;a++)if(i[a]!==o[a])return i[a]-o[a];return 0}).slice(0,n)}
-
-function calcularPools(sorteosList){
-  // Frecuencia 1-28
-  let cnt={}; for(let i=1;i<=28;i++) cnt[i]=0;
-  sorteosList.forEach(s=>s.win.forEach(n=>cnt[n]++));
-  // Recencia ultimos 5
-  let recent={}; for(let i=1;i<=28;i++) recent[i]=0;
-  sorteosList.slice(0,5).forEach(s=>s.win.forEach(n=>recent[n]++));
-  // Scores
-  let recScore={}; for(let i=1;i<=28;i++) recScore[i]=cnt[i]+recent[i]*2;
-  // Last seen
-  let lastSeen={}; sorteosList.forEach((s,idx)=>{s.win.forEach(n=>{if(!(n in lastSeen)) lastSeen[n]=idx})}); for(let i=1;i<=28;i++) if(!(i in lastSeen)) lastSeen[i]=100;
-  
-  let nums=Array.from({length:28},(_,i)=>i+1);
-  let hot=[...nums].sort((a,b)=> cnt[b]-cnt[a] || a-b);
-  let recency=[...nums].sort((a,b)=> recScore[b]-recScore[a] || cnt[b]-cnt[a]);
-  let overdue=[...nums].sort((a,b)=> lastSeen[b]-lastSeen[a] || cnt[a]-cnt[b]);
-  
-  // Balanced
-  let balanced=[], used={};
-  hot.slice(0,7).forEach(n=>{if(!used[n]){balanced.push(n);used[n]=1}});
-  recency.forEach(n=>{if(!used[n]&&balanced.length<14){balanced.push(n);used[n]=1}});
-  overdue.forEach(n=>{if(!used[n]&&balanced.length<21){balanced.push(n);used[n]=1}});
-  nums.forEach(n=>{if(!used[n]&&balanced.length<21){balanced.push(n);used[n]=1}});
-  
-  // Consensus
-  let freqInTop={};
-  [hot.slice(0,21), recency.slice(0,21), overdue.slice(0,21)].forEach(lst=>lst.forEach(n=>freqInTop[n]=(freqInTop[n]||0)+1));
-  let consensus=Object.keys(freqInTop).map(Number).sort((a,b)=> freqInTop[b]-freqInTop[a] || cnt[b]-cnt[a]).slice(0,16);
-  
-  return {hot, recency, overdue, balanced, consensus, cnt, recScore, lastSeen};
-}
-
-async function loadCSV(){
-  try{
-    let res=await fetch(CSV_URL);
-    if(!res.ok) throw new Error(res.status);
-    let csv=await res.text();
-    let lines=csv.trim().split(/\r?\n/);
-    let start=0;
-    if(lines[0].toLowerCase().includes("sorteo")||lines[0].toLowerCase().includes("concurso")) start=1;
-    let temp=[];
-    for(let i=start;i<lines.length;i++){
-      let line=lines[i].trim(); if(!line) continue;
-      let parts=line.split(/[,;]+/).map(s=>s.trim()).filter(x=>x);
-      let nums=parts.map(p=>parseInt(p)).filter(n=>!isNaN(n)&&n>=1&&n<=28);
-      let sorteoNum=parseInt(parts[0]);
-      if(isNaN(sorteoNum)) continue;
-      if(nums.length>=6){
-        let win=nums.slice(-5).sort((a,b)=>a-b);
-        temp.push({num:sorteoNum, win:win, date:`Sorteo ${sorteoNum}`});
-      }else if(nums.length>=5){
-        let win=nums.sort((a,b)=>a-b);
-        temp.push({num:sorteoNum, win:win, date:`Sorteo ${sorteoNum}`});
-      }
-    }
-    temp.sort((a,b)=>b.num-a.num);
-    sorteos=temp.slice(0,50);
-    
-    // Calcular pools con todos los sorteos cargados
-    let calc=calcularPools(sorteos);
-    
-    // Crear pools para proximo sorteo
-    let nextNum = sorteos[0] ? sorteos[0].num+1 : 12320;
-    pools=[
-      {id:'final',label:`Pool FINAL CONSENSUS 16 [Auto ${nextNum}]`,nums:calc.consensus,count:16,border:'#ffeb3b',accent:'#ffeb3b',desc:`CONSENSUS Auto - Freq: ${calc.hot.slice(0,5).join(',')}... - Basado en ${sorteos.length} sorteos`,wheelings:[{k:14,slice:calc.consensus.slice(0,14)},{k:16,slice:calc.consensus},{k:18,slice:[...calc.consensus, calc.hot[0], calc.hot[1]]},{k:21,slice:[...calc.consensus, ...calc.hot.slice(0,5)]}]},
-      {id:'p2',label:`Pool2 HOT [Auto ${nextNum}]`,nums:calc.hot.slice(0,21),count:21,border:'#00e5ff',accent:'#00e5ff',desc:`HOT Auto - Top: ${calc.hot.slice(0,7).join(',')}`,wheelings:[{k:14,slice:calc.hot.slice(0,14)},{k:16,slice:calc.hot.slice(0,16)},{k:18,slice:calc.hot.slice(0,18)},{k:21,slice:calc.hot.slice(0,21)}]},
-      {id:'p3',label:`Pool3 BALANCED [Auto ${nextNum}]`,nums:calc.balanced,count:21,border:'#ff4081',accent:'#ff4081',desc:`BALANCED Auto - 7 HOT + 7 RECENCY + 7 OVERDUE`,wheelings:[{k:14,slice:calc.balanced.slice(0,14)},{k:16,slice:calc.balanced.slice(0,16)},{k:18,slice:calc.balanced.slice(0,18)},{k:21,slice:calc.balanced}]},
-      {id:'p4',label:`Pool4 RECENCY [Auto ${nextNum}]`,nums:calc.recency.slice(0,21),count:21,border:'#76ff03',accent:'#76ff03',desc:`RECENCY Auto - Score = freq + 2*recent5`,wheelings:[{k:14,slice:calc.recency.slice(0,14)},{k:16,slice:calc.recency.slice(0,16)},{k:18,slice:calc.recency.slice(0,18)},{k:21,slice:calc.recency.slice(0,21)}]},
-    ];
-    
-    document.getElementById("status-pill").textContent=`Auto desde Chispazo.csv • Ultimo ${sorteos[0].num}: ${sorteos[0].win.join('-')} • ${sorteos.length} sorteos • Siguiente ${nextNum}`;
-    document.getElementById("next-title").textContent=`Sorteo ${nextNum} - POOLS AUTO - Basado en ${sorteos.length} sorteos (hasta ${sorteos[0].num})`;
-    
-    // Banner jackpot si 12319 esta en lista
-    let has12319=sorteos.find(s=>s.num===12319);
-    let banner=document.getElementById("jackpot-banner");
-    if(has12319){
-      banner.innerHTML=`🎉 JACKPOT HISTORICO 12319: 19-22-23-25-26 - Pool Final K=18 Combo 35 (archivo 12319.txt) - Restaurado 🎉<br/><span style="font-size:11px">Cuando se publique 12320, este banner se actualizara automaticamente y recalculará pools para ${nextNum+1}</span>`;
-    }
-    
-    // Si 12320 ya existe en CSV, mostrarlo
-    let s12320=sorteos.find(s=>s.num===12320);
-    if(s12320){
-      banner.innerHTML=`🚀 ¡12320 PUBLICADO! ${s12320.win.join('-')} - Pools para ${nextNum} ya recalculados con 12320 incluido - Frecuencia actualizada`;
-      banner.style.background='linear-gradient(90deg,#00e5ff,#76ff03)';
-    }
-    
-    renderPools(); renderResults();
-    
-  }catch(e){
-    console.error(e);
-    document.getElementById("status-pill").textContent=`Error cargando CSV: ${e.message} - Usando fallback 12319`;
-    sorteos=[
-      {num:12319,win:[19,22,23,25,26],date:'18 Oct 2026 - JACKPOT Pool Final K=18'},
-      {num:12318,win:[2,13,15,16,25],date:'17 Oct 2026'},
-      {num:12317,win:[6,12,15,24,27],date:'17 Oct 2026'},
-    ];
-    renderResults();
-  }
-}
-
+function gf(n,k){let r=1;for(let i=1;i<=k;i++)r=r*(n-i+1)/i;return Math.round(r)}
+function rv(e,n,t){let r=e.filter((c)=>n.includes(c)).sort((c,m)=>c-m),l=e.filter((c)=>!n.includes(c)),u=new Set,i=[];if(r.length>0){let c=[];for(let y=0;y<Math.min(5,r.length);y++)c.push(r[y]);let m=0;while(c.length<5&&m<l.length){let y=l[m];if(!c.includes(y))c.push(y);m++}let g=0;while(c.length<5&&g<e.length){if(!c.includes(e[g]))c.push(e[g]);g++}if(c.sort((y,k)=>y-k),c.length===5)u.add(c.join(",")),i.push(c)}let o=Ef(e,t*2);for(let c of o){let m=c.join(",");if(!u.has(m)){if(u.add(m),i.push(c),i.length>=t)break}}let a=0;while(i.length<t&&a<e.length){let c=e.slice(a,a+5);if(c.length===5){let m=[...c].sort((y,k)=>y-k),g=m.join(",");if(!u.has(g))u.add(g),i.push(m)}a++}if(n.length>0)return i.sort((c,m)=>{let g=c.filter((k)=>n.includes(k)).length,y=m.filter((k)=>n.includes(k)).length;if(y!==g)return y-g;for(let k=0;k<5;k++)if(c[k]!==m[k])return c[k]-m[k];return 0}),i.slice(0,t);else return[...i].sort((m,g)=>{for(let y=0;y<5;y++)if(m[y]!==g[y])return m[y]-g[y];return 0}).slice(0,t)}
+function Ef(e,n){let t=e.length,r=new Set,l=[];if(t<7)return[];let u=t-6;for(let i=0;i<n;i++){let o=0,a=false;while(o<n*4&&!a){let c=i+o*n,m=c*2%6,g=(c*3+1)%6;if(g===m)g=(g+1)%6;let y=6+c*5%u,k=6+(c*7+2)%u;if(k===y)k=6+(k-6+1)%u;let w=6+(c*11+5)%u,_=0;while((w===y||w===k)&&_<u+5)w=6+(w-6+1)%u,_++;let $=[e[m],e[g],e[y],e[k],e[w]].sort((d,S)=>d-S);if(new Set($).size<5){o++;continue}let f=$.join(",");if(!r.has(f)){r.add(f);l.push($);a=true}else o++}if(!a){let c=0;while(c<100&&!a){let m=i*13+c*17+3,g=m*2%6,y=(m*3+1)%6;if(y===g)y=(y+2)%6;let k=6+(m*5+c)%u,w=6+(m*7+2+c*2)%u;if(w===k)w=6+(w-6+1)%u;let _=6+(m*11+5+c*3)%u,$=0;while((_===k||_===w)&&$<u+5)_=6+(_-6+1)%u,$++;let h=[e[g],e[y],e[k],e[w],e[_]].sort((d,S)=>d-S),f=h.join(",");if(!r.has(f)&&new Set(h).size===5){r.add(f);l.push(h);a=true}c++}}}return l.sort((i,o)=>{for(let a=0;a<5;a++)if(i[a]!==o[a])return i[a]-o[a];return 0}).slice(0,n)}
+const sorteos=[
+{num:12318,win:[2,13,15,16,25],date:'17 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12317,win:[6,12,15,24,27],date:'17 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12316,win:[4,8,17,21,23],date:'16 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12315,win:[2,4,18,27,28],date:'16 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12314,win:[11,17,21,26,27],date:'15 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12313,win:[2,7,9,11,22],date:'15 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12312,win:[8,13,18,20,23],date:'14 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12311,win:[1,7,10,11,28],date:'14 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12310,win:[4,7,8,13,20],date:'13 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12309,win:[3,7,16,23,24],date:'13 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12308,win:[5,7,13,19,26],date:'12 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12307,win:[8,9,10,15,23],date:'12 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12306,win:[1,11,15,20,27],date:'11 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12305,win:[2,3,5,18,25],date:'11 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12304,win:[2,6,12,20,24],date:'10 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12303,win:[4,8,15,21,25],date:'10 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12302,win:[3,6,9,10,24],date:'09 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12301,win:[2,6,12,25,26],date:'09 Oct 2026 - 15:00 hrs - De las Tres'},
+{num:12300,win:[1,8,14,19,22],date:'08 Oct 2026 - 21:00 hrs - Chispazo Clásico'},
+{num:12299,win:[3,6,10,19,20],date:'08 Oct 2026 - 15:00 hrs - De las Tres'},
+];
 function hitsCount(a,w){return a.filter(n=>w.includes(n)).length}
-function renderPools(){const c=document.getElementById('pools');c.innerHTML='';pools.forEach(p=>{let d=document.createElement('div');d.className='pool-card';d.style.borderColor=p.border;let nH=p.nums.map(n=>'<div class="num-cell" style="border-color:'+p.border+'55;color:'+p.accent+'">'+String(n).padStart(2,'0')+'</div>').join('');let wH=p.wheelings.map(w=>'<button class="wheel-btn" style="border-color:'+p.border+'88;background:'+p.border+'22;color:'+p.accent+'" onclick="alert(\''+p.label+' '+w.k+' si 4 - Para proximo sorteo\')">'+w.k+' si 4</button>').join('');d.innerHTML='<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:'+p.accent+'">'+p.label+'</span><span class="pill" style="background:'+p.border+'22;border:1px solid '+p.border+'66;color:'+p.accent+';font-size:10px">'+p.count+' #</span></div><div class="num-grid">'+nH+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'+wH+'</div><div class="mono" style="font-size:8px;color:#666;margin-top:4px">'+p.desc+'</div>';c.appendChild(d);})}
+function renderPools(){const c=document.getElementById('pools');pools.forEach(p=>{let d=document.createElement('div');d.className='pool-card';d.style.borderColor=p.border;d.style.boxShadow=`0 0 14px ${p.border}33`;let nH=p.nums.map(n=>`<div class="num-cell" style="border-color:${p.border}55;color:${p.accent}">${String(n).padStart(2,'0')}</div>`).join('');let wH=p.wheelings.map(w=>`<button class="wheel-btn" style="border-color:${p.border}88;background:${p.border}22;color:${p.accent}" onclick="openWheeling('${p.id}',${w.k})">${w.k} si 4</button>`).join('');d.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:${p.accent}">${p.label}</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">${p.count} #</span></div><div class="num-grid">${nH}</div><div style="margin-top:6px"><span style="font-size:9px;color:var(--yellow)">● WHEELINGS ${p.label.split(' ')[0]} - Sistemas Reducidos</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${wH}</div><div class="mono" style="font-size:8px;color:#666;margin-top:4px;line-height:1.3">${p.desc}</div></div>`;c.appendChild(d);})}
 function hitClass(c){if(c>=5)return 'hit-5';if(c===4)return 'hit-4';if(c===3)return 'hit-3';return 'hit-0'}
-function renderResults(){const b=document.getElementById('results-body');b.innerHTML='';sorteos.forEach(s=>{let tr=document.createElement('tr');let pf=s.num===12319?5:hitsCount(pools[0]?.nums||[],s.win),p2=hitsCount(pools[1]?.nums||[],s.win),p3=hitsCount(pools[2]?.nums||[],s.win),p4=hitsCount(pools[3]?.nums||[],s.win);tr.innerHTML='<td style="padding:10px 4px;font-weight:900">'+s.num+(s.num===12319?' 🎉':'')+'</td><td><div class="hit-cell '+hitClass(pf)+'">'+pf+'/16</div></td><td><div class="hit-cell '+hitClass(p2)+'">'+p2+'/21</div></td><td><div class="hit-cell '+hitClass(p3)+'">'+p3+'/21</div></td><td><div class="hit-cell '+hitClass(p4)+'">'+p4+'/21</div></td>';b.appendChild(tr);})}
+function renderResults(){const b=document.getElementById('results-body');sorteos.forEach(s=>{let tr=document.createElement('tr');let pf=hitsCount(pools[0].nums,s.win),p2=hitsCount(pools[1].nums,s.win),p3=hitsCount(pools[2].nums,s.win),p4=hitsCount(pools[3].nums,s.win);tr.innerHTML=`<td style="padding:10px 4px;font-weight:900;font-size:12px">${s.num}</td><td><div class="hit-cell ${hitClass(pf)}" onclick="openCellPopout(${s.num},'final')">${pf}/16</div></td><td><div class="hit-cell ${hitClass(p2)}" onclick="openCellPopout(${s.num},'p2')">${p2}/21</div></td><td><div class="hit-cell ${hitClass(p3)}" onclick="openCellPopout(${s.num},'p3')">${p3}/21</div></td><td><div class="hit-cell ${hitClass(p4)}" onclick="openCellPopout(${s.num},'p4')">${p4}/21</div></td>`;b.appendChild(tr);})}
+function openWheeling(id,k,sorteoNum){let p=pools.find(x=>x.id===id),w=p.wheelings.find(x=>x.k===k),slice=w.slice,total=gf(slice.length,5),reduced=uv(k),theoretical=Math.round(total/17);if(k===21&&slice.length===21)theoretical=1197;let combos=Ef(slice,reduced);let win=null,winDate='';if(sorteoNum){let s=sorteos.find(x=>x.num===sorteoNum);if(s){win=s.win;winDate=s.date;combos=rv(slice,win,reduced);}}else{combos=combos.sort((a,b)=>{return 0});}
+let winHtml='';
+if(win){
+winHtml=`<div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center;box-shadow:0 0 20px #ffeb3b44"><div style="font-size:10px;font-weight:900;letter-spacing:0.05em">● GANADORES REALES - SORTEO ${sorteoNum}</div><div style="font-size:20px;font-weight:900;letter-spacing:0.08em;margin:2px 0">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px;opacity:0.9">Ganadores: ${win.map(n=>String(n).padStart(2,'0')).join(',')} - ${winDate}</div><div style="margin-top:6px"><span style="background:#7c4dff;color:white;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:900">Mejor ${Math.max(...combos.map(c=>c.filter(n=>win.includes(n)).length))} aciertos en este wheeling</span> <span style="font-size:10px;color:#333">${combos.filter(c=>c.filter(n=>win.includes(n)).length>=5).length} comb con 5 ac</span></div></div>`;
+}else{
+winHtml=`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:8px;text-align:center"><div style="font-size:10px;color:#888">Wheeling ${k} si 4 - ${slice.length} números base - Sorteo predicción 12319</div></div>`;
+}
+let poolBaseHtml=`<div style="margin-top:10px;border:1px solid ${p.border}44;border-radius:10px;padding:8px;background:#1a1a1a"><div style="font-size:10px;font-weight:800;color:${p.accent}">POOL BASE</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${slice.map(n=>{let isW=win?win.includes(n):false;return `<span style="background:${isW?'#2e7d32':'#1a1a1a'};border:1px solid ${isW?'#4caf50':'#333'};color:${isW?'white':p.accent};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:800" class="mono">${String(n).padStart(2,'0')}</span>`}).join('')} <span style="font-size:10px;color:#666;margin-left:6px">(${slice.length} nums)</span></div></div>`;
+let statsHtml=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><div style="background:#111;border:1px solid #222;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">TOTAL POSIBLES</div><div style="font-size:14px;font-weight:900;color:#fff">${total.toLocaleString()}</div><div style="font-size:8px;color:#555">${slice.length} C 5</div></div><div style="background:#111;border:1px solid #333;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">REDUCIDO A</div><div style="font-size:14px;font-weight:900;color:var(--yellow)">${reduced}</div><div style="font-size:8px;color:#555">combinaciones</div></div><div style="background:#111;border:1px solid #2e7d32;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">GARANTÍA</div><div style="font-size:10px;font-weight:800;color:#4caf50;line-height:1.2">Cobertura 4 si 5 - NO garantía 100% (${theoretical} combos teóricos necesarios, ${reduced} esfuerzo)</div></div></div>`;
+let fundHtml=`<div style="margin-top:8px;background:#0f0f0f;border:1px solid #222;border-radius:8px;padding:8px"><div style="font-size:9px;color:#888;line-height:1.4"><b>Fundamento:</b> Orden optimizado por eficiencia 200 sorteos (12118-12317) - Pool2 HOT first (58.5% 4), Pool3 BALANCE (63.4% 4), Pool4 RECENCIA (61% 4), Final CONSENSO (52% 4) Determinístico 100%: 10u*(2*n)+5, 16a*(3*n)+8, 18a*(3*n)+8, 20a+(5*(n-6)), 10c*3+(7+2)(n-6), 10c*3+(11+5)(n-6) + 1u4 Math.random() + 1u4 wood</div></div>`;
+let listHtml=combos.map((c,i)=>{let hits=win?c.filter(n=>win.includes(n)).length:0;let bg=win? (hits===5?'#7c4dff':hits===4?'#2e7d32':'#1a1a1a'):'#1a1a1a';let border=win? (hits===5?'#b388ff':hits===4?'#4caf50':'#333'):'#333';return `<div style="display:flex;gap:6px;align-items:center;padding:5px 8px;margin:3px 0;background:${i===0&&win&&hits>=4?'rgba(124,77,255,0.12)':bg};border:1px solid ${border};border-radius:8px"><span style="font-size:10px;background:#222;border:1px solid #333;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:800">${i+1}</span><div style="display:flex;gap:3px">${c.map(n=>{let isWin=win?win.includes(n):false;return `<span style="background:${isWin?(hits===5?'#7c4dff':'#2e7d32'):'#222'};border:1px solid ${isWin?(hits===5?'#b388ff':'#4caf50'):'#333'};color:${isWin?'white':'#ccc'};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900">${String(n).padStart(2,'0')}</span>`}).join('')}</div><span style="margin-left:auto;background:${hits===5?'#7c4dff':hits===4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${win?hits+' ac':''}</span></div>`}).join('');
+let headerTitle=`Wheeling Pool ${p.id==='final'?'FINAL':p.id.toUpperCase()} - ${k} si 4 - Cobertura 4 si 5 - NO garantía 100% (${total} → ${reduced})`;
+let htmlModal=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;font-weight:800" class="mono">${headerTitle}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div><div class="modal-scroll">${winHtml}${poolBaseHtml}${statsHtml}${fundHtml}<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:800">${reduced} combinaciones - 5 números c/u - 100% determinístico • Verde = ganador</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">Sorteo ${sorteoNum||12319}</span></div><div style="margin-top:8px">${listHtml}</div></div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;gap:8px;justify-content:center"><button onclick="downloadWheelingAsPNG('${id}',${k},${sorteoNum||0})" style="background:var(--yellow);color:black;border:0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;cursor:pointer">⬇ Descargar como Foto (PNG)</button><button onclick="copyWheelingToClipboard('${id}',${k},${sorteoNum||0})" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">⎙ Copiar al Portapapeles</button><button onclick="closeModal()" style="background:#1a1a1a;border:1px solid #333;color:#888;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">Cerrar [Esc]</button></div></div></div>`;
+document.getElementById('modal-root').innerHTML=htmlModal;
+}
+function downloadWheelingAsPNG(id,k,sorteo){alert('Descargar como Foto PNG - Sorteo '+(sorteo||12319)+' Pool '+id+' '+k+' si 4 - (usa html2canvas en producción)');}
+function copyWheelingToClipboard(id,k,sorteo){let p=pools.find(x=>x.id===id),w=p.wheelings.find(x=>x.k===k),combos=Ef(w.slice,uv(k));let txt=combos.map((c,i)=>`${String(i+1).padStart(4,'0')}: ${c.map(n=>String(n).padStart(2,'0')).join('-')}`).join(String.fromCharCode(10));navigator.clipboard.writeText(txt).then(()=>alert('Copiado al portapapeles')).catch(()=>{let ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('Copiado');});}
+function openCellPopout(num,pid){let s=sorteos.find(x=>x.num===num),p=pools.find(x=>x.id===pid),win=s.win,ph=win.filter(n=>p.nums.includes(n)),isFive=ph.length===5,grid=p.nums.map(n=>`<div class="num-cell" style="background:${win.includes(n)?(isFive?'#7c4dff':'#2e7d32'):'var(--card)'};border-color:${win.includes(n)?(isFive?'#b388ff':'#4caf50'):'#333'};color:${win.includes(n)?'white':p.accent};${win.includes(n)?'box-shadow:0 0 8px '+(isFive?'#7c4dff':'#2e7d32')+';':''}">${String(n).padStart(2,'0')}</div>`).join(''),wr='';p.wheelings.forEach(w=>{let combos=rv(w.slice,win,uv(w.k)),sc=combos.map(c=>({c,h:hitsCount(c,win)})).sort((a,b)=>b.h-a.h),best=sc[0]?.h||0,top=sc.filter(x=>x.h>=2).slice(0,3),premio=best===5?'PREMIO 5!':best===4?'PREMIO 4!':'',badgeColor=best===5?'#7c4dff':best===4?'#2e7d32':'#424242',bt=top.map((it,idx)=>`<div style="display:flex;gap:4px;align-items:center;margin:4px 0;background:${idx===0?'rgba(124,77,255,0.12)':'transparent'};border:${idx===0?'1px solid #7c4dff44':'0'};border-radius:6px;padding:3px"><span style="font-size:10px;background:#222;border:1px solid #333;border-radius:4px;padding:1px 4px;min-width:16px;text-align:center">${idx+1}</span><div style="display:flex;gap:2px">${it.c.map(n=>`<span style="background:${win.includes(n)?(it.h===5?'#7c4dff':'#2e7d32'):'#1a1a1a'};border:1px solid ${win.includes(n)?(it.h===5?'#b388ff':'#4caf50'):'#333'};color:${win.includes(n)?'white':'#ccc'};border-radius:4px;padding:2px 4px;font-size:11px;font-weight:800">${String(n).padStart(2,'0')}</span>`).join('')}</div><span style="margin-left:auto;background:${it.h>=5?'#7c4dff':it.h===4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${it.h} ac</span></div>`).join('')||'<div style="font-size:10px;color:#666;padding:4px">Sin combinaciones con 2+ aciertos</div>';wr+=`<div style="margin-top:12px;border:1px solid ${best>=4?'#7c4dff66':'#2a2a2a'};border-radius:10px;padding:8px;background:${best>=5?'rgba(124,77,255,0.08)':'#1a1a1a'}"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:900;color:${p.accent};border:1px solid ${p.border}66;background:${p.border}22;padding:2px 8px;border-radius:999px">${w.k} si 4</span><div style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:800;color:${best>=4?'#a5d6a7':'#888'}">Mejor ${best} aciertos</span>${premio?`<span style="background:${badgeColor};color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${premio}</span>`:''}<span style="font-size:9px;color:#666">${top.length} comb + ${uv(w.k)-top.length} total</span></div></div><div style="font-size:10px;color:#aaa;margin:4px 0">${w.k} si 4: Mejor ${best} aciertos (${top.length?top.length+' combinación':'0'})</div>${bt}<div style="text-align:center;margin-top:8px"><button onclick="openWheeling('${p.id}',${w.k},${s.num})" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px;cursor:pointer">Ver Wheeling Completo ${w.k} si 4 ↗</button></div></div>`});let html=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:900">Sorteo ${s.num} - ${p.label}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div><div class="modal-scroll"><div style="background:${ph.length===5?'#7c4dff':'var(--yellow)'};color:${ph.length===5?'white':'black'};border-radius:10px;padding:10px;text-align:center;box-shadow:0 0 20px ${ph.length===5?'#7c4dff66':'#ffeb3b44'}"><div style="font-size:10px;font-weight:900;letter-spacing:0.05em">● GANADORES REALES</div><div style="font-size:20px;font-weight:900;letter-spacing:0.08em;margin:2px 0">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px;opacity:0.9">${s.date}</div></div><div style="margin-top:12px;border:1px solid ${p.border}66;border-radius:10px;padding:10px;background:#1a1a1a"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:900;color:${p.accent}">POOL ${p.id==='final'?'FINAL':p.id.toUpperCase()} (${p.count} nums) - ${ph.length} aciertos</span><span class="pill" style="background:${ph.length===5?'#7c4dff':ph.length===4?'#2e7d32':'#333'};color:white;border:0;font-size:11px;font-weight:900;padding:4px 10px">${ph.length}/${p.count}</span></div><div class="num-grid" style="margin-top:8px">${grid}</div><div class="mono" style="font-size:9px;color:#888;margin-top:6px;line-height:1.4">Acertados: ${ph.map(n=>String(n).padStart(2,'0')).join(', ')} - ${ph.length} de 5 ganadores<br/><span style="color:${isFive?'#b388ff':'#81c784'}">●</span> Verde/Morado - número ganador acertado - ${p.label}</div></div><div style="margin-top:12px"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${p.accent};display:inline-block"></span><span style="font-size:11px;font-weight:900;color:${p.accent}">WHEELINGS - RESULTADOS EN ESTE SORTEO</span></div><div style="font-size:9px;color:#666;margin:2px 0 0 14px">POOL ${p.id.toUpperCase()} (${p.count}) - Ganadores ${win.map(n=>String(n).padStart(2,'0')).join(',')} - Combinaciones más significativas (top 1 por wheeling)</div>${wr}<div class="mono" style="font-size:8px;color:#555;margin-top:10px;text-align:center">Verde = 4 aciertos en wheeling - Morado = 5 aciertos - Círculo sobre 5 ganadores reales - Garantía 4 si 4</div></div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;justify-content:space-between;align-items:center"><span class="mono" style="font-size:9px;color:#555">Sorteo ${s.num} &nbsp; Pool ${p.id} ${p.count} &nbsp; Ganadores ${win.map(n=>String(n).padStart(2,'0')).join(',')}</span><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:4px 12px;font-size:10px;cursor:pointer">CERRAR [Esc]</button></div></div></div>`;document.getElementById('modal-root').innerHTML=html;}
+function closeModal(){document.getElementById('modal-root').innerHTML=''}
+function openBacktest(){document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" style="height:auto;max-height:80vh"><div class="modal-header" style="padding:12px;display:flex;justify-content:space-between"><b style="font-size:12px;color:var(--cyan)">Backtesting 200 sorteos (12118-12317)</b><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #444;color:white;border-radius:999px;padding:2px 8px">X</button></div><div class="modal-scroll"><div class="mono" style="font-size:10px;color:#aaa">Pool FINAL 16 ~92% 3+ ~48% 4+<br/>Pool2 21 ~96% 3+ 56.5% 4+<br/>Pool3 21 ~97% 3+ 63.5% 4+<br/>Pool4 21 ~96% 3+ 61% 4+</div></div></div></div>`;}
 
-renderPools(); loadCSV();
-setInterval(loadCSV, 5*60*1000);
+function downloadTXT(){
+try{
+let sorteoNum=12319;
+let lines=[];
+lines.push('CHISPAZO PREDICTOR V3 '+sorteoNum);
+lines.push('Fecha: 18 Oct 2026 15:00 hrs Sorteo '+sorteoNum);
+lines.push('');
+pools.forEach(function(p){
+  p.wheelings.forEach(function(w){
+    let combos=Ef(w.slice,uv(w.k));
+    lines.push('POOL:'+p.id+' K:'+w.k+' BASE:'+w.slice.join(',')+' TOTAL:'+combos.length);
+    combos.forEach(function(c,i){
+      lines.push((i+1)+':'+c.map(function(n){return String(n).padStart(2,'0')}).join('-'));
+    });
+    lines.push('');
+  });
+});
+let txt=lines.join(String.fromCharCode(10));
+let blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+let url=URL.createObjectURL(blob);
+let a=document.createElement('a');
+a.href=url;
+a.download=sorteoNum+'.txt';
+document.body.appendChild(a);
+a.click();
+setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},1200);
+}catch(e){alert('Error txt: '+e.message)}
+}
+function downloadCSV(){
+try{
+let sorteoNum=12319;
+let rows=[];
+rows.push('sorteo,pool,pool_label,wheeling_k,base_numeros,combo_num,n1,n2,n3,n4,n5,total_posibles,reducido');
+pools.forEach(function(p){
+  p.wheelings.forEach(function(w){
+    let combos=Ef(w.slice,uv(w.k));
+    let total=gf(w.slice.length,5);
+    let reducido=uv(w.k);
+    combos.forEach(function(c,i){
+      rows.push([sorteoNum,p.id,'"'+p.label+'"',w.k,'"'+w.slice.join(' ')+'"',i+1,c[0],c[1],c[2],c[3],c[4],total,reducido].join(','));
+    });
+  });
+});
+let csv=rows.join(String.fromCharCode(10));
+let blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+let url=URL.createObjectURL(blob);
+let a=document.createElement('a');
+a.href=url;
+a.download=sorteoNum+'.csv';
+document.body.appendChild(a);
+a.click();
+setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},1200);
+}catch(e){alert('Error csv: '+e.message)}
+}
+function generateAuditTxt(){downloadTXT()}
+renderPools();renderResults();
+
 </script>
+<!-- AUTO UPDATE: ultimo=12318 fecha=2026-10-17 siguiente=12319 18 Oct 2026 15:00 hrs — Chispazo De las Tres generado=2026-10-18T06:12:00.107443Z -->
+<script data-goatcounter="https://cedalonu.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
