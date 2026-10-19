@@ -1,5 +1,5 @@
 """
-CHISPAZO PREDICTOR V8.1 - Fix infinite loop hang
+CHISPAZO PREDICTOR V8.2 - rotacion forzada 4 numeros, fix hang, historial dinamico
 """
 import csv, pathlib, json
 from collections import defaultdict, Counter
@@ -22,6 +22,7 @@ with open(CSV, encoding='utf-8') as f:
 ROWS.sort(key=lambda x: x["c"])
 max_c=ROWS[-1]["c"]
 next_c=max_c+1
+prev_c=next_c-1
 
 def pool2(rows_up, decay=0.985):
     scores=defaultdict(float)
@@ -93,31 +94,39 @@ def pool_final(zr,Lr,Rr):
     Tr=candidates[start:start+16]
     if len(Tr)<16:
         Tr+=candidates[:16-len(Tr)]
-    # FIX: sin while infinito - usar for con rango amplio
-    hist_path=pathlib.Path('history/12320.json')
-    if not hist_path.exists():
-        hist_path=pathlib.Path('/mnt/data/history/12320.json')
-    if hist_path.exists():
-        try:
-            prev=json.loads(hist_path.read_text())
-            prevTr=prev['pools']['Tr']
-            overlap=len(set(Tr)&set(prevTr))
-            if overlap>12:
-                remaining=[]
-                # buscar en todo el ranking de 0 a 28, no solo 24-40
-                for n,_ in sorted_votes:
-                    if n not in Tr and n not in remaining:
-                        remaining.append(n)
+    
+    # HISTORIAL DINAMICO - busca el sorteo anterior, no 12320 fijo
+    hist_candidates=[
+        pathlib.Path(f'history/{prev_c}.json'),
+        pathlib.Path(f'/mnt/data/history/{prev_c}.json'),
+        pathlib.Path(f'history/{12320}.json'),
+    ]
+    for hist_path in hist_candidates:
+        if hist_path.exists():
+            try:
+                prev=json.loads(hist_path.read_text())
+                prevTr=prev['pools']['Tr']
+                overlap=len(set(Tr)&set(prevTr))
+                print(f"Historial {prev_c}: {prevTr} -> overlap {overlap}/16")
+                if overlap>12:
+                    remaining=[]
+                    for n,_ in sorted_votes:
+                        if n not in Tr and n not in remaining:
+                            remaining.append(n)
+                        if len(remaining)>=4:
+                            break
                     if len(remaining)>=4:
-                        break
-                # fallback si no hay 4 (no deberia pasar)
-                if len(remaining)>=4:
-                    Tr=Tr[:12]+remaining[:4]
+                        Tr=Tr[:12]+remaining[:4]
+                        print(f"Rotacion forzada 4 numeros: {prevTr} -> {Tr}")
+                    else:
+                        print(f"WARNING: solo {len(remaining)} disponibles para rotar")
                 else:
-                    Tr=Tr[:12]+remaining
-                print(f"Forzando rotacion: overlap {overlap} -> {16-len(set(Tr)&set(prevTr))} cambios")
-        except Exception as e:
-            print(f"Error hist {e}")
+                    print(f"Overlap OK {overlap}, no fuerza rotacion")
+                break
+            except Exception as e:
+                print(f"Error leyendo {hist_path}: {e}")
+                continue
+    
     if len(Tr)!=16:
         for n,_ in sorted_votes:
             if n not in Tr:
@@ -132,7 +141,10 @@ Lr=pool3(ROWS)
 Rr=pool4(ROWS)
 Tr=pool_final(zr,Lr,Rr)
 
-print(f"V8.1 Pools para {next_c}: FINAL 16: {Tr} ({len(Tr)} numeros)")
+print(f"V8.2 Pools para {next_c}: FINAL 16: {Tr} ({len(Tr)} numeros)")
+print(f"P2: {zr}")
+print(f"P3: {Lr}")
+print(f"P4: {Rr}")
 
 pathlib.Path('/tmp/pools.js').write_text(f"const Tr={Tr};\nconst zr={zr};\nconst Lr={Lr};\nconst Rr={Rr};\n")
 pathlib.Path('/tmp/next_prediction.json').write_text(json.dumps({"sorteo":next_c,"Tr":Tr,"zr":zr,"Lr":Lr,"Rr":Rr}, indent=2))
