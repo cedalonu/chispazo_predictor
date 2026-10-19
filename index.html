@@ -60,10 +60,10 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 </div>
 <div id="modal-root"></div>
 <script>
-const Tr=[23, 27, 22, 15, 20, 8, 7, 3, 13, 2, 6, 11, 18, 10, 25, 19];
+const Tr=[23, 27, 22, 20, 8, 3, 7, 2, 15, 13, 6, 18, 11, 25, 14, 19];
 const zr=[23, 27, 22, 15, 20, 8, 7, 3, 13, 2, 10, 25, 19, 6, 14, 12, 11, 18, 1, 26, 4];
 const Lr=[5, 1, 10, 20, 7, 9, 11, 18, 28, 4, 8, 21, 6, 24, 23, 27, 22, 15, 3, 13, 2];
-const Rr=[22, 3, 12, 14, 25, 27, 23, 20, 15, 17, 8, 19, 13, 7, 2, 6, 26, 18, 11, 24, 21];
+const Rr=[25, 22, 27, 23, 3, 2, 12, 14, 20, 8, 19, 17, 6, 7, 21, 13, 15, 18, 24, 26, 11];
 const pools=[
 {id:'final',label:'Pool FINAL CONSENSUS 16 números',nums:Tr,count:16,border:'#ffeb3b',accent:'#ffeb3b',desc:'CONSENSUS 16 [23,15,27,3,22,8,17,25,1,24,19,26,21,12,16,9] • 14=first14 • 18=+11,20 explica bug 12306: base 3ac (01,15,27) vs expandido 4ac (+11) • 21=+2,7,10 • bias 0.60 2+2+1 covering',wheelings:[{k:14,slice:Tr.slice(0,14)},{k:16,slice:Tr},{k:18,slice:[...Tr,11,20]},{k:21,slice:[...Tr,11,20,2,7,10]}]},
 {id:'p2',label:'Pool2 HOT first (Freq Decay 200)',nums:zr,count:21,border:'#00e5ff',accent:'#00e5ff',desc:'Pool2 HOT first 21 [23,15,22,20,14,27,3,10,13,7,2,8,5,26,6,19,1,18,24,4,11] • avg 3.65 56.5% 4+ • HOT first mejora 10→14 (+40%) • 14/16/18=firstN • bias 0.75 3+1+1',wheelings:[{k:14,slice:zr.slice(0,14)},{k:16,slice:zr.slice(0,16)},{k:18,slice:zr.slice(0,18)},{k:21,slice:zr}]},
@@ -179,7 +179,7 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 function generateAuditTxt(){downloadTXT()}
 renderPools();renderResults();
 </script>
-<!-- AUTO UPDATE: ultimo=12320 fecha=2026-10-18 siguiente=12321 19 Oct 2026 15:00 hrs - De las Tres pools=v5_fix generado=2026-10-19T05:03:50.940698Z -->
+<!-- AUTO UPDATE: ultimo=12320 fecha=2026-10-18 siguiente=12321 19 Oct 2026 15:00 hrs - De las Tres pools=V7_determinista generado=2026-10-19T06:01:53.115643Z -->
 <script data-goatcounter="https://cedalonu.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 
 <script id="chispazo-auto-client">
@@ -232,16 +232,16 @@ renderPools();renderResults();
 
 
 
-<script id="hist-fix-safe">
+
+
+
+<script id="hist-fix-v7">
 (function(){
-  const body=document.getElementById('results-body');
-  if(!body) return;
-  const hist=window.HIST_POOLS||{};
-  if(Object.keys(hist).length===0) return;
-  // Esperar a que sorteos exista
-  const check=setInterval(()=>{
-    if(!window.sorteos) return;
-    clearInterval(check);
+  function renderWithHist(){
+    const body=document.getElementById('results-body');
+    const hist=window.HIST_POOLS||{};
+    if(!body || !window.sorteos) return;
+    if(Object.keys(hist).length===0) return;
     body.innerHTML='';
     window.sorteos.forEach(s=>{
       const winSet=new Set(s.win);
@@ -258,7 +258,13 @@ renderPools();renderResults();
       tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cF}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
       body.appendChild(tr);
     });
-  }, 100);
+  }
+  // Ejecutar despues de que render original haya pasado
+  setTimeout(renderWithHist, 300);
+  setInterval(()=>{
+    const body=document.getElementById('results-body');
+    if(body && body.children.length===0) renderWithHist();
+  }, 1000);
 })();
 </script>
 
