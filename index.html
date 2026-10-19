@@ -179,7 +179,7 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 function generateAuditTxt(){downloadTXT()}
 renderPools();renderResults();
 </script>
-<!-- AUTO UPDATE: ultimo=12320 fecha=2026-10-18 siguiente=12321 19 Oct 2026 15:00 hrs - De las Tres pools=v4_historial generado=2026-10-19T04:51:01.792303Z -->
+<!-- AUTO UPDATE: ultimo=12320 fecha=2026-10-18 siguiente=12321 19 Oct 2026 15:00 hrs - De las Tres pools=v5_fix generado=2026-10-19T05:03:50.940698Z -->
 <script data-goatcounter="https://cedalonu.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 
 <script id="chispazo-auto-client">
@@ -229,38 +229,36 @@ renderPools();renderResults();
 </script>
 
 
-<script id="hist-fix">
-// Fix: usa pools historicos para calcular aciertos de resultados
+
+
+
+<script id="hist-fix-safe">
 (function(){
-  const origRender = window.renderResults;
-  if(!origRender) return;
-  window.renderResults = function(){
-    const body=document.getElementById('results-body');
-    if(!body) return origRender();
+  const body=document.getElementById('results-body');
+  if(!body) return;
+  const hist=window.HIST_POOLS||{};
+  if(Object.keys(hist).length===0) return;
+  // Esperar a que sorteos exista
+  const check=setInterval(()=>{
+    if(!window.sorteos) return;
+    clearInterval(check);
     body.innerHTML='';
-    const hist=window.HIST_POOLS||{};
-    (window.sorteos||[]).forEach(s=>{
-      const tr=document.createElement('tr');
+    window.sorteos.forEach(s=>{
       const winSet=new Set(s.win);
-      // Pool a usar: si hay historial para este sorteo, usar su Tr, si no, usar Tr actual
-      const poolsToUse = hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
-      const pFinal = poolsToUse.Tr || window.Tr;
-      const p2 = poolsToUse.zr || window.zr;
-      const p3 = poolsToUse.Lr || window.Lr;
-      const p4 = poolsToUse.Rr || window.Rr;
-      const cFinal = pFinal.filter(n=>winSet.has(n)).length;
-      const c2 = p2.filter(n=>winSet.has(n)).length;
-      const c3 = p3.filter(n=>winSet.has(n)).length;
-      const c4 = p4.filter(n=>winSet.has(n)).length;
-      tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cFinal}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
-      // click para ver detalle igual que antes
-      tr.style.cursor='pointer';
-      tr.addEventListener('click', ()=>{ if(window.showResultDetail) window.showResultDetail(s.num); });
+      const pools=hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
+      const pF=pools.Tr||window.Tr;
+      const p2=pools.zr||window.zr;
+      const p3=pools.Lr||window.Lr;
+      const p4=pools.Rr||window.Rr;
+      const cF=pF.filter(n=>winSet.has(n)).length;
+      const c2=p2.filter(n=>winSet.has(n)).length;
+      const c3=p3.filter(n=>winSet.has(n)).length;
+      const c4=p4.filter(n=>winSet.has(n)).length;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cF}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
       body.appendChild(tr);
     });
-  };
-  // re-render si ya se renderizo
-  if(document.getElementById('results-body')) window.renderResults();
+  }, 100);
 })();
 </script>
 
