@@ -60,10 +60,10 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 </div>
 <div id="modal-root"></div>
 <script>
-const Tr=[23,15,27,3,22,8,17,25,1,24,19,26,21,12,16,9];
-const zr=[23,15,22,20,14,27,3,10,13,7,2,8,5,26,6,19,1,18,24,4,11];
-const Lr=[23,22,20,15,14,27,10,3,13,7,2,5,8,19,1,24,18,6,26,16,28];
-const Rr=[23,20,15,7,5,27,3,13,22,14,10,6,8,2,17,24,18,26,4,21,11];
+const Tr=[25, 27, 23, 8, 20, 2, 7, 22, 13, 18, 6, 11, 1, 3, 21, 19];
+const zr=[25, 27, 23, 8, 20, 2, 7, 22, 13, 18, 6, 21, 19, 15, 11, 24, 1, 3, 26, 10, 9];
+const Lr=[14, 5, 3, 1, 10, 20, 7, 9, 11, 18, 28, 4, 8, 17, 25, 27, 23, 2, 22, 13, 6];
+const Rr=[25, 23, 22, 19, 27, 2, 8, 26, 13, 20, 15, 6, 7, 21, 18, 24, 11, 1, 12, 3, 16];
 const pools=[
 {id:'final',label:'Pool FINAL CONSENSUS 16 números',nums:Tr,count:16,border:'#ffeb3b',accent:'#ffeb3b',desc:'CONSENSUS 16 [23,15,27,3,22,8,17,25,1,24,19,26,21,12,16,9] • 14=first14 • 18=+11,20 explica bug 12306: base 3ac (01,15,27) vs expandido 4ac (+11) • 21=+2,7,10 • bias 0.60 2+2+1 covering',wheelings:[{k:14,slice:Tr.slice(0,14)},{k:16,slice:Tr},{k:18,slice:[...Tr,11,20]},{k:21,slice:[...Tr,11,20,2,7,10]}]},
 {id:'p2',label:'Pool2 HOT first (Freq Decay 200)',nums:zr,count:21,border:'#00e5ff',accent:'#00e5ff',desc:'Pool2 HOT first 21 [23,15,22,20,14,27,3,10,13,7,2,8,5,26,6,19,1,18,24,4,11] • avg 3.65 56.5% 4+ • HOT first mejora 10→14 (+40%) • 14/16/18=firstN • bias 0.75 3+1+1',wheelings:[{k:14,slice:zr.slice(0,14)},{k:16,slice:zr.slice(0,16)},{k:18,slice:zr.slice(0,18)},{k:21,slice:zr}]},
@@ -178,37 +178,33 @@ setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},120
 function generateAuditTxt(){downloadTXT()}
 renderPools();renderResults();
 </script>
-<!-- AUTO UPDATE: ultimo=12319 fecha=2026-10-18 siguiente=12320 18 Oct 2026 21:00 hrs - Chispazo Clásico generado=2026-10-19T02:26:10.990353Z -->
+<!-- AUTO UPDATE: ultimo=12319 fecha=2026-10-18 siguiente=12320 18 Oct 2026 21:00 hrs - Chispazo Clásico pools=OPCION_B generado=2026-10-19T02:48:15.232957Z -->
 <script data-goatcounter="https://cedalonu.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 
 <script id="chispazo-auto-client">
-// Auto-update cliente: si el CSV ya tiene el sorteo predicho, lo mueve a resultados y sube el numero
 (async function(){
   const CSV_URL='https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv';
   try{
-    const h2=document.querySelector('h2');
     const m=(document.body.innerHTML.match(/Sorteo\s+(\d{4,5})/)||[])[1];
-    let currentPred=m?parseInt(m,10):(h2?parseInt((h2.textContent.match(/\d+/)||['0'])[0],10):0);
+    const currentPred=m?parseInt(m,10):0;
     const res=await fetch(CSV_URL+'?t='+Date.now(),{cache:'no-store'});
     const text=await res.text();
     const lines=text.trim().split('\n');
-    const header=lines[0].split(',');
-    const idxC=header.indexOf('CONCURSO');
-    const idxF=header.indexOf('FECHA');
-    const idxR1=header.indexOf('R1');
+    const h=lines[0].split(',');
+    const idxC=h.indexOf('CONCURSO'), idxF=h.indexOf('FECHA'), idxR1=h.indexOf('R1');
     const rows=[];
     for(let i=1;i<lines.length;i++){
-      const cols=lines[i].split(',');
-      if(cols.length<6) continue;
-      const c=parseInt(cols[idxC],10);
-      if(isNaN(c)) continue;
-      rows.push({num:c,fecha:cols[idxF],win:[parseInt(cols[idxR1]),parseInt(cols[idxR1+1]),parseInt(cols[idxR1+2]),parseInt(cols[idxR1+3]),parseInt(cols[idxR1+4])]});
+      const c=lines[i].split(',');
+      if(c.length<6) continue;
+      const num=parseInt(c[idxC],10);
+      if(isNaN(num)) continue;
+      rows.push({num,fecha:c[idxF],win:[parseInt(c[idxR1]),parseInt(c[idxR1+1]),parseInt(c[idxR1+2]),parseInt(c[idxR1+3]),parseInt(c[idxR1+4])]});
     }
     rows.sort((a,b)=>a.num-b.num);
     const max=rows[rows.length-1];
     if(!max||!currentPred) return;
     if(max.num>=currentPred){
-      if(window.sorteos && Array.isArray(window.sorteos)){
+      if(window.sorteos){
         const exists=window.sorteos.some(s=>s.num===max.num);
         if(!exists){
           const sameDay=rows.filter(r=>r.fecha===max.fecha).sort((a,b)=>a.num-b.num);
@@ -219,13 +215,13 @@ renderPools();renderResults();
           window.sorteos.unshift({num:max.num,win:max.win,date:label});
           window.sorteos=window.sorteos.slice(0,20);
           const body=document.getElementById('results-body');
-          if(body && typeof renderResults==='function'){ body.innerHTML=''; renderResults(); }
+          if(body){ body.innerHTML=''; renderResults(); }
         }
       }
       const next=max.num+1;
       document.querySelectorAll('h2').forEach(el=>{ if(/Sorteo/.test(el.textContent)) el.textContent=el.textContent.replace(/Sorteo\s+\d+/, 'Sorteo '+next); });
       const pillEl=document.querySelector('.container .pill');
-      if(pillEl){ pillEl.textContent=pillEl.textContent.replace(/Sorteo\s+\d+/, 'Sorteo '+next); }
+      if(pillEl) pillEl.textContent=pillEl.textContent.replace(/Sorteo\s+\d+/, 'Sorteo '+next);
     }
   }catch(e){ console.warn('auto-update fallo',e); }
 })();
