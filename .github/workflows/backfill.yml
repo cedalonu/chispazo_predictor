@@ -1,0 +1,154 @@
+name: Backfill Historial Chispazo - una vez
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bajar CSV
+        run: |
+          curl -L --max-time 30 -H "Cache-Control: no-cache" -o Chispazo.csv "https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv" || echo "usando CSV local"
+          wc -l Chispazo.csv
+      - name: Generar historial 200 sorteos
+        run: |
+          python3 << 'PY'
+          import csv, pathlib, json
+          from collections import defaultdict, Counter
+
+          CSV = pathlib.Path('Chispazo.csv')
+          ROWS=[]
+          with open(CSV, encoding='utf-8') as f:
+              clean=[l for l in f if l.strip()!='']
+              reader=csv.DictReader(clean)
+              for r in reader:
+                  try:
+                      c=int(r['CONCURSO']); R=[int(r['R1']),int(r['R2']),int(r['R3']),int(r['R4']),int(r['R5'])]
+                      ROWS.append({"c":c,"R":R,"fecha":r['FECHA']})
+                  except: continue
+          ROWS.sort(key=lambda x: x["c"])
+
+          def make_pools(rows_up, next_c):
+              def pool2(decay=0.985):
+                  scores=defaultdict(float)
+                  for i,row in enumerate(reversed(rows_up[-200:])):
+                      w=decay**i
+                      for n in row["R"]:
+                          scores[n]+=w
+                  for n in range(1,29):
+                      jitter=((next_c*37 + n*13) % 100)/1000.0
+                      scores[n]+=jitter
+                  s=sorted(scores.items(), key=lambda x: x[1], reverse=True)
+                  return [n for n,_ in s[:21]]
+              def pool3():
+                  last_seen={}
+                  for row in rows_up:
+                      for n in row["R"]:
+                          last_seen[n]=row["c"]
+                  max_c_local=rows_up[-1]["c"]
+                  gaps=[]
+                  for n in range(1,29):
+                      gap=max_c_local-last_seen.get(n,0)
+                      gap+=((next_c*17 + n*23) % 7)
+                      gaps.append((n,gap))
+                  gaps.sort(key=lambda x: x[1], reverse=True)
+                  Lr=[n for n,_ in gaps[:14]]
+                  zr=pool2()
+                  for n in zr:
+                      if n not in Lr and len(Lr)<21:
+                          Lr.append(n)
+                  rot=next_c % 5
+                  Lr=Lr[rot:]+Lr[:rot]
+                  return Lr, zr
+              def pool4():
+                  last=rows_up[-40:]
+                  cnt=Counter()
+                  for r in last:
+                      cnt.update(r["R"])
+                  last_seen={}
+                  for row in rows_up:
+                      for n in row["R"]:
+                          last_seen[n]=row["c"]
+                  max_c_local=rows_up[-1]["c"]
+                  scores=[]
+                  for n in range(1,29):
+                      gap=max_c_local-last_seen.get(n,0)
+                      rec=1/(1+gap*0.25)
+                      jitter=((next_c*29 + n*11) % 100)/200.0
+                      score=rec*1.5 + cnt.get(n,0)*0.35 + (1/(1+gap))*0.6 + jitter
+                      scores.append((n,score))
+                  scores.sort(key=lambda x: x[1], reverse=True)
+                  return [n for n,_ in scores[:21]]
+
+              Lr, zr = pool3()
+              Rr = pool4()
+              votes=defaultdict(float)
+              weights=(3,1,2)
+              for idx,lst in enumerate([zr,Lr,Rr]):
+                  w=weights[idx]
+                  for pos,num in enumerate(lst):
+                      votes[num]+=w*(1.0-pos*0.02)
+              for num in range(1,29):
+                  cnt=sum(1 for lst in [zr,Lr,Rr] if num in lst)
+                  if cnt>=2:
+                      votes[num]+=cnt*2.0
+              sorted_votes=sorted(votes.items(), key=lambda x: x[1], reverse=True)
+              candidates=[n for n,_ in sorted_votes[:24]]
+              start=(next_c % 6)
+              Tr=candidates[start:start+16]
+              if len(Tr)<16:
+                  Tr+=candidates[:16-len(Tr)]
+              Tr=Tr[:16]
+              return Tr, zr, Lr, Rr, sorted_votes
+
+          hist_dir=pathlib.Path('history')
+          hist_dir.mkdir(exist_ok=True)
+          start_idx = max(0, len(ROWS)-201)
+          for i in range(start_idx, len(ROWS)):
+              rows_up = ROWS[:i]
+              if len(rows_up)<40:
+                  continue
+              target = ROWS[i]
+              next_c = target["c"]
+              f = hist_dir / f"{next_c}.json"
+              if f.exists():
+                  print(f"Skip {next_c} ya existe")
+                  continue
+              Tr,zr,Lr,Rr,sorted_votes = make_pools(rows_up, next_c)
+              # rotacion vs anterior
+              prev_path = hist_dir / f"{next_c-1}.json"
+              if prev_path.exists():
+                  try:
+                      prev=json.loads(prev_path.read_text())
+                      prevTr=prev['pools']['Tr']
+                      overlap=len(set(Tr)&set(prevTr))
+                      if overlap>12:
+                          remaining=[]
+                          for n,_ in sorted_votes:
+                              if n not in Tr and n not in remaining:
+                                  remaining.append(n)
+                              if len(remaining)>=4:
+                                  break
+                          if len(remaining)>=4:
+                              Tr=Tr[:12]+remaining[:4]
+                              print(f"Rot {next_c}: overlap {overlap} -> forzando 4 cambios")
+                  except: pass
+              payload={"sorteo": next_c, "pools": {"Tr": Tr, "zr": zr, "Lr": Lr, "Rr": Rr}}
+              f.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+              print(f"Backfill {next_c}: {Tr}")
+
+          print(f"Total history files: {len(list(hist_dir.glob('*.json')))}")
+          PY
+      - name: Commit historial backfill
+        run: |
+          git config user.name "chispazo-bot"
+          git config user.email "bot@github.com"
+          git add history/
+          git diff --staged --quiet && echo "Sin cambios" && exit 0
+          git commit -m "Backfill historial 200 sorteos con rotacion 4"
+          git push
+
