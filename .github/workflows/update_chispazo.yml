@@ -239,5 +239,8 @@ jobs:
           git config user.email "bot@github.com"
           git add index.html history/
           git commit -m "V8 final: sin balones rojos, sin corte, tabla no vacia, 12321=4/21 real inmutable"
-          git push
+          # Fix para Error: failed to push some refs ... fetch first
+          git pull --rebase origin main || (git fetch origin main && git rebase origin/main)
+          git push || git push origin main
+          echo "Push OK"
 
