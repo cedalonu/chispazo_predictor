@@ -6,11 +6,17 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: chispazo-v8
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # Evitar loop infinito: no ejecutar si el push lo hizo el bot mismo
+    if: github.actor != 'chispazo-bot'
     steps:
       - uses: actions/checkout@v4
 
