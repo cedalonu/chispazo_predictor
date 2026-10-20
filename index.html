@@ -143,42 +143,9 @@ function downloadTXT(){try{let lines=[];lines.push('CHISPAZO PREDICTOR V3 '+sort
 function downloadCSV(){try{let rows=[];rows.push('sorteo,pool,pool_label,wheeling_k,base_numeros,combo_num,n1,n2,n3,n4,n5,total_posibles,reducido');pools.forEach(function(p){p.wheelings.forEach(function(w){let combos=Ef(w.slice,uv(w.k));let total=gf(w.slice.length,5);let reducido=uv(w.k);combos.forEach(function(c,i){rows.push([sorteoNum,p.id,'"'+p.label+'"',w.k,'"'+w.slice.join(' ')+'"',i+1,c[0],c[1],c[2],c[3],c[4],total,reducido].join(','));});});});let csv=rows.join(String.fromCharCode(10));let blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});let url=URL.createObjectURL(blob);let a=document.createElement('a');a.href=url;a.download=sorteoNum+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},1200);}catch(e){alert('Error csv: '+e.message)}}
 renderPools();renderResults();
 </script>
-<!-- AUTO UPDATE: ultimo=12322 fecha=2026-10-19 siguiente=12323 20 Oct 2026 15:00 hrs - De las Tres pools=v4_historial generado=2026-10-20T04:18:57.923437Z -->
+<!-- AUTO UPDATE: ultimo=12322 fecha=2026-10-19 siguiente=12323 20 Oct 2026 15:00 hrs - De las Tres pools=v8_final_sin_balon_sin_corte generado=2026-10-20T04:29:01.411266Z -->
 
-<script id="hist-fix">
-// Fix: usa pools historicos para calcular aciertos de resultados
-(function(){
-  const origRender = window.renderResults;
-  if(!origRender) return;
-  window.renderResults = function(){
-    const body=document.getElementById('results-body');
-    if(!body) return origRender();
-    body.innerHTML='';
-    const hist=window.HIST_POOLS||{};
-    (window.sorteos||[]).forEach(s=>{
-      const tr=document.createElement('tr');
-      const winSet=new Set(s.win);
-      // Pool a usar: si hay historial para este sorteo, usar su Tr, si no, usar Tr actual
-      const poolsToUse = hist[s.num] || {Tr: window.Tr, zr: window.zr, Lr: window.Lr, Rr: window.Rr};
-      const pFinal = poolsToUse.Tr || window.Tr;
-      const p2 = poolsToUse.zr || window.zr;
-      const p3 = poolsToUse.Lr || window.Lr;
-      const p4 = poolsToUse.Rr || window.Rr;
-      const cFinal = pFinal.filter(n=>winSet.has(n)).length;
-      const c2 = p2.filter(n=>winSet.has(n)).length;
-      const c3 = p3.filter(n=>winSet.has(n)).length;
-      const c4 = p4.filter(n=>winSet.has(n)).length;
-      tr.innerHTML=`<td>${s.num}</td><td><span class="badge">${cFinal}/16</span></td><td><span class="badge" style="background:#8b5cf6">${c2}/21</span></td><td><span class="badge" style="background:#ec4899">${c3}/21</span></td><td><span class="badge" style="background:#10b981">${c4}/21</span></td><td>${s.date}</td>`;
-      // click para ver detalle igual que antes
-      tr.style.cursor='pointer';
-      tr.addEventListener('click', ()=>{ if(window.showResultDetail) window.showResultDetail(s.num); });
-      body.appendChild(tr);
-    });
-  };
-  // re-render si ya se renderizo
-  if(document.getElementById('results-body')) window.renderResults();
-})();
-</script>
+
 
 </body>
 </html>
