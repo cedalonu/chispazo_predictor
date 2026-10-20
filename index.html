@@ -143,7 +143,7 @@ function downloadTXT(){try{let lines=[];lines.push('CHISPAZO PREDICTOR V3 '+sort
 function downloadCSV(){try{let rows=[];rows.push('sorteo,pool,pool_label,wheeling_k,base_numeros,combo_num,n1,n2,n3,n4,n5,total_posibles,reducido');pools.forEach(function(p){p.wheelings.forEach(function(w){let combos=Ef(w.slice,uv(w.k));let total=gf(w.slice.length,5);let reducido=uv(w.k);combos.forEach(function(c,i){rows.push([sorteoNum,p.id,'"'+p.label+'"',w.k,'"'+w.slice.join(' ')+'"',i+1,c[0],c[1],c[2],c[3],c[4],total,reducido].join(','));});});});let csv=rows.join(String.fromCharCode(10));let blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});let url=URL.createObjectURL(blob);let a=document.createElement('a');a.href=url;a.download=sorteoNum+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url)},1200);}catch(e){alert('Error csv: '+e.message)}}
 renderPools();renderResults();
 </script>
-<!-- AUTO UPDATE: ultimo=12322 fecha=2026-10-19 siguiente=12323 20 Oct 2026 15:00 hrs - De las Tres pools=v8_final_sin_balon_sin_corte generado=2026-10-20T07:55:25.804099Z -->
+<!-- AUTO UPDATE: ultimo=12322 fecha=2026-10-19 siguiente=12323 20 Oct 2026 15:00 hrs - De las Tres pools=v8_final_sin_balon_sin_corte generado=2026-10-20T07:56:18.395617Z -->
 
 
 
