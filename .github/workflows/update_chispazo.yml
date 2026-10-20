@@ -1,10 +1,11 @@
-name: Update Chispazo Predictor V6 auto
+name: Update Chispazo Predictor V6 - CSV fix + auto
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/10 * * * *'
   push:
     branches: [ main ]
   workflow_dispatch:
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -12,47 +13,168 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Bajar CSV
+
+      - name: Bajar CSV con fallback multi-source
         run: |
-          curl -L -H "Cache-Control: no-cache" -o Chispazo.csv "https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv?t=$(date +%s)"
+          echo "Intentando fuentes CSV..."
+          rm -f Chispazo.csv
+
+          # Fuente 1: refs/heads/master (mas fresca, evita cache de master)
+          URL1="https://raw.githubusercontent.com/pakinja/pakin/refs/heads/master/Chispazo.csv?t=$(date +%s)&r=$RANDOM"
+          URL2="https://raw.githubusercontent.com/pakinja/pakin/master/Chispazo.csv?t=$(date +%s)&r=$RANDOM"
+          URL3="https://cdn.jsdelivr.net/gh/pakinja/pakin@master/Chispazo.csv?t=$(date +%s)"
+
+          for URL in "$URL1" "$URL2" "$URL3"; do
+            echo "Probando $URL"
+            curl -L --fail --max-time 30 -H "Cache-Control: no-cache" -H "Pragma: no-cache" -o Chispazo.csv "$URL" && break
+            echo "Fallo, siguiente..."
+            sleep 2
+          done
+
+          if [ ! -f Chispazo.csv ]; then
+            echo "ERROR: No se pudo bajar CSV de ninguna fuente"
+            exit 1
+          fi
+
           wc -l Chispazo.csv
-      - name: Generar Pools
-        run: |
-          python3 generate_pools.py
-          cat /tmp/pools.js
-      - name: Actualizar index
+          echo "Ultimas 5 lineas:"
+          tail -n 5 Chispazo.csv
+          MAX=$(grep -E "^[0-9]{4,5}," Chispazo.csv | cut -d',' -f1 | sort -n | tail -n 1)
+          echo "MAX_CONCURSO detectado: $MAX"
+
+      - name: Guardar prediccion anterior en historial
         run: |
           python3 << 'PY'
-          import re, pathlib, datetime, json
+          import re, json, pathlib
+          p=pathlib.Path('index.html')
+          if not p.exists():
+              print("No index"); exit(0)
+          t=p.read_text(encoding='utf-8')
+          m=re.search(r'(?:let|const|var)\s+sorteoNum\s*=\s*(\d+)', t)
+          if not m:
+              m2=re.search(r'Sorteo\s+(\d{4,5})', t)
+              if not m2:
+                  print("No sorteoNum"); exit(0)
+              sorteo=int(m2.group(1))
+          else:
+              sorteo=int(m.group(1))
+          def get_pool(name):
+              mm=re.search(rf'const {name}=\[(.*?)\];', t, re.S)
+              if not mm: return []
+              return [int(x) for x in re.findall(r'\d+', mm.group(1))]
+          Tr=get_pool('Tr'); zr=get_pool('zr'); Lr=get_pool('Lr'); Rr=get_pool('Rr')
+          hist=pathlib.Path('history'); hist.mkdir(exist_ok=True)
+          f=hist / f'{sorteo}.json'
+          if not f.exists() and Tr:
+              f.write_text(json.dumps({"sorteo": sorteo, "pools": {"Tr": Tr, "zr": zr, "Lr": Lr, "Rr": Rr}}, indent=2), encoding='utf-8')
+              print(f"Guardado historial {f}")
+          PY
+
+      - name: Generar Pools
+        run: |
+          ls -lh generate_pools.py || ls -lh *.py
+          python3 generate_pools.py
+          echo "=== pools.js ==="
+          cat /tmp/pools.js 2>/dev/null || cat pools.js 2>/dev/null || echo "No pools.js encontrado"
+          ls -lh /tmp/ | grep pools || true
+
+      - name: Actualizar index.html
+        run: |
+          python3 << 'PY'
+          import csv, re, pathlib, datetime, json
           from collections import defaultdict
-          import csv as csvm
+
+          csv_path=pathlib.Path('Chispazo.csv')
           rows=[]
-          with open('Chispazo.csv', encoding='utf-8') as f:
-            clean=[l for l in f if l.strip()!='']
-            for r in csvm.DictReader(clean):
-              try:
-                c=int(r['CONCURSO']); R=[int(r['R1']),int(r['R2']),int(r['R3']),int(r['R4']),int(r['R5'])]
-                rows.append({"CONCURSO":c,"R":R,"FECHA":r['FECHA']})
-              except: continue
+          with open(csv_path, encoding='utf-8') as f:
+              clean=[l for l in f if l.strip()!='']
+              for r in csv.DictReader(clean):
+                  try:
+                      c=int(r['CONCURSO']); R=[int(r['R1']),int(r['R2']),int(r['R3']),int(r['R4']),int(r['R5'])]
+                      rows.append({"CONCURSO":c,"R":R,"FECHA":r['FECHA']})
+                  except: continue
+
           rows.sort(key=lambda x: x["CONCURSO"])
+          if not rows:
+              print("CSV vacio"); exit(1)
+
           max_row=rows[-1]; max_c=max_row["CONCURSO"]; next_c=max_c+1
-          pools_js=pathlib.Path('/tmp/pools.js').read_text()
+          print(f"CSV max={max_c} -> siguiente={next_c}")
+
+          # pools.js puede estar en /tmp o en root
+          pjs = pathlib.Path('/tmp/pools.js')
+          if not pjs.exists():
+              pjs = pathlib.Path('pools.js')
+          pools_js = pjs.read_text()
+
+          meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+          por_fecha=defaultdict(list)
+          for r in rows: por_fecha[r["FECHA"]].append(r)
+          for k in por_fecha: por_fecha[k]=sorted(por_fecha[k], key=lambda x: x["CONCURSO"])
+
+          def to_label(r):
+              same=por_fecha[r["FECHA"]]
+              idx=same.index(r)
+              is_tres = (idx==0) if len(same)>1 else (r["CONCURSO"]%2==1)
+              hour='15:00 hrs - De las Tres' if is_tres else '21:00 hrs - Chispazo Clasico'
+              d=datetime.datetime.strptime(r["FECHA"],"%Y-%m-%d")
+              return f"{d.day:02d} {meses[d.month-1]} {d.year} - {hour}", hour
+
+          base=datetime.datetime.strptime(max_row["FECHA"],"%Y-%m-%d")
+          hour_label='21:00 hrs - Chispazo Clasico' if max_c%2==1 else '15:00 hrs - De las Tres'
+          next_date=base if max_c%2==1 else base+datetime.timedelta(days=1)
+          fmt_next=f"{next_date.day} {meses[next_date.month-1]} {next_date.year}"
+          pill=f"{fmt_next} - {hour_label} - Sorteo {next_c}"
+
+          hist_path=pathlib.Path('history')
+          hist_pools={}
+          if hist_path.exists():
+              for jf in hist_path.glob('*.json'):
+                  try:
+                      data=json.loads(jf.read_text()); s=data.get('sorteo')
+                      if s: hist_pools[int(s)]=data.get('pools',{})
+                  except: pass
+
+          ultimos=sorted(rows, key=lambda x: x["CONCURSO"], reverse=True)[:20]
+          js_lines=[f"{{num:{r['CONCURSO']},win:[{','.join(map(str,r['R']))}],date:'{to_label(r)[0]}'}}" for r in ultimos]
+          sorteos_js="const sorteos=[\n"+",\n".join(js_lines)+"\n];"
+          hist_json=json.dumps(hist_pools)
+
           p=pathlib.Path('index.html')
           t=p.read_text(encoding='utf-8')
+
           for name in ['Tr','zr','Lr','Rr']:
-            mm=re.search(rf'const {name}\s*=\s*\[(.*?)\];', pools_js, re.S)
-            if mm:
-              t=re.sub(rf'const {name}\s*=\s*\[.*?\];', f"const {name}=[{mm.group(1)}];", t, flags=re.S)
-          t=re.sub(r'sorteoNum\s*=\s*\d+;', f'let sorteoNum={next_c};', t)
+              mm=re.search(rf'const {name}\s*=\s*\[(.*?)\];', pools_js, re.S)
+              if mm:
+                  new_def=f"const {name}=[{mm.group(1)}];"
+                  t=re.sub(rf'const {name}\s*=\s*\[.*?\];', new_def, t, flags=re.S)
+
+          t=re.sub(r'<span class="pill"[^>]*>[^<]*Sorteo\s+\d+[^<]*</span>', f'<span class="pill">{pill}</span>', t)
+          t=re.sub(r'<h2[^>]*>Sorteo\s+\d+</h2>', f'<h2>Sorteo {next_c}</h2>', t)
+          t=re.sub(r'(?:let|const|var)\s+sorteoNum\s*=\s*\d+;', f'let sorteoNum={next_c};', t)
+          t=re.sub(r'const sorteos=\[.*?];', sorteos_js, t, flags=re.S)
+
+          if 'window.HIST_POOLS' not in t:
+              t=t.replace('const sorteos=[', f'window.HIST_POOLS={hist_json};\nconst sorteos=[')
+          else:
+              t=re.sub(r'window\.HIST_POOLS=.*?;', f'window.HIST_POOLS={hist_json};', t, flags=re.S)
+
+          back_start=next_c-201; back_end=next_c-1
+          t=re.sub(r'Backtesting\s+\d+\s+sorteos\s+\(\d+-\d+\)', f'Backtesting 200 sorteos ({back_start}-{back_end})', t)
+          marker=f"<!-- AUTO UPDATE: ultimo={max_c} fecha={max_row['FECHA']} siguiente={next_c} {fmt_next} {hour_label} pools=v6_fix generado={datetime.datetime.utcnow().isoformat()}Z -->"
+          t=re.sub(r'<!-- AUTO UPDATE.*?-->', marker, t, flags=re.S)
+
           p.write_text(t, encoding='utf-8')
-          print(f"OK siguiente={next_c}")
+          print(f"OK siguiente={next_c} historial {len(hist_pools)}")
+
           PY
+
       - name: Commit
         run: |
-          if git diff --quiet; then echo "Sin cambios"; exit 0; fi
+          if git diff --quiet; then echo "Sin cambios (ya en ultimo sorteo)"; exit 0; fi
           git config user.name "chispazo-bot"
           git config user.email "bot@github.com"
           git add index.html history/
-          git commit -m "Auto V6 auto"
+          git commit -m "Auto V6 fix: CSV multi-source refs/heads + cache bust"
           git push
 
