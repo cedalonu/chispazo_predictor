@@ -35,7 +35,6 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 .immutable-badge{font-size:9px;background:#2e7d32;color:#a5d6a7;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle}
 .transparency-note{background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px;margin-top:14px;font-size:10px;color:#aaa;line-height:1.5}
 
-/* ===== OPTIMIZACIÓN MÓVIL ===== */
 @media (max-width: 600px) {
     .neon-title { font-size: 26px; }
     .container { padding: 6px; }
@@ -47,8 +46,6 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
     .modal { max-width: 100%; height: 95vh; border-radius: 8px; }
     .modal-scroll { padding: 8px; }
     .transparency-note { font-size: 9px; padding: 8px; }
-    
-    /* Tabla sin scroll horizontal */
     .table-wrapper { overflow-x: hidden; width: 100%; }
     .table { table-layout: fixed; width: 100%; }
     .table th { padding: 4px 1px; font-size: 8px; word-break: break-word; }
@@ -100,6 +97,7 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 
 <div style="margin-top:14px">
 <div style="background:var(--yellow);color:black;padding:6px 10px;font-size:11px;font-weight:900;border-radius:6px 6px 0 0">RESULTADOS - Últimos 20 <span class="immutable-badge">INMUTABLE</span></div>
+<div style="background:#1a1a1a;border:1px solid #2a2a2a;border-top:0;padding:3px 10px;font-size:9px;color:#888;text-align:center">👆 Click en celdas para ver detalles del wheeling</div>
 <div class="table-wrapper">
 <table class="table"><thead><tr><th style="width:22%">Sorteo / Fecha</th><th style="width:19.5%;color:var(--yellow)">Pool Final</th><th style="width:19.5%;color:var(--cyan)">Pool2</th><th style="width:19.5%;color:var(--orange)">Pool3</th><th style="width:19.5%;color:var(--green)">Pool4</th></tr></thead><tbody id="results-body"></tbody></table>
 </div>
@@ -338,7 +336,7 @@ async function init() {
             {id:'p2', label:'Pool2 HOT (Frecuencia + Co-ocurrencia)', nums:livePools.p2, count:21, border:'#00e5ff', accent:'#00e5ff', desc:'Top 21 por score ML. Backtesting: 24 tickets = ROI -42.7% (mejor balance). Ordenado por potencial.', wheelings:[{k:12, slice:livePools.p2.slice(0,12)}, {k:24, slice:livePools.p2.slice(0,16)}, {k:36, slice:livePools.p2.slice(0,18)}, {k:48, slice:livePools.p2}]},
             {id:'p3', label:'Pool3 REVERSIÓN (Gap Inteligente)', nums:livePools.p3, count:21, border:'#ff9800', accent:'#ff9800', desc:'Top 21 con mayor retraso (gap) pero con puntuación base media-alta.', wheelings:[{k:12, slice:livePools.p3.slice(0,12)}, {k:24, slice:livePools.p3.slice(0,16)}, {k:36, slice:livePools.p3.slice(0,18)}, {k:48, slice:livePools.p3}]},
             {id:'p4', label:'Pool4 CO-OCURRENCIA (Stickiness)', nums:livePools.p4, count:21, border:'#76ff03', accent:'#76ff03', desc:'Top 21 que históricamente tienden a salir juntos con los números del sorteo anterior.', wheelings:[{k:12, slice:livePools.p4.slice(0,12)}, {k:24, slice:livePools.p4.slice(0,16)}, {k:36, slice:livePools.p4.slice(0,18)}, {k:48, slice:livePools.p4}]},
-            {id:'anti', label:' ANTI-POOL (5 Vetados)', nums:livePools.anti, count:5, border:'#d32f2f', accent:'#ff5252', desc:'Números con alta probabilidad de NO salir (repetición inmediata + baja frecuencia). Excluidos del Pool Final.', wheelings:[]}
+            {id:'anti', label:'🚫 ANTI-POOL (5 Vetados)', nums:livePools.anti, count:5, border:'#d32f2f', accent:'#ff5252', desc:'Números con alta probabilidad de NO salir (repetición inmediata + baja frecuencia). Excluidos del Pool Final.', wheelings:[]}
         ];
         
         renderPools();
