@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
 <title>CHISPAZO PREDICTOR V4 ML</title>
 <style>
 :root{--yellow:#ffeb3b;--cyan:#00e5ff;--pink:#ff4081;--green:#76ff03;--orange:#ff9800;--red-dark:#d32f2f;--bg:#0a0a0a;--card:#121212;--card2:#1a1a1a;--border:#2a2a2a}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Arial;overflow-x:hidden}
+body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Arial;overflow-x:hidden;-webkit-text-size-adjust:100%}
 .mono{font-family:ui-monospace,Menlo,Monaco,monospace}
 .neon-title{font-size:42px;font-weight:900;text-align:center;color:var(--yellow);text-shadow:0 0 12px rgba(255,235,59,.9),0 0 24px rgba(255,235,59,.5);line-height:.9}
 .neon-title span{color:var(--cyan);text-shadow:0 0 12px rgba(0,229,255,.9)}
@@ -17,10 +17,10 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 .num-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0}
 .num-cell{background:var(--card);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 0;text-align:center;font-size:12px;font-weight:800}
 .wheel-btn{border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;border:1px solid}
-.table{width:100%;border-collapse:collapse;font-size:12px}
-.table th{border:1px solid var(--border);padding:8px 6px;background:var(--card2);text-align:center;font-size:11px}
+.table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.table th{border:1px solid var(--border);padding:8px 4px;background:var(--card2);text-align:center;font-size:11px;word-wrap:break-word}
 .table td{border:1px solid var(--border);padding:0;text-align:center}
-.hit-cell{padding:8px 4px;border-radius:6px;margin:2px;font-weight:800;cursor:pointer}
+.hit-cell{padding:8px 2px;border-radius:6px;margin:2px;font-weight:800;cursor:pointer;white-space:nowrap}
 .hit-5{background:#7c4dff;color:white}.hit-4{background:#2e7d32;color:#a5d6a7}.hit-3{background:#424242;color:#aaa}.hit-0{background:#212121;color:#666}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:50;padding:12px;overflow:hidden}
 .modal{width:100%;max-width:580px;height:90vh;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;background:#121212;border:1px solid #333;border-radius:12px}
@@ -37,41 +37,35 @@ body{background:var(--bg);color:#e8e8e8;font-family:system-ui,Segoe UI,Roboto,Ar
 
 /* ===== OPTIMIZACIÓN MÓVIL ===== */
 @media (max-width: 600px) {
-    .neon-title { font-size: 28px; }
-    .container { padding: 8px; }
-    .num-grid { grid-template-columns: repeat(7, 1fr); gap: 3px; }
-    .num-cell { font-size: 11px; padding: 5px 0; }
-    .pool-card { padding: 8px; }
-    .wheel-btn { font-size: 10px; padding: 3px 8px; }
-    .pill { font-size: 9px; padding: 4px 10px; }
-    .table { font-size: 10px; }
-    .table th { font-size: 9px; padding: 6px 3px; }
-    .hit-cell { padding: 6px 3px; font-size: 10px; }
+    .neon-title { font-size: 26px; }
+    .container { padding: 6px; }
+    .num-grid { grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .num-cell { font-size: 10px; padding: 4px 0; }
+    .pool-card { padding: 7px; }
+    .wheel-btn { font-size: 9px; padding: 3px 7px; }
+    .pill { font-size: 9px; padding: 4px 8px; }
     .modal { max-width: 100%; height: 95vh; border-radius: 8px; }
     .modal-scroll { padding: 8px; }
     .transparency-note { font-size: 9px; padding: 8px; }
+    
+    /* Tabla sin scroll horizontal */
+    .table-wrapper { overflow-x: hidden; width: 100%; }
+    .table { table-layout: fixed; width: 100%; }
+    .table th { padding: 4px 1px; font-size: 8px; word-break: break-word; }
+    .table th:first-child { font-size: 9px; }
+    .table td { padding: 0; }
+    .table td:first-child { font-size: 9px; padding: 4px 2px; }
+    .table td:first-child span { font-size: 7px; }
+    .hit-cell { padding: 5px 1px; font-size: 9px; }
 }
 
 @media (max-width: 400px) {
-    .neon-title { font-size: 22px; }
-    .num-cell { font-size: 10px; padding: 4px 0; }
-    .table { font-size: 9px; }
-    .table th { font-size: 8px; padding: 4px 2px; }
-    .hit-cell { padding: 5px 2px; font-size: 9px; }
-}
-
-/* Tabla responsive: scroll horizontal solo en la tabla si es necesario */
-.table-wrapper {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-/* Ajuste de columnas de tabla para móvil */
-@media (max-width: 600px) {
-    .table-wrapper { overflow-x: auto; }
-    .table th, .table td { min-width: 60px; }
-    .table th:first-child, .table td:first-child { min-width: 70px; }
+    .neon-title { font-size: 20px; }
+    .num-cell { font-size: 9px; padding: 3px 0; }
+    .table th { font-size: 7px; padding: 3px 1px; }
+    .hit-cell { padding: 4px 1px; font-size: 8px; }
+    .table td:first-child { font-size: 8px; }
+    .table td:first-child span { font-size: 6px; }
 }
 </style>
 </head>
@@ -344,7 +338,7 @@ async function init() {
             {id:'p2', label:'Pool2 HOT (Frecuencia + Co-ocurrencia)', nums:livePools.p2, count:21, border:'#00e5ff', accent:'#00e5ff', desc:'Top 21 por score ML. Backtesting: 24 tickets = ROI -42.7% (mejor balance). Ordenado por potencial.', wheelings:[{k:12, slice:livePools.p2.slice(0,12)}, {k:24, slice:livePools.p2.slice(0,16)}, {k:36, slice:livePools.p2.slice(0,18)}, {k:48, slice:livePools.p2}]},
             {id:'p3', label:'Pool3 REVERSIÓN (Gap Inteligente)', nums:livePools.p3, count:21, border:'#ff9800', accent:'#ff9800', desc:'Top 21 con mayor retraso (gap) pero con puntuación base media-alta.', wheelings:[{k:12, slice:livePools.p3.slice(0,12)}, {k:24, slice:livePools.p3.slice(0,16)}, {k:36, slice:livePools.p3.slice(0,18)}, {k:48, slice:livePools.p3}]},
             {id:'p4', label:'Pool4 CO-OCURRENCIA (Stickiness)', nums:livePools.p4, count:21, border:'#76ff03', accent:'#76ff03', desc:'Top 21 que históricamente tienden a salir juntos con los números del sorteo anterior.', wheelings:[{k:12, slice:livePools.p4.slice(0,12)}, {k:24, slice:livePools.p4.slice(0,16)}, {k:36, slice:livePools.p4.slice(0,18)}, {k:48, slice:livePools.p4}]},
-            {id:'anti', label:'🚫 ANTI-POOL (5 Vetados)', nums:livePools.anti, count:5, border:'#d32f2f', accent:'#ff5252', desc:'Números con alta probabilidad de NO salir (repetición inmediata + baja frecuencia). Excluidos del Pool Final.', wheelings:[]}
+            {id:'anti', label:' ANTI-POOL (5 Vetados)', nums:livePools.anti, count:5, border:'#d32f2f', accent:'#ff5252', desc:'Números con alta probabilidad de NO salir (repetición inmediata + baja frecuencia). Excluidos del Pool Final.', wheelings:[]}
         ];
         
         renderPools();
@@ -437,7 +431,6 @@ function renderResults(draws) {
 function openWheeling(id, k, sorteoNum) {
     let pBase = pools.find(x => x.id === id);
     let slice = [];
-    let savedCombos = null;
     
     if (sorteoNum) {
         const pred = getPrediction(sorteoNum, sorteos);
@@ -479,7 +472,7 @@ function openWheeling(id, k, sorteoNum) {
         return '<div style="display:flex;gap:6px;align-items:center;padding:5px 8px;margin:3px 0;background:' + (i === 0 && win && hits >= 4 ? 'rgba(124,77,255,0.12)' : bg) + ';border:1px solid ' + border + ';border-radius:8px"><span style="font-size:10px;background:#222;border:1px solid #333;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:800">' + (i + 1) + '</span><div style="display:flex;gap:3px">' + c.map(n => { let isWin = win ? win.includes(n) : false; return '<span style="background:' + (isWin ? (hits === 5 ? '#7c4dff' : '#2e7d32') : '#222') + ';border:1px solid ' + (isWin ? (hits === 5 ? '#b388ff' : '#4caf50') : '#333') + ';color:' + (isWin ? 'white' : '#ccc') + ';border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900">' + String(n).padStart(2, '0') + '</span>'; }).join('') + '</div><span style="margin-left:auto;background:' + (hits === 5 ? '#7c4dff' : hits === 4 ? '#2e7d32' : '#424242') + ';color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">' + (win ? hits + ' ac' : '') + '</span></div>';
     }).join('');
 
-    let htmlModal = '<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;font-weight:800" class="mono">Wheeling Pool ' + (p.id === 'final' ? 'FINAL' : p.id.toUpperCase()) + ' - ' + reduced + ' comb</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div><div class="modal-scroll">' + winHtml + poolBaseHtml + statsHtml + '<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:800">' + reduced + ' combinaciones - 5 números c/u</span><span class="pill" style="background:' + p.border + '22;border:1px solid ' + p.border + '66;color:' + p.accent + ';font-size:10px">Sorteo ' + (sorteoNum || 'Próximo') + '</span></div><div style="margin-top:8px">' + listHtml + '</div></div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;gap:8px;justify-content:center"><button onclick="copyWheelingToClipboard(\'' + id + '\',' + k + ',' + (sorteoNum || 0) + ')" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer"> Copiar</button><button onclick="closeModal()" style="background:#1a1a1a;border:1px solid #333;color:#888;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">Cerrar [Esc]</button></div></div></div>';
+    let htmlModal = '<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;font-weight:800" class="mono">Wheeling Pool ' + (p.id === 'final' ? 'FINAL' : p.id.toUpperCase()) + ' - ' + reduced + ' comb</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div><div class="modal-scroll">' + winHtml + poolBaseHtml + statsHtml + '<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:800">' + reduced + ' combinaciones - 5 números c/u</span><span class="pill" style="background:' + p.border + '22;border:1px solid ' + p.border + '66;color:' + p.accent + ';font-size:10px">Sorteo ' + (sorteoNum || 'Próximo') + '</span></div><div style="margin-top:8px">' + listHtml + '</div></div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;gap:8px;justify-content:center"><button onclick="copyWheelingToClipboard(\'' + id + '\',' + k + ',' + (sorteoNum || 0) + ')" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">Copiar</button><button onclick="closeModal()" style="background:#1a1a1a;border:1px solid #333;color:#888;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">Cerrar [Esc]</button></div></div></div>';
     document.getElementById('modal-root').innerHTML = htmlModal;
 }
 
@@ -553,7 +546,7 @@ function openCellPopout(num, pid, isHistorical) {
         let bg = best >= 5 ? 'rgba(124,77,255,0.08)' : '#1a1a1a';
         let color = best >= 4 ? '#a5d6a7' : '#888';
         
-        wr += '<div style="margin-top:12px;border:1px solid ' + border + ';border-radius:10px;padding:8px;background:' + bg + '"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:900;color:' + p.accent + ';border:1px solid ' + p.border + '66;background:' + p.border + '22;padding:2px 8px;border-radius:999px">' + uv(w.k) + ' comb</span><div style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:800;color:' + color + '">Mejor ' + best + ' aciertos</span>' + (premio ? '<span style="background:' + badgeColor + ';color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">' + premio + '</span>' : '') + '</div></div>' + bt + '<div style="text-align:center;margin-top:8px"><button onclick="openWheeling(\'' + p.id + '\',' + w.k + ',' + s.num + ')" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px;cursor:pointer">Ver Wheeling Completo </button></div></div>';
+        wr += '<div style="margin-top:12px;border:1px solid ' + border + ';border-radius:10px;padding:8px;background:' + bg + '"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:900;color:' + p.accent + ';border:1px solid ' + p.border + '66;background:' + p.border + '22;padding:2px 8px;border-radius:999px">' + uv(w.k) + ' comb</span><div style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:800;color:' + color + '">Mejor ' + best + ' aciertos</span>' + (premio ? '<span style="background:' + badgeColor + ';color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">' + premio + '</span>' : '') + '</div></div>' + bt + '<div style="text-align:center;margin-top:8px"><button onclick="openWheeling(\'' + p.id + '\',' + w.k + ',' + s.num + ')" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px;cursor:pointer">Ver Wheeling Completo ↗</button></div></div>';
     });
 
     let headerBg = ph.length === 5 ? '#7c4dff' : 'var(--yellow)';
