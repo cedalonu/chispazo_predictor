@@ -2,12 +2,15 @@ name: Update Chispazo Data & Rebuild
 
 on:
   schedule:
-    # Sorteo 3:00 PM CDMX -> Resultados ~4:30 PM CDMX -> 22:30 UTC
+    # Sorteo 3:00 PM CDMX -> ~22:30 UTC
     - cron: '30 22 * * *'
-    # Sorteo 9:00 PM CDMX -> Resultados ~10:30 PM CDMX -> 04:30 UTC
+    # Sorteo 9:00 PM CDMX -> ~04:30 UTC
     - cron: '30 4 * * *'
-  # Permite ejecutarlo manualmente desde la pestaña "Actions" en GitHub
   workflow_dispatch:
+
+# AGREGAR ESTO: Permisos para que Actions pueda hacer push
+permissions:
+  contents: write
 
 jobs:
   update-data:
@@ -18,7 +21,6 @@ jobs:
 
       - name: Fetch Latest Chispazo CSV
         run: |
-          # Descarga el CSV más reciente desde la fuente oficial
           curl -o data.csv "https://raw.githubusercontent.com/pakinja/pakin/refs/heads/master/Chispazo.csv"
           echo "CSV descargado exitosamente."
 
@@ -29,9 +31,9 @@ jobs:
           
           git add data.csv
           if git diff --staged --quiet; then
-            echo "No hay nuevos sorteos aún. Esperando próxima actualización."
+            echo "No hay nuevos sorteos aún."
           else
-            git commit -m "chore: Actualización automática de datos Chispazo (Sorteo nuevo detectado)"
+            git commit -m "chore: Actualización automática de datos Chispazo"
             git push
-            echo "Datos actualizados y push realizado."
+            echo "✅ Datos actualizados correctamente"
           fi
