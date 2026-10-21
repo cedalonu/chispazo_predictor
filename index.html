@@ -78,9 +78,81 @@ let allDraws = [];
 let sorteos = [];
 let pools = [];
 
-function uv(k){return k===14?12:k===16?24:k===18?36:48}
+// Mapeo de cantidad de combinaciones por tipo de wheeling
+const WHEELING_SIZES = { 14: 12, 16: 24, 18: 36, 21: 48 };
+
+function uv(k){ return WHEELING_SIZES[k] || 48; }
 function gf(n,k){let r=1;for(let i=1;i<=k;i++)r=r*(n-i+1)/i;return Math.round(r)}
+
+// Filtros de calidad para combinaciones
+function isValidCombo(combo) {
+    const sorted = [...combo].sort((a,b) => a-b);
+    
+    // 1. No más de 3 números consecutivos
+    let maxConsec = 1, currentConsec = 1;
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] === sorted[i-1] + 1) {
+            currentConsec++;
+            maxConsec = Math.max(maxConsec, currentConsec);
+        } else {
+            currentConsec = 1;
+        }
+    }
+    if (maxConsec > 3) return false;
+    
+    // 2. No más de 3 pares
+    const pares = combo.filter(n => n % 2 === 0).length;
+    if (pares > 3) return false;
+    
+    // 3. No más de 3 nones
+    const nones = combo.filter(n => n % 2 !== 0).length;
+    if (nones > 3) return false;
+    
+    // 4. No más de 3 primos (2,3,5,7,11,13,17,19,23)
+    const primes = [2, 3, 5, 7, 11, 13, 17, 19, 23];
+    const primos = combo.filter(n => primes.includes(n)).length;
+    if (primos > 3) return false;
+    
+    // 5. Suma entre 38 y 108
+    const sum = combo.reduce((a, b) => a + b, 0);
+    if (sum < 38 || sum > 108) return false;
+    
+    return true;
+}
+
+// Generador de wheelings con filtros de calidad
+function generateFilteredWheeling(slice, targetCount) {
+    // Generar candidatos en exceso (5x) y filtrar
+    const candidates = Ef(slice, targetCount * 5);
+    const valid = candidates.filter(c => isValidCombo(c));
+    
+    // Si no hay suficientes válidas, complementar con las mejores candidatas
+    if (valid.length >= targetCount) {
+        return valid.slice(0, targetCount);
+    }
+    
+    // Si faltan, usar las candidatas restantes ordenadas por "calidad" (suma más cercana a 73)
+    const remaining = candidates.filter(c => !valid.includes(c));
+    const sortedRemaining = remaining.sort((a, b) => {
+        const sumA = Math.abs(a.reduce((x,y) => x+y, 0) - 73);
+        const sumB = Math.abs(b.reduce((x,y) => x+y, 0) - 73);
+        return sumA - sumB;
+    });
+    
+    const result = [...valid];
+    for (const c of sortedRemaining) {
+        if (result.length >= targetCount) break;
+        if (!result.some(r => r.join(',') === c.join(','))) {
+            result.push(c);
+        }
+    }
+    
+    return result.slice(0, targetCount);
+}
+
+// Función Ef original (para compatibilidad con wheelings históricos guardados)
 function rv(e,n,t){let r=e.filter((c)=>n.includes(c)).sort((c,m)=>c-m),l=e.filter((c)=>!n.includes(c)),u=new Set,i=[];if(r.length>0){let c=[];for(let y=0;y<Math.min(5,r.length);y++)c.push(r[y]);let m=0;while(c.length<5&&m<l.length){let y=l[m];if(!c.includes(y))c.push(y);m++}let g=0;while(c.length<5&&g<e.length){if(!c.includes(e[g]))c.push(e[g]);g++}if(c.sort((y,k)=>y-k),c.length===5)u.add(c.join(",")),i.push(c)}let o=Ef(e,t*2);for(let c of o){let m=c.join(",");if(!u.has(m)){if(u.add(m),i.push(c),i.length>=t)break}}let a=0;while(i.length<t&&a<e.length){let c=e.slice(a,a+5);if(c.length===5){let m=[...c].sort((y,k)=>y-k),g=m.join(",");if(!u.has(g))u.add(g),i.push(m)}a++}if(n.length>0)return i.sort((c,m)=>{let g=c.filter((k)=>n.includes(k)).length,y=m.filter((k)=>n.includes(k)).length;if(y!==g)return y-g;for(let k=0;k<5;k++)if(c[k]!==m[k])return c[k]-m[k];return 0}),i.slice(0,t);else return[...i].sort((m,g)=>{for(let y=0;y<5;y++)if(m[y]!==g[y])return m[y]-g[y];return 0}).slice(0,t)}
+
 function Ef(e,n){let t=e.length,r=new Set,l=[];if(t<7)return[];let u=t-6;for(let i=0;i<n;i++){let o=0,a=false;while(o<n*4&&!a){let c=i+o*n,m=c*2%6,g=(c*3+1)%6;if(g===m)g=(g+1)%6;let y=6+c*5%u,k=6+(c*7+2)%u;if(k===y)k=6+(k-6+1)%u;let w=6+(c*11+5)%u,_=0;while((w===y||w===k)&&_<u+5)w=6+(w-6+1)%u,_++;let $=[e[m],e[g],e[y],e[k],e[w]].sort((d,S)=>d-S);if(new Set($).size<5){o++;continue}let f=$.join(",");if(!r.has(f)){r.add(f);l.push($);a=true}else o++}if(!a){let c=0;while(c<100&&!a){let m=i*13+c*17+3,g=m*2%6,y=(m*3+1)%6;if(y===g)y=(y+2)%6;let k=6+(m*5+c)%u,w=6+(m*7+2+c*2)%u;if(w===k)w=6+(w-6+1)%u;let _=6+(m*11+5+c*3)%u,$=0;while((_===k||_===w)&&$<u+5)_=6+(_-6+1)%u,$++;let h=[e[g],e[y],e[k],e[w],e[_]].sort((d,S)=>d-S),f=h.join(",");if(!r.has(f)&&new Set(h).size===5){r.add(f);l.push(h);a=true}c++}}}return l.sort((i,o)=>{for(let a=0;a<5;a++)if(i[a]!==o[a])return i[a]-o[a];return 0}).slice(0,n)}
 
 function parseCSV(text) {
@@ -165,7 +237,6 @@ function calculateMLPools(draws) {
         }
     }
 
-    // ORDENAMIENTO POR POTENCIAL (score):
     const finalPoolArray = Array.from(finalPool);
     const finalSorted = finalPoolArray.sort((a, b) => {
         const scoreA = scores.find(s => s.num === a)?.score || 0;
@@ -180,7 +251,8 @@ function calculateMLPools(draws) {
     return { final: finalSorted, anti: antiPool, p2, p3, p4 };
 }
 
-function getImmutablePrediction(concurso, draws) {
+// FUNCIÓN CRÍTICA: Guarda predicción COMPLETA con wheelings filtrados
+function savePrediction(concurso, draws) {
     const key = 'chispazo_pred_' + concurso;
     const saved = localStorage.getItem(key);
     if (saved) return JSON.parse(saved);
@@ -191,9 +263,33 @@ function getImmutablePrediction(concurso, draws) {
     const histDraws = draws.slice(0, idx);
     const pred = calculateMLPools(histDraws);
     
-    const toSave = { final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4 };
+    // Generar wheelings con filtros de calidad para cada pool
+    const wheelings = {};
+    const poolKeys = ['final', 'p2', 'p3', 'p4'];
+    
+    poolKeys.forEach(pid => {
+        const nums = pred[pid];
+        wheelings[pid] = {
+            nums: nums,
+            combos: {
+                14: generateFilteredWheeling(nums.slice(0, 14), uv(14)),
+                16: generateFilteredWheeling(nums.slice(0, 16), uv(16)),
+                18: generateFilteredWheeling(nums.slice(0, 18), uv(18)),
+                21: generateFilteredWheeling(nums, uv(21))
+            }
+        };
+    });
+    
+    const toSave = { final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4, wheelings };
     localStorage.setItem(key, JSON.stringify(toSave));
     return toSave;
+}
+
+function getImmutablePrediction(concurso, draws) {
+    const key = 'chispazo_pred_' + concurso;
+    const saved = localStorage.getItem(key);
+    if (saved) return JSON.parse(saved);
+    return null;
 }
 
 async function init() {
@@ -212,10 +308,30 @@ async function init() {
         const livePools = calculateMLPools(allDraws);
         
         pools = [
-            {id:'final', label:'Pool FINAL CONSENSUS 16 (ML Optimizado)', nums:livePools.final, count:16, border:'#ffeb3b', accent:'#ffeb3b', desc:'Selección Restringida 4-4-4-4 + Anti-Pool. Ordenado por potencial (score ML).', wheelings:[{k:14, slice:livePools.final.slice(0,14)}, {k:16, slice:livePools.final}, {k:18, slice:[...livePools.final, 11, 20]}, {k:21, slice:[...livePools.final, 11, 20, 2, 7, 10]}]},
-            {id:'p2', label:'Pool2 HOT (Frecuencia + Co-ocurrencia)', nums:livePools.p2, count:21, border:'#00e5ff', accent:'#00e5ff', desc:'Top 21 por score ML (Frecuencia + Co-ocurrencia). Ordenado de mayor a menor potencial.', wheelings:[{k:14, slice:livePools.p2.slice(0,14)}, {k:16, slice:livePools.p2.slice(0,16)}, {k:18, slice:livePools.p2.slice(0,18)}, {k:21, slice:livePools.p2}]},
-            {id:'p3', label:'Pool3 REVERSIÓN (Gap Inteligente)', nums:livePools.p3, count:21, border:'#ff9800', accent:'#ff9800', desc:'Top 21 con mayor retraso (gap) pero con puntuación base media-alta. Ordenado por gap.', wheelings:[{k:14, slice:livePools.p3.slice(0,14)}, {k:16, slice:livePools.p3.slice(0,16)}, {k:18, slice:livePools.p3.slice(0,18)}, {k:21, slice:livePools.p3}]},
-            {id:'p4', label:'Pool4 CO-OCURRENCIA (Stickiness)', nums:livePools.p4, count:21, border:'#76ff03', accent:'#76ff03', desc:'Top 21 que históricamente tienden a salir juntos con los números del sorteo anterior.', wheelings:[{k:14, slice:livePools.p4.slice(0,14)}, {k:16, slice:livePools.p4.slice(0,16)}, {k:18, slice:livePools.p4.slice(0,18)}, {k:21, slice:livePools.p4}]},
+            {id:'final', label:'Pool FINAL CONSENSUS 16 (ML Optimizado)', nums:livePools.final, count:16, border:'#ffeb3b', accent:'#ffeb3b', desc:'Selección Restringida 4-4-4-4 + Anti-Pool. Ordenado por potencial (score ML).', wheelings:[
+                {k:14, slice:livePools.final.slice(0,14)}, 
+                {k:16, slice:livePools.final.slice(0,16)}, 
+                {k:18, slice:livePools.final.slice(0,18)}, 
+                {k:21, slice:livePools.final}
+            ]},
+            {id:'p2', label:'Pool2 HOT (Frecuencia + Co-ocurrencia)', nums:livePools.p2, count:21, border:'#00e5ff', accent:'#00e5ff', desc:'Top 21 por score ML (Frecuencia + Co-ocurrencia). Ordenado de mayor a menor potencial.', wheelings:[
+                {k:14, slice:livePools.p2.slice(0,14)}, 
+                {k:16, slice:livePools.p2.slice(0,16)}, 
+                {k:18, slice:livePools.p2.slice(0,18)}, 
+                {k:21, slice:livePools.p2}
+            ]},
+            {id:'p3', label:'Pool3 REVERSIÓN (Gap Inteligente)', nums:livePools.p3, count:21, border:'#ff9800', accent:'#ff9800', desc:'Top 21 con mayor retraso (gap) pero con puntuación base media-alta. Ordenado por gap.', wheelings:[
+                {k:14, slice:livePools.p3.slice(0,14)}, 
+                {k:16, slice:livePools.p3.slice(0,16)}, 
+                {k:18, slice:livePools.p3.slice(0,18)}, 
+                {k:21, slice:livePools.p3}
+            ]},
+            {id:'p4', label:'Pool4 CO-OCURRENCIA (Stickiness)', nums:livePools.p4, count:21, border:'#76ff03', accent:'#76ff03', desc:'Top 21 que históricamente tienden a salir juntos con los números del sorteo anterior.', wheelings:[
+                {k:14, slice:livePools.p4.slice(0,14)}, 
+                {k:16, slice:livePools.p4.slice(0,16)}, 
+                {k:18, slice:livePools.p4.slice(0,18)}, 
+                {k:21, slice:livePools.p4}
+            ]},
             {id:'anti', label:'🚫 ANTI-POOL (5 Vetados)', nums:livePools.anti, count:5, border:'#d32f2f', accent:'#ff5252', desc:'Números con alta probabilidad de NO salir (repetición inmediata + baja frecuencia). Excluidos del Pool Final.', wheelings:[]}
         ];
         
@@ -242,9 +358,10 @@ function renderPools(){
         d.style.borderColor=p.border;
         d.style.boxShadow=`0 0 14px ${p.border}33`;
         let nH=p.nums.map(n=>`<div class="num-cell" style="border-color:${p.border}55;color:${p.accent}">${String(n).padStart(2,'0')}</div>`).join('');
-        let wH=p.wheelings.length > 0 ? p.wheelings.map(w=>`<button class="wheel-btn" style="border-color:${p.border}88;background:${p.border}22;color:${p.accent}" onclick="openWheeling('${p.id}',${w.k})">${w.k} si 4</button>`).join('') : '<span style="font-size:10px;color:#666">No aplica wheeling</span>';
+        // Etiquetas simplificadas: solo número de combinaciones
+        let wH=p.wheelings.length > 0 ? p.wheelings.map(w=>`<button class="wheel-btn" style="border-color:${p.border}88;background:${p.border}22;color:${p.accent}" onclick="openWheeling('${p.id}',${w.k})">${uv(w.k)} comb</button>`).join('') : '<span style="font-size:10px;color:#666">No aplica wheeling</span>';
         
-        d.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:${p.accent}">${p.label}</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">${p.count} #</span></div><div class="num-grid">${nH}</div><div style="margin-top:6px"><span style="font-size:9px;color:var(--yellow)">● WHEELINGS ${p.id!=='anti'?'Sistemas Reducidos':'No aplica'}</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${wH}</div><div class="mono" style="font-size:8px;color:#666;margin-top:4px;line-height:1.3">${p.desc}</div></div>`;
+        d.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-size:11px;font-weight:800;color:${p.accent}">${p.label}</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">${p.count} #</span></div><div class="num-grid">${nH}</div><div style="margin-top:6px"><span style="font-size:9px;color:var(--yellow)">● WHEELINGS ${p.id!=='anti'?'Sistemas Reducidos con Filtros de Calidad':'No aplica'}</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${wH}</div><div class="mono" style="font-size:8px;color:#666;margin-top:4px;line-height:1.3">${p.desc}</div></div>`;
         c.appendChild(d);
     });
 }
@@ -256,7 +373,11 @@ function renderResults(draws){
     
     recentDraws.forEach(s=>{
         const tr=document.createElement('tr');
-        const pred = getImmutablePrediction(s.num, draws);
+        // Intentar obtener predicción guardada, si no existe, generarla y guardarla
+        let pred = getImmutablePrediction(s.num, draws);
+        if (!pred) {
+            pred = savePrediction(s.num, draws);
+        }
         
         let pf=0, p2=0, p3=0, p4=0;
         if(pred){
@@ -280,15 +401,23 @@ function renderResults(draws){
 function openWheeling(id, k, sorteoNum){
     let pBase = pools.find(x => x.id === id);
     let slice = [];
+    let savedCombos = null;
     
     if (sorteoNum) {
-        let s = sorteos.find(x => x.num === sorteoNum);
-        if (s) {
-            const pred = getImmutablePrediction(sorteoNum, sorteos);
-            if (pred) slice = pred[id === 'final' ? 'final' : id];
+        let pred = getImmutablePrediction(sorteoNum, sorteos);
+        if (!pred) {
+            pred = savePrediction(sorteoNum, sorteos);
+        }
+        if (pred && pred.wheelings && pred.wheelings[id]) {
+            savedCombos = pred.wheelings[id].combos[k];
+            slice = pred.wheelings[id].nums;
         }
     }
-    if (slice.length === 0) slice = pBase.nums;
+    
+    if (slice.length === 0) {
+        slice = pBase.nums;
+        savedCombos = null;
+    }
 
     let p = {
         ...pBase,
@@ -306,8 +435,6 @@ function openWheeling(id, k, sorteoNum){
 
     let total = gf(slice.length, 5);
     let reduced = uv(k);
-    let theoretical = Math.round(total / 17);
-    if (k === 21 && slice.length === 21) theoretical = 1197;
     
     let win = null, winDate = '';
     if (sorteoNum) {
@@ -315,18 +442,19 @@ function openWheeling(id, k, sorteoNum){
         if (s) { win = s.win; winDate = s.date; }
     }
 
-    let combos = win ? rv(slice, win, reduced) : Ef(slice, reduced);
+    // USAR COMBOS GUARDADOS si existen, si no generarlos con filtros
+    let combos = savedCombos || (win ? rv(slice, win, reduced) : generateFilteredWheeling(slice, reduced));
     
     let winHtml = '';
     if(win){
         winHtml=`<div style="background:var(--yellow);color:black;border-radius:10px;padding:10px;text-align:center;box-shadow:0 0 20px #ffeb3b44"><div style="font-size:10px;font-weight:900;letter-spacing:0.05em">● GANADORES REALES - SORTEO ${sorteoNum}</div><div style="font-size:20px;font-weight:900;letter-spacing:0.08em;margin:2px 0">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px;opacity:0.9">${winDate}</div><div style="margin-top:6px"><span style="background:#7c4dff;color:white;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:900">Mejor ${Math.max(...combos.map(c=>c.filter(n=>win.includes(n)).length))} aciertos</span></div></div>`;
     } else {
-        winHtml=`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:8px;text-align:center"><div style="font-size:10px;color:#888">Wheeling ${k} si 4 - Predicción en vivo</div></div>`;
+        winHtml=`<div style="background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:8px;text-align:center"><div style="font-size:10px;color:#888">Wheeling ${reduced} comb - Predicción en vivo</div></div>`;
     }
 
     let poolBaseHtml=`<div style="margin-top:10px;border:1px solid ${p.border}44;border-radius:10px;padding:8px;background:#1a1a1a"><div style="font-size:10px;font-weight:800;color:${p.accent}">POOL BASE</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${slice.map(n=>{let isW=win?win.includes(n):false;return `<span style="background:${isW?'#2e7d32':'#1a1a1a'};border:1px solid ${isW?'#4caf50':'#333'};color:${isW?'white':p.accent};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:800" class="mono">${String(n).padStart(2,'0')}</span>`}).join('')} <span style="font-size:10px;color:#666;margin-left:6px">(${slice.length} nums)</span></div></div>`;
     
-    let statsHtml=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><div style="background:#111;border:1px solid #222;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">TOTAL POSIBLES</div><div style="font-size:14px;font-weight:900;color:#fff">${total.toLocaleString()}</div></div><div style="background:#111;border:1px solid #333;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">REDUCIDO A</div><div style="font-size:14px;font-weight:900;color:var(--yellow)">${reduced}</div></div><div style="background:#111;border:1px solid #2e7d32;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">GARANTÍA</div><div style="font-size:10px;font-weight:800;color:#4caf50;line-height:1.2">Cobertura 4 si 5</div></div></div>`;
+    let statsHtml=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><div style="background:#111;border:1px solid #222;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">TOTAL POSIBLES</div><div style="font-size:14px;font-weight:900;color:#fff">${total.toLocaleString()}</div></div><div style="background:#111;border:1px solid #333;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">REDUCIDO A</div><div style="font-size:14px;font-weight:900;color:var(--yellow)">${reduced}</div></div><div style="background:#111;border:1px solid #2e7d32;border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:#666">FILTROS</div><div style="font-size:9px;font-weight:800;color:#4caf50;line-height:1.2">≤3 consec, ≤3 par/impar/primos, suma 38-108</div></div></div>`;
 
     let listHtml=combos.map((c,i)=>{
         let hits=win?c.filter(n=>win.includes(n)).length:0;
@@ -335,7 +463,7 @@ function openWheeling(id, k, sorteoNum){
         return `<div style="display:flex;gap:6px;align-items:center;padding:5px 8px;margin:3px 0;background:${i===0&&win&&hits>=4?'rgba(124,77,255,0.12)':bg};border:1px solid ${border};border-radius:8px"><span style="font-size:10px;background:#222;border:1px solid #333;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:800">${i+1}</span><div style="display:flex;gap:3px">${c.map(n=>{let isWin=win?win.includes(n):false;return `<span style="background:${isWin?(hits===5?'#7c4dff':'#2e7d32'):'#222'};border:1px solid ${isWin?(hits===5?'#b388ff':'#4caf50'):'#333'};color:${isWin?'white':'#ccc'};border-radius:5px;padding:2px 5px;font-size:11px;font-weight:900">${String(n).padStart(2,'0')}</span>`}).join('')}</div><span style="margin-left:auto;background:${hits===5?'#7c4dff':hits===4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${win?hits+' ac':''}</span></div>`
     }).join('');
 
-    let htmlModal=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;font-weight:800" class="mono">Wheeling Pool ${p.id==='final'?'FINAL':p.id.toUpperCase()} - ${k} si 4</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div><div class="modal-scroll">${winHtml}${poolBaseHtml}${statsHtml}<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:800">${reduced} combinaciones - 5 números c/u</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">Sorteo ${sorteoNum||'Próximo'}</span></div><div style="margin-top:8px">${listHtml}</div></div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;gap:8px;justify-content:center"><button onclick="copyWheelingToClipboard('${id}',${k},${sorteoNum||0})" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">⎙ Copiar</button><button onclick="closeModal()" style="background:#1a1a1a;border:1px solid #333;color:#888;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">Cerrar [Esc]</button></div></div></div>`;
+    let htmlModal=`<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;font-weight:800" class="mono">Wheeling Pool ${p.id==='final'?'FINAL':p.id.toUpperCase()} - ${reduced} comb</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div><div class="modal-scroll">${winHtml}${poolBaseHtml}${statsHtml}<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:800">${reduced} combinaciones - 5 números c/u</span><span class="pill" style="background:${p.border}22;border:1px solid ${p.border}66;color:${p.accent};font-size:10px">Sorteo ${sorteoNum||'Próximo'}</span></div><div style="margin-top:8px">${listHtml}</div></div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;gap:8px;justify-content:center"><button onclick="copyWheelingToClipboard('${id}',${k},${sorteoNum||0})" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">⎙ Copiar</button><button onclick="closeModal()" style="background:#1a1a1a;border:1px solid #333;color:#888;border-radius:999px;padding:6px 14px;font-size:11px;cursor:pointer">Cerrar [Esc]</button></div></div></div>`;
     document.getElementById('modal-root').innerHTML=htmlModal;
 }
 
@@ -347,9 +475,19 @@ function openCellPopout(num, pid, isHistorical = false) {
     let win = s.win;
     
     let poolNums = pBase.nums;
+    let savedCombos = null;
+    
     if (isHistorical) {
-        const pred = getImmutablePrediction(num, sorteos);
-        if (pred) poolNums = pred[pid === 'final' ? 'final' : pid];
+        let pred = getImmutablePrediction(num, sorteos);
+        if (!pred) {
+            pred = savePrediction(num, sorteos);
+        }
+        if (pred) {
+            poolNums = pred[pid === 'final' ? 'final' : pid];
+            if (pred.wheelings && pred.wheelings[pid]) {
+                savedCombos = pred.wheelings[pid].combos;
+            }
+        }
     }
     
     let p = {
@@ -369,7 +507,13 @@ function openCellPopout(num, pid, isHistorical = false) {
     
     let wr = '';
     p.wheelings.forEach(w => {
-        let combos = rv(w.slice, win, uv(w.k));
+        let combos;
+        if (savedCombos && savedCombos[w.k]) {
+            combos = savedCombos[w.k];
+        } else {
+            combos = rv(w.slice, win, uv(w.k));
+        }
+        
         let sc = combos.map(c => ({c, h: hitsCount(c, win)})).sort((a,b) => b.h - a.h);
         let best = sc[0]?.h || 0;
         let top = sc.filter(x => x.h >= 2).slice(0, 3);
@@ -377,7 +521,7 @@ function openCellPopout(num, pid, isHistorical = false) {
         let badgeColor = best === 5 ? '#7c4dff' : best === 4 ? '#2e7d32' : '#424242';
         let bt = top.map((it, idx) => `<div style="display:flex;gap:4px;align-items:center;margin:4px 0;background:${idx===0?'rgba(124,77,255,0.12)':'transparent'};border:${idx===0?'1px solid #7c4dff44':'0'};border-radius:6px;padding:3px"><span style="font-size:10px;background:#222;border:1px solid #333;border-radius:4px;padding:1px 4px;min-width:16px;text-align:center">${idx+1}</span><div style="display:flex;gap:2px">${it.c.map(n=>`<span style="background:${win.includes(n)?(it.h===5?'#7c4dff':'#2e7d32'):'#1a1a1a'};border:1px solid ${win.includes(n)?(it.h===5?'#b388ff':'#4caf50'):'#333'};color:${win.includes(n)?'white':'#ccc'};border-radius:4px;padding:2px 4px;font-size:11px;font-weight:800">${String(n).padStart(2,'0')}</span>`).join('')}</div><span style="margin-left:auto;background:${it.h>=5?'#7c4dff':it.h===4?'#2e7d32':'#424242'};color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${it.h} ac</span></div>`).join('') || '<div style="font-size:10px;color:#666;padding:4px">Sin combinaciones con 2+ aciertos</div>';
         
-        wr += `<div style="margin-top:12px;border:1px solid ${best>=4?'#7c4dff66':'#2a2a2a'};border-radius:10px;padding:8px;background:${best>=5?'rgba(124,77,255,0.08)':'#1a1a1a'}"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:900;color:${p.accent};border:1px solid ${p.border}66;background:${p.border}22;padding:2px 8px;border-radius:999px">${w.k} si 4</span><div style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:800;color:${best>=4?'#a5d6a7':'#888'}">Mejor ${best} aciertos</span>${premio?`<span style="background:${badgeColor};color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${premio}</span>`:''}</div></div>${bt}<div style="text-align:center;margin-top:8px"><button onclick="openWheeling('${p.id}',${w.k},${s.num})" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px;cursor:pointer">Ver Wheeling Completo ↗</button></div></div>`;
+        wr += `<div style="margin-top:12px;border:1px solid ${best>=4?'#7c4dff66':'#2a2a2a'};border-radius:10px;padding:8px;background:${best>=5?'rgba(124,77,255,0.08)':'#1a1a1a'}"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:900;color:${p.accent};border:1px solid ${p.border}66;background:${p.border}22;padding:2px 8px;border-radius:999px">${uv(w.k)} comb</span><div style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;font-weight:800;color:${best>=4?'#a5d6a7':'#888'}">Mejor ${best} aciertos</span>${premio?`<span style="background:${badgeColor};color:white;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">${premio}</span>`:''}</div></div>${bt}<div style="text-align:center;margin-top:8px"><button onclick="openWheeling('${p.id}',${w.k},${s.num})" style="background:#222;border:1px solid #333;color:#aaa;border-radius:999px;padding:4px 12px;font-size:10px;cursor:pointer">Ver Wheeling Completo ↗</button></div></div>`;
     });
 
     let html = `<div class="modal-bg" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><div class="modal-header" style="padding:10px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:900">Sorteo ${s.num} - ${p.label}</span><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #555;color:white;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div><div class="modal-scroll"><div style="background:${ph.length===5?'#7c4dff':'var(--yellow)'};color:${ph.length===5?'white':'black'};border-radius:10px;padding:10px;text-align:center;box-shadow:0 0 20px ${ph.length===5?'#7c4dff66':'#ffeb3b44'}"><div style="font-size:10px;font-weight:900;letter-spacing:0.05em">● GANADORES REALES</div><div style="font-size:20px;font-weight:900;letter-spacing:0.08em;margin:2px 0">${win.map(n=>String(n).padStart(2,'0')).join(' ')}</div><div style="font-size:10px;opacity:0.9">${s.date}</div></div><div style="margin-top:12px;border:1px solid ${p.border}66;border-radius:10px;padding:10px;background:#1a1a1a"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:900;color:${p.accent}">POOL ${p.id==='final'?'FINAL':p.id.toUpperCase()} - ${ph.length} aciertos</span><span class="pill" style="background:${ph.length===5?'#7c4dff':ph.length===4?'#2e7d32':'#333'};color:white;border:0;font-size:11px;font-weight:900;padding:4px 10px">${ph.length}/${p.count}</span></div><div class="num-grid" style="margin-top:8px">${grid}</div></div><div style="margin-top:12px"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${p.accent};display:inline-block"></span><span style="font-size:11px;font-weight:900;color:${p.accent}">WHEELINGS - RESULTADOS</span></div>${wr}</div></div><div class="modal-footer" style="padding:8px;background:#0f0f0f;border-top:1px solid #222;display:flex;justify-content:space-between;align-items:center"><button onclick="closeModal()" style="background:#222;border:1px solid #444;color:#ccc;border-radius:999px;padding:4px 12px;font-size:10px;cursor:pointer">CERRAR [Esc]</button></div></div></div>`;
@@ -385,7 +529,7 @@ function openCellPopout(num, pid, isHistorical = false) {
 }
 
 function closeModal(){document.getElementById('modal-root').innerHTML=''}
-function openBacktest(){document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" style="height:auto;max-height:80vh"><div class="modal-header" style="padding:12px;display:flex;justify-content:space-between"><b style="font-size:12px;color:var(--cyan)">Backtesting: Ventana Móvil de 200 sorteos</b><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #444;color:white;border-radius:999px;padding:2px 8px">X</button></div><div class="modal-scroll"><div class="mono" style="font-size:10px;color:#aaa;padding:12px">El modelo ML Optimizado utiliza una ventana móvil de 200 sorteos para calcular frecuencias, gaps y co-ocurrencias en tiempo real. La Selección Restringida 4-4-4-4 garantiza que los 16 números finales no se solapen destructivamente, maximizando la cobertura para los wheelings.<br><br>✅ Anti-Pool activo: Excluye automáticamente los 5 números con mayor probabilidad de NO salir (repetición inmediata + baja frecuencia).<br>✅ Inmutabilidad: Las predicciones de sorteos pasados se guardan en el navegador y nunca cambien.</div></div></div></div>`;}
+function openBacktest(){document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="closeModal()"><div class="modal" style="height:auto;max-height:80vh"><div class="modal-header" style="padding:12px;display:flex;justify-content:space-between"><b style="font-size:12px;color:var(--cyan)">Backtesting: Ventana Móvil de 200 sorteos</b><button onclick="closeModal()" style="background:#2a2a2a;border:1px solid #444;color:white;border-radius:999px;padding:2px 8px">X</button></div><div class="modal-scroll"><div class="mono" style="font-size:10px;color:#aaa;padding:12px">El modelo ML Optimizado utiliza una ventana móvil de 200 sorteos para calcular frecuencias, gaps y co-ocurrencias en tiempo real. La Selección Restringida 4-4-4-4 garantiza que los 16 números finales no se solapen destructivamente, maximizando la cobertura para los wheelings.<br><br>✅ Anti-Pool activo: Excluye automáticamente los 5 números con mayor probabilidad de NO salir (repetición inmediata + baja frecuencia).<br>✅ Inmutabilidad: Las predicciones de sorteos pasados se guardan en el navegador y nunca cambian.<br>✅ Filtros de calidad: Los wheelings nuevos excluyen combinaciones con >3 consecutivos, >3 pares/nones/primos, o suma fuera de 38-108.</div></div></div></div>`;}
 
 function downloadTXT(){
     try{
@@ -393,8 +537,8 @@ function downloadTXT(){
         let lines = [`CHISPAZO PREDICTOR V4 ML - Sorteo ${sorteoNum}`, ''];
         pools.filter(p => p.id !== 'anti').forEach(function(p){
             p.wheelings.forEach(function(w){
-                let combos = Ef(w.slice, uv(w.k));
-                lines.push(`POOL:${p.id} K:${w.k} BASE:${w.slice.join(',')} TOTAL:${combos.length}`);
+                let combos = generateFilteredWheeling(w.slice, uv(w.k));
+                lines.push(`POOL:${p.id} COMBS:${uv(w.k)} BASE:${w.slice.join(',')} TOTAL:${combos.length}`);
                 combos.forEach(function(c,i){
                     lines.push((i+1)+':'+c.map(function(n){return String(n).padStart(2,'0')}).join('-'));
                 });
@@ -415,12 +559,12 @@ function downloadTXT(){
 function downloadCSV(){
     try{
         let sorteoNum = sorteos.length > 0 ? sorteos[sorteos.length-1].num + 1 : 99999;
-        let rows = ['sorteo,pool,wheeling_k,combo_num,n1,n2,n3,n4,n5'];
+        let rows = ['sorteo,pool,combinations,combo_num,n1,n2,n3,n4,n5'];
         pools.filter(p => p.id !== 'anti').forEach(function(p){
             p.wheelings.forEach(function(w){
-                let combos = Ef(w.slice, uv(w.k));
+                let combos = generateFilteredWheeling(w.slice, uv(w.k));
                 combos.forEach(function(c,i){
-                    rows.push([sorteoNum, p.id, w.k, i+1, c[0], c[1], c[2], c[3], c[4]].join(','));
+                    rows.push([sorteoNum, p.id, uv(w.k), i+1, c[0], c[1], c[2], c[3], c[4]].join(','));
                 });
             });
         });
@@ -438,14 +582,22 @@ function downloadCSV(){
 function copyWheelingToClipboard(id,k,sorteo){
     let pBase = pools.find(x => x.id === id);
     let slice = pBase.nums;
+    let combos;
+    
     if(sorteo) {
-        let s = sorteos.find(x => x.num === sorteo);
-        if(s) {
-            const pred = getImmutablePrediction(sorteo, sorteos);
-            if(pred) slice = pred[id === 'final' ? 'final' : id];
+        let pred = getImmutablePrediction(sorteo, sorteos);
+        if (!pred) {
+            pred = savePrediction(sorteo, sorteos);
         }
+        if(pred && pred.wheelings && pred.wheelings[id] && pred.wheelings[id].combos[k]) {
+            combos = pred.wheelings[id].combos[k];
+        } else {
+            combos = generateFilteredWheeling(slice, uv(k));
+        }
+    } else {
+        combos = generateFilteredWheeling(slice, uv(k));
     }
-    let combos = Ef(slice, uv(k));
+    
     let txt = combos.map((c,i) => `${String(i+1).padStart(4,'0')}: ${c.map(n=>String(n).padStart(2,'0')).join('-')}`).join('\n');
     navigator.clipboard.writeText(txt).then(()=>alert('Copiado al portapapeles')).catch(()=>{
         let ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('Copiado');
