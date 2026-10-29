@@ -33,6 +33,7 @@ jobs:
             echo "No hay nuevos sorteos aún."
           else
             git commit -m "chore: Actualización automática de datos Chispazo"
+            git pull --rebase origin main || true
             git push
             echo "✅ Datos actualizados correctamente"
           fi
