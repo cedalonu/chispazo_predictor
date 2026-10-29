@@ -366,10 +366,10 @@ export default function App() {
 
     // Consensus Frequency Filter state (User Request #9)
     const [selectedConsensusPools, setSelectedConsensusPools] = useState<Record<string, boolean>>({
-        final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: true
+        final: true, p2: true, p3: false, p4: true, p5: false, p6: true, p7: false
     });
     const [selectedFrequencies, setSelectedFrequencies] = useState<Record<number, boolean>>({
-        7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false
+        7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: false, 0: false
     });
 
     const [toastMsg, setToastMsg] = useState<string | null>(null);
