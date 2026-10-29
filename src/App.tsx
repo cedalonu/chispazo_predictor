@@ -676,6 +676,12 @@ export default function App() {
                 filteredNums.push(n);
             }
         }
+        filteredNums.sort((a, b) => {
+            let fA = freqMap[a] || 0;
+            let fB = freqMap[b] || 0;
+            if (fB !== fA) return fB - fA;
+            return a - b;
+        });
         return { freqMap, filteredNums };
     }, [pools, selectedConsensusPools, selectedFrequencies]);
 
@@ -1436,75 +1442,10 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
 }
 
 function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
-    if (!draws || draws.length < 15) return {
-        pools: { final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: true },
-        freqs: { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+    return {
+        pools: { final: true, p2: true, p3: false, p4: true, p5: false, p6: true, p7: false },
+        freqs: { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: false, 0: false }
     };
-
-    const recentDraws = draws.slice(-15);
-    const poolIds = ['final', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
-
-    let poolScores: Record<string, number> = { final: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, p7: 0 };
-    recentDraws.forEach(d => {
-        const pred = getPrediction(d.num, draws, poolSize);
-        if (!pred) return;
-        const pMap: Record<string, number[]> = {
-            final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4, p5: pred.p5, p6: pred.p6, p7: pred.p7
-        };
-        poolIds.forEach(pid => {
-            const hits = hitsCount(pMap[pid], d.win);
-            poolScores[pid] += hits;
-        });
-    });
-
-    const sortedPools = [...poolIds].sort((a, b) => poolScores[b] - poolScores[a]);
-    let activePools: Record<string, boolean> = {};
-    poolIds.forEach(pid => {
-        activePools[pid] = (pid === sortedPools[0] || pid === sortedPools[1] || pid === sortedPools[2]);
-    });
-
-    let freqScores: Record<number, number> = { 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
-    recentDraws.forEach(d => {
-        const pred = getPrediction(d.num, draws, poolSize);
-        if (!pred) return;
-        const pMap: Record<string, number[]> = {
-            final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4, p5: pred.p5, p6: pred.p6, p7: pred.p7
-        };
-
-        let freqMap: Record<number, number> = {};
-        poolIds.forEach(pid => {
-            if (activePools[pid]) {
-                pMap[pid].forEach(n => {
-                    freqMap[n] = (freqMap[n] || 0) + 1;
-                });
-            }
-        });
-
-        d.win.forEach(w => {
-            let f = freqMap[w] || 0;
-            freqScores[f] = (freqScores[f] || 0) + 3;
-        });
-        for (let n = 1; n <= 28; n++) {
-            if (!d.win.includes(n)) {
-                let f = freqMap[n] || 0;
-                freqScores[f] = (freqScores[f] || 0) - 0.5;
-            }
-        }
-    });
-
-    const freqsList = [7, 6, 5, 4, 3, 2, 1, 0];
-    const sortedFreqs = [...freqsList].sort((a, b) => (freqScores[b] || 0) - (freqScores[a] || 0));
-    
-    let activeFreqs: Record<number, boolean> = {};
-    freqsList.forEach(f => {
-        activeFreqs[f] = (f === sortedFreqs[0] || f === sortedFreqs[1] || f === sortedFreqs[2] || f === sortedFreqs[3]) && f !== 0;
-    });
-
-    if (!Object.values(activeFreqs).some(Boolean)) {
-        activeFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false };
-    }
-
-    return { pools: activePools, freqs: activeFreqs };
 }
 
 function DrawPopoutModal({ draw, pred, onClose, onCopyConsensus, onOpenWheeling }: { draw: Draw; pred: PoolResult; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void }) {
