@@ -1448,7 +1448,6 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
     let bestPools: Record<string, boolean> = { final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: true };
     let bestFreqs: Record<number, boolean> = { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
     let bestScore = -999999;
-    let minFilteredAcrossBest = 9999;
 
     for (let pMask = 1; pMask < 128; pMask++) {
         let currentPools: Record<string, boolean> = {};
@@ -1458,7 +1457,7 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
             currentPools[poolIds[i]] = active;
             if (active) activeCount++;
         }
-        if (activeCount < 2 || activeCount > 6) continue;
+        if (activeCount < 2 || activeCount > 5) continue; // Favor 2 to 5 pools for compact precision
 
         for (let fMask = 1; fMask < 256; fMask++) {
             let currentFreqs: Record<number, boolean> = {};
@@ -1495,7 +1494,7 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
                     }
                 }
 
-                if (filteredNums.length >= 5) {
+                if (filteredNums.length >= 5 && filteredNums.length <= 22) { // Must be compact and efficient
                     let hits = d.win.filter(w => filteredNums.includes(w)).length;
                     totalHits += hits;
                     totalFiltered += filteredNums.length;
@@ -1503,25 +1502,19 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
                 }
             });
 
-            if (validCount === 0) continue;
+            if (validCount < 10) continue; // Must perform well consistently across at least 10 draws
 
             let avgHits = totalHits / validCount;
             let avgFiltered = totalFiltered / validCount;
 
-            // Efficiency criterion: Maximize hits, minimize filtered numbers (tie-break by fewer numbers)
-            let score = (avgHits * 50) - avgFiltered;
+            // Efficiency score: Maximize hits, strongly penalize large pools (>16 numbers) and reward compact size (12-16 numbers)
+            let efficiencyPenalty = Math.abs(avgFiltered - 14) * 1.5;
+            let score = (avgHits * 45) - efficiencyPenalty;
 
             if (score > bestScore) {
                 bestScore = score;
-                minFilteredAcrossBest = avgFiltered;
                 bestPools = { ...currentPools };
                 bestFreqs = { ...currentFreqs };
-            } else if (Math.abs(score - bestScore) < 0.01) {
-                if (avgFiltered < minFilteredAcrossBest) {
-                    minFilteredAcrossBest = avgFiltered;
-                    bestPools = { ...currentPools };
-                    bestFreqs = { ...currentFreqs };
-                }
             }
         }
     }
