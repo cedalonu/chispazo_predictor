@@ -1,0 +1,6 @@
+{
+  "name": "Chispazo Predictor V4 ML",
+  "description": "Sistema avanzado de predicción de Chispazo con Machine Learning, pools optimizados, wheelings reducidos, filtros de calidad y registro histórico inmutable.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
