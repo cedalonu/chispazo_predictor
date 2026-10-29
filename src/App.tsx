@@ -881,8 +881,8 @@ export default function App() {
                             <div className="bg-[#1a1a1a] border border-[#2a2a2a] border-t-0 px-2 py-1 text-[9px] text-[#888] text-center">
                                 👆 Click en celdas para ver detalles del wheeling
                             </div>
-                            <div className="overflow-x-hidden w-full">
-                                <table className="table w-full border-collapse text-[11px] table-fixed">
+                            <div className="overflow-x-auto w-full touch-pan-x">
+                                <table className="table w-full border-collapse text-[11px] min-w-[550px]">
                                     <thead>
                                         <tr>
                                             <th className="border border-[#2a2a2a] p-2 bg-[#1a1a1a] text-center text-[10px] w-[16%]">Sorteo / Fecha</th>
