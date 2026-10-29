@@ -211,6 +211,26 @@ interface PoolResult {
     p7: number[];
 }
 
+function getNumberScore(n: number, draws: Draw[]): number {
+    if (!draws || draws.length < 2) return 0;
+    const lastDraw = draws[draws.length - 1].win;
+    const prevDraw = draws[draws.length - 2].win;
+    const window50 = draws.slice(-50).map(d => d.win);
+    let freq = 0;
+    window50.forEach(d => { if (d.includes(n)) freq++; });
+    let gap = 0;
+    for (let j = draws.length - 1; j >= Math.max(0, draws.length - 50); j--) {
+        if (draws[j].win.includes(n)) { gap = draws.length - 1 - j; break; }
+    }
+    let coOccur = 0;
+    draws.slice(-20).forEach(d => {
+        if (d.win.includes(n) && lastDraw.some(ld => d.win.includes(ld))) coOccur++;
+    });
+    let score = (freq * 2.5) + (coOccur * 3.5) + (gap > 0 && gap <= 15 ? gap * 0.8 : 0);
+    if (lastDraw.includes(n) || prevDraw.includes(n)) score -= 20;
+    return score;
+}
+
 function calculateMLPools(draws: Draw[], poolSize: number = 21): PoolResult {
     const lastDraw = draws[draws.length - 1].win;
     const prevDraw = draws[draws.length - 2].win;
@@ -680,7 +700,9 @@ export default function App() {
             let fA = freqMap[a] || 0;
             let fB = freqMap[b] || 0;
             if (fB !== fA) return fB - fA;
-            return a - b;
+            let scoreA = getNumberScore(a, allDraws);
+            let scoreB = getNumberScore(b, allDraws);
+            return scoreB - scoreA;
         });
         return { freqMap, filteredNums };
     }, [pools, selectedConsensusPools, selectedFrequencies]);
@@ -1367,7 +1389,7 @@ function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, on
         const pred = getPrediction(num, allDraws, poolSize);
         const poolData = pred || { final: [], p2: [], p3: [], p4: [], p5: [], p6: [], p7: [], anti: [] };
 
-        return <DrawPopoutModal draw={s} pred={poolData} onClose={onClose} onCopyConsensus={onCopyConsensus} onOpenWheeling={onOpenWheeling} />;
+        return <DrawPopoutModal draw={s} pred={poolData} allDraws={allDraws} onClose={onClose} onCopyConsensus={onCopyConsensus} onOpenWheeling={onOpenWheeling} />;
     }
 
     return null;
@@ -1448,7 +1470,7 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
     };
 }
 
-function DrawPopoutModal({ draw, pred, onClose, onCopyConsensus, onOpenWheeling }: { draw: Draw; pred: PoolResult; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void }) {
+function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpenWheeling }: { draw: Draw; pred: PoolResult; allDraws: Draw[]; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void }) {
     const poolList = [
         { id: 'final', name: 'Final', nums: pred.final || [], color: '#ffeb3b' },
         { id: 'p2', name: 'Pool2', nums: pred.p2 || [], color: '#00e5ff' },
@@ -1481,6 +1503,17 @@ function DrawPopoutModal({ draw, pred, onClose, onCopyConsensus, onOpenWheeling 
                 filteredNums.push(n);
             }
         }
+        const histIdx = allDraws.findIndex(d => d.num === draw.num);
+        const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+
+        filteredNums.sort((a, b) => {
+            let fA = freqMap[a] || 0;
+            let fB = freqMap[b] || 0;
+            if (fB !== fA) return fB - fA;
+            let scoreA = getNumberScore(a, histDraws);
+            let scoreB = getNumberScore(b, histDraws);
+            return scoreB - scoreA;
+        });
         return { freqMap, filteredNums };
     }, [selPools, selFreqs, pred]);
 
