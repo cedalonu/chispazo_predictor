@@ -429,6 +429,9 @@ export default function App() {
         if (allDraws.length > 0) {
             const livePools = calculateMLPools(allDraws, poolSize);
             buildPoolsList(livePools, poolSize);
+            const optimalLive = getOptimalPredictiveCheckboxes(allDraws, poolSize);
+            setSelectedConsensusPools(optimalLive.pools);
+            setSelectedFrequencies(optimalLive.freqs);
         }
     }, [poolSize, allDraws]);
 
@@ -1427,6 +1430,100 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
             pools: { final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: true },
             freqs: { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
         };
+    }
+
+    return { pools: bestPools, freqs: bestFreqs };
+}
+
+function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
+    if (!draws || draws.length < 15) return {
+        pools: { final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: true },
+        freqs: { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+    };
+
+    const recentDraws = draws.slice(-15);
+    const poolIds = ['final', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
+    const freqs = [7, 6, 5, 4, 3, 2, 1, 0];
+
+    let bestPools: Record<string, boolean> = { final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: true };
+    let bestFreqs: Record<number, boolean> = { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+    let bestScore = -999999;
+    let minFilteredAcrossBest = 9999;
+
+    for (let pMask = 1; pMask < 128; pMask++) {
+        let currentPools: Record<string, boolean> = {};
+        let activeCount = 0;
+        for (let i = 0; i < 7; i++) {
+            let active = (pMask & (1 << i)) !== 0;
+            currentPools[poolIds[i]] = active;
+            if (active) activeCount++;
+        }
+        if (activeCount < 2 || activeCount > 6) continue;
+
+        for (let fMask = 1; fMask < 256; fMask++) {
+            let currentFreqs: Record<number, boolean> = {};
+            for (let i = 0; i < 8; i++) {
+                let active = (fMask & (1 << i)) !== 0;
+                currentFreqs[freqs[i]] = active;
+            }
+
+            let totalHits = 0;
+            let totalFiltered = 0;
+            let validCount = 0;
+
+            recentDraws.forEach(d => {
+                const pred = getPrediction(d.num, draws, poolSize);
+                if (!pred) return;
+                const pMap: Record<string, number[]> = {
+                    final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4, p5: pred.p5, p6: pred.p6, p7: pred.p7
+                };
+
+                let freqMap: Record<number, number> = {};
+                poolIds.forEach(pid => {
+                    if (currentPools[pid]) {
+                        pMap[pid].forEach(n => {
+                            freqMap[n] = (freqMap[n] || 0) + 1;
+                        });
+                    }
+                });
+
+                let filteredNums: number[] = [];
+                for (let n = 1; n <= 28; n++) {
+                    let f = freqMap[n] || 0;
+                    if (currentFreqs[f]) {
+                        filteredNums.push(n);
+                    }
+                }
+
+                if (filteredNums.length >= 5) {
+                    let hits = d.win.filter(w => filteredNums.includes(w)).length;
+                    totalHits += hits;
+                    totalFiltered += filteredNums.length;
+                    validCount++;
+                }
+            });
+
+            if (validCount === 0) continue;
+
+            let avgHits = totalHits / validCount;
+            let avgFiltered = totalFiltered / validCount;
+
+            // Efficiency criterion: Maximize hits, minimize filtered numbers (tie-break by fewer numbers)
+            let score = (avgHits * 50) - avgFiltered;
+
+            if (score > bestScore) {
+                bestScore = score;
+                minFilteredAcrossBest = avgFiltered;
+                bestPools = { ...currentPools };
+                bestFreqs = { ...currentFreqs };
+            } else if (Math.abs(score - bestScore) < 0.01) {
+                if (avgFiltered < minFilteredAcrossBest) {
+                    minFilteredAcrossBest = avgFiltered;
+                    bestPools = { ...currentPools };
+                    bestFreqs = { ...currentFreqs };
+                }
+            }
+        }
     }
 
     return { pools: bestPools, freqs: bestFreqs };
