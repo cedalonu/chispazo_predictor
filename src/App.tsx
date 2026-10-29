@@ -682,8 +682,11 @@ export default function App() {
     // Frequency counts across selected pools for numbers 1 to 28
     const consensusStats = React.useMemo(() => {
         if (pools.length === 0) return { freqMap: {} as Record<number, number>, filteredNums: [] as number[] };
+        let activePoolIds = Object.keys(selectedConsensusPools).filter(id => selectedConsensusPools[id]);
+        let activePoolObjs = pools.filter(p => p.id !== 'anti' && selectedConsensusPools[p.id]);
+
         let freqMap: Record<number, number> = {};
-        pools.filter(p => p.id !== 'anti' && selectedConsensusPools[p.id]).forEach(p => {
+        activePoolObjs.forEach(p => {
             p.nums.forEach((n: number) => {
                 freqMap[n] = (freqMap[n] || 0) + 1;
             });
@@ -696,16 +699,29 @@ export default function App() {
                 filteredNums.push(n);
             }
         }
-        filteredNums.sort((a, b) => {
-            let fA = freqMap[a] || 0;
-            let fB = freqMap[b] || 0;
-            if (fB !== fA) return fB - fA;
-            let scoreA = getNumberScore(a, allDraws);
-            let scoreB = getNumberScore(b, allDraws);
-            return scoreB - scoreA;
-        });
+
+        if (activePoolIds.length === 1) {
+            const singlePoolNums = activePoolObjs[0].nums;
+            filteredNums.sort((a, b) => {
+                let idxA = singlePoolNums.indexOf(a);
+                let idxB = singlePoolNums.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a - b;
+            });
+        } else {
+            filteredNums.sort((a, b) => {
+                let fA = freqMap[a] || 0;
+                let fB = freqMap[b] || 0;
+                if (fB !== fA) return fB - fA;
+                let scoreA = getNumberScore(a, allDraws);
+                let scoreB = getNumberScore(b, allDraws);
+                return scoreB - scoreA;
+            });
+        }
         return { freqMap, filteredNums };
-    }, [pools, selectedConsensusPools, selectedFrequencies]);
+    }, [pools, selectedConsensusPools, selectedFrequencies, allDraws]);
 
     return (
         <div className="bg-[#0a0a0a] text-[#e8e8e8] min-h-screen font-sans selection:bg-[#7c4dff] selection:text-white pb-12">
@@ -1487,13 +1503,14 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
     const [selFreqs, setSelFreqs] = useState<Record<number, boolean>>(optimal.freqs);
 
     const stats = React.useMemo(() => {
+        let activePoolIds = Object.keys(selPools).filter(id => selPools[id]);
+        let activePoolObjs = poolList.filter(p => selPools[p.id]);
+
         let freqMap: Record<number, number> = {};
-        poolList.forEach(p => {
-            if (selPools[p.id]) {
-                p.nums.forEach(n => {
-                    freqMap[n] = (freqMap[n] || 0) + 1;
-                });
-            }
+        activePoolObjs.forEach(p => {
+            p.nums.forEach(n => {
+                freqMap[n] = (freqMap[n] || 0) + 1;
+            });
         });
 
         let filteredNums: number[] = [];
@@ -1506,16 +1523,28 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
         const histIdx = allDraws.findIndex(d => d.num === draw.num);
         const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
 
-        filteredNums.sort((a, b) => {
-            let fA = freqMap[a] || 0;
-            let fB = freqMap[b] || 0;
-            if (fB !== fA) return fB - fA;
-            let scoreA = getNumberScore(a, histDraws);
-            let scoreB = getNumberScore(b, histDraws);
-            return scoreB - scoreA;
-        });
+        if (activePoolIds.length === 1) {
+            const singlePoolNums = activePoolObjs[0].nums;
+            filteredNums.sort((a, b) => {
+                let idxA = singlePoolNums.indexOf(a);
+                let idxB = singlePoolNums.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a - b;
+            });
+        } else {
+            filteredNums.sort((a, b) => {
+                let fA = freqMap[a] || 0;
+                let fB = freqMap[b] || 0;
+                if (fB !== fA) return fB - fA;
+                let scoreA = getNumberScore(a, histDraws);
+                let scoreB = getNumberScore(b, histDraws);
+                return scoreB - scoreA;
+            });
+        }
         return { freqMap, filteredNums };
-    }, [selPools, selFreqs, pred]);
+    }, [selPools, selFreqs, pred, draw.num, allDraws, poolList]);
 
     return (
         <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={onClose}>
