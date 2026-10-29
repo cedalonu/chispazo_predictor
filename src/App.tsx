@@ -1443,83 +1443,68 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
 
     const recentDraws = draws.slice(-15);
     const poolIds = ['final', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
-    const freqs = [7, 6, 5, 4, 3, 2, 1, 0];
 
-    let bestPools: Record<string, boolean> = { final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: true };
-    let bestFreqs: Record<number, boolean> = { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
-    let bestScore = -999999;
+    let poolScores: Record<string, number> = { final: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, p7: 0 };
+    recentDraws.forEach(d => {
+        const pred = getPrediction(d.num, draws, poolSize);
+        if (!pred) return;
+        const pMap: Record<string, number[]> = {
+            final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4, p5: pred.p5, p6: pred.p6, p7: pred.p7
+        };
+        poolIds.forEach(pid => {
+            const hits = hitsCount(pMap[pid], d.win);
+            poolScores[pid] += hits;
+        });
+    });
 
-    for (let pMask = 1; pMask < 128; pMask++) {
-        let currentPools: Record<string, boolean> = {};
-        let activeCount = 0;
-        for (let i = 0; i < 7; i++) {
-            let active = (pMask & (1 << i)) !== 0;
-            currentPools[poolIds[i]] = active;
-            if (active) activeCount++;
-        }
-        if (activeCount < 2 || activeCount > 5) continue; // Favor 2 to 5 pools for compact precision
+    const sortedPools = [...poolIds].sort((a, b) => poolScores[b] - poolScores[a]);
+    let activePools: Record<string, boolean> = {};
+    poolIds.forEach(pid => {
+        activePools[pid] = (pid === sortedPools[0] || pid === sortedPools[1] || pid === sortedPools[2]);
+    });
 
-        for (let fMask = 1; fMask < 256; fMask++) {
-            let currentFreqs: Record<number, boolean> = {};
-            for (let i = 0; i < 8; i++) {
-                let active = (fMask & (1 << i)) !== 0;
-                currentFreqs[freqs[i]] = active;
-            }
+    let freqScores: Record<number, number> = { 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
+    recentDraws.forEach(d => {
+        const pred = getPrediction(d.num, draws, poolSize);
+        if (!pred) return;
+        const pMap: Record<string, number[]> = {
+            final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4, p5: pred.p5, p6: pred.p6, p7: pred.p7
+        };
 
-            let totalHits = 0;
-            let totalFiltered = 0;
-            let validCount = 0;
-
-            recentDraws.forEach(d => {
-                const pred = getPrediction(d.num, draws, poolSize);
-                if (!pred) return;
-                const pMap: Record<string, number[]> = {
-                    final: pred.final, p2: pred.p2, p3: pred.p3, p4: pred.p4, p5: pred.p5, p6: pred.p6, p7: pred.p7
-                };
-
-                let freqMap: Record<number, number> = {};
-                poolIds.forEach(pid => {
-                    if (currentPools[pid]) {
-                        pMap[pid].forEach(n => {
-                            freqMap[n] = (freqMap[n] || 0) + 1;
-                        });
-                    }
+        let freqMap: Record<number, number> = {};
+        poolIds.forEach(pid => {
+            if (activePools[pid]) {
+                pMap[pid].forEach(n => {
+                    freqMap[n] = (freqMap[n] || 0) + 1;
                 });
+            }
+        });
 
-                let filteredNums: number[] = [];
-                for (let n = 1; n <= 28; n++) {
-                    let f = freqMap[n] || 0;
-                    if (currentFreqs[f]) {
-                        filteredNums.push(n);
-                    }
-                }
-
-                if (filteredNums.length >= 5 && filteredNums.length <= 22) { // Must be compact and efficient
-                    let hits = d.win.filter(w => filteredNums.includes(w)).length;
-                    totalHits += hits;
-                    totalFiltered += filteredNums.length;
-                    validCount++;
-                }
-            });
-
-            if (validCount < 10) continue; // Must perform well consistently across at least 10 draws
-
-            let avgHits = totalHits / validCount;
-            let avgFiltered = totalFiltered / validCount;
-
-            // Efficiency score: Maximize hits, strongly penalize large pools (>16 numbers) and reward compact size (12-16 numbers)
-            let efficiencyPenalty = Math.abs(avgFiltered - 14) * 1.5;
-            let score = (avgHits * 45) - efficiencyPenalty;
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestPools = { ...currentPools };
-                bestFreqs = { ...currentFreqs };
+        d.win.forEach(w => {
+            let f = freqMap[w] || 0;
+            freqScores[f] = (freqScores[f] || 0) + 3;
+        });
+        for (let n = 1; n <= 28; n++) {
+            if (!d.win.includes(n)) {
+                let f = freqMap[n] || 0;
+                freqScores[f] = (freqScores[f] || 0) - 0.5;
             }
         }
+    });
+
+    const freqsList = [7, 6, 5, 4, 3, 2, 1, 0];
+    const sortedFreqs = [...freqsList].sort((a, b) => (freqScores[b] || 0) - (freqScores[a] || 0));
+    
+    let activeFreqs: Record<number, boolean> = {};
+    freqsList.forEach(f => {
+        activeFreqs[f] = (f === sortedFreqs[0] || f === sortedFreqs[1] || f === sortedFreqs[2] || f === sortedFreqs[3]) && f !== 0;
+    });
+
+    if (!Object.values(activeFreqs).some(Boolean)) {
+        activeFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false };
     }
 
-    return { pools: bestPools, freqs: bestFreqs };
+    return { pools: activePools, freqs: activeFreqs };
 }
 
 function DrawPopoutModal({ draw, pred, onClose, onCopyConsensus, onOpenWheeling }: { draw: Draw; pred: PoolResult; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void }) {
