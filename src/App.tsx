@@ -1662,33 +1662,9 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
                         </div>
                     </div>
 
-                    {/* Individual Pools Preview */}
+                    {/* Individual Pools Preview & Consensus Wheelings List */}
                     <div className="space-y-2">
-                        <div className="flex justify-between items-center flex-wrap gap-2">
-                            <div className="text-[11px] font-black text-[#ffeb3b]">Desglose de Pools Registrados para Sorteo {draw.num}</div>
-                            <div className="flex gap-1.5">
-                                <button 
-                                    onClick={() => {
-                                        let baseSlice = stats.filteredNums.length >= 5 ? stats.filteredNums : (pred.final || []);
-                                        onOpenWheeling('consensus_12', 12, draw.num, baseSlice);
-                                    }}
-                                    className="bg-[rgba(255,235,59,0.15)] border border-[rgba(255,235,59,0.4)] text-[#ffeb3b] hover:bg-[rgba(255,235,59,0.25)] px-2.5 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition shadow-sm"
-                                    title="Wheeling reducido inmutable de 12 combinaciones aplicando filtros de calidad"
-                                >
-                                    Wheel 12 Comb
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        let baseSlice = stats.filteredNums.length >= 5 ? stats.filteredNums : (pred.final || []);
-                                        onOpenWheeling('consensus_24', 24, draw.num, baseSlice);
-                                    }}
-                                    className="bg-[rgba(0,229,255,0.15)] border border-[rgba(0,229,255,0.4)] text-[#00e5ff] hover:bg-[rgba(0,229,255,0.25)] px-2.5 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition shadow-sm"
-                                    title="Wheeling reducido inmutable de 24 combinaciones aplicando filtros de calidad"
-                                >
-                                    Wheel 24 Comb
-                                </button>
-                            </div>
-                        </div>
+                        <div className="text-[11px] font-black text-[#ffeb3b] mb-2">Desglose de Pools Registrados y Wheelings de Consenso para Sorteo {draw.num}</div>
                         {poolList.map(p => {
                             let hits = p.nums.filter(n => draw.win.includes(n)).length;
                             return (
@@ -1710,6 +1686,43 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
                                             })}
                                         </div>
                                         <span className="ml-2 bg-[#222] border border-[#333] text-white px-2 py-0.5 rounded text-[10px] font-black">{hits} ac</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Consensus Wheelings with Top 3 Combinations in the List */}
+                        {([12, 24, 36, 48] as number[]).map(k => {
+                            let baseSlice = stats.filteredNums.length >= 5 ? stats.filteredNums : (pred.final || []);
+                            let reduced = uv(k);
+                            let combos = rv(baseSlice, draw.win, reduced, 'consensus_' + draw.num + '_' + k);
+                            let sc = combos.map(c => ({ c, h: hitsCount(c, draw.win) })).sort((a, b) => b.h - a.h);
+                            let best = sc[0] ? sc[0].h : 0;
+                            let top = sc.slice(0, 3);
+
+                            return (
+                                <div key={k} className="border rounded-xl p-2.5 bg-[#1a1a1a]" style={{borderColor: best >= 4 ? '#00e5ff66' : '#2a2a2a'}}>
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <span className="text-[11px] font-black text-[#00e5ff] px-2 py-0.5 rounded-full border border-[#00e5ff44] bg-[rgba(0,229,255,0.1)]">{reduced} Comb (Consenso)</span>
+                                        <span className="text-[10px] font-extrabold text-[#aaa]">Mejor {best} aciertos ({baseSlice.length} nums base)</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {top.map((it, iti) => (
+                                            <div key={iti} className="flex gap-1 items-center px-2 py-1 rounded-md" style={{background: iti === 0 ? 'rgba(0,229,255,0.08)' : 'transparent', border: iti === 0 ? '1px solid rgba(0,229,255,0.2)' : '0'}}>
+                                                <span className="text-[9px] bg-[#222] border border-[#333] rounded px-1 text-center">{iti + 1}</span>
+                                                <div className="flex gap-1">
+                                                    {it.c.map((n, ni) => {
+                                                        let isWin = draw.win.includes(n);
+                                                        return (
+                                                            <span key={ni} className="rounded px-1.5 py-0.5 text-[10px] font-black border" style={{background: isWin ? (it.h === 5 ? '#7c4dff' : '#2e7d32') : '#222', borderColor: isWin ? (it.h === 5 ? '#b388ff' : '#4caf50') : '#333', color: isWin ? 'white' : '#ccc'}}>
+                                                                {String(n).padStart(2, '0')}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <span className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-black text-white" style={{background: it.h >= 5 ? '#7c4dff' : it.h === 4 ? '#2e7d32' : '#424242'}}>{it.h} ac</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             );
