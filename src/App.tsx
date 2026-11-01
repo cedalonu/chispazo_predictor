@@ -1029,7 +1029,7 @@ export default function App() {
 
             {/* Modals Root */}
             {modalConfig && (
-                <ModalContainer config={modalConfig} allDraws={allDraws} pools={pools} poolSize={poolSize} onClose={closeModal} onCopy={copyWheelingToClipboard} onOpenWheeling={openWheelingModal} onCopyConsensus={copyConsensusToClipboard} />
+                <ModalContainer config={modalConfig} allDraws={allDraws} pools={pools} poolSize={poolSize} onClose={closeModal} onCopy={copyWheelingToClipboard} onOpenWheeling={openWheelingModal} onCopyConsensus={copyConsensusToClipboard} onOpenMultipool={(drawObj: Draw) => setModalConfig({ type: 'multipool', targetDraw: drawObj })} />
             )}
         </div>
     );
@@ -1134,7 +1134,7 @@ function AccuracyChart({ draws20, allDraws, chartVisibility, setChartVisibility,
 }
 
 // --- Modal Component ---
-function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, onOpenWheeling, onCopyConsensus }: any) {
+function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, onOpenWheeling, onCopyConsensus, onOpenMultipool }: any) {
     if (config.type === 'backtest') {
         const last20 = allDraws.slice(-20);
         const poolSizesToTest = [9, 12, 15, 18, 21, 24, 27];
@@ -1653,7 +1653,7 @@ function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, on
     }
 
     if (config.type === 'multipool') {
-        return <MultipoolModal allDraws={allDraws} onClose={onClose} onCopyConsensus={onCopyConsensus} onOpenWheeling={onOpenWheeling} />;
+        return <MultipoolModal allDraws={allDraws} targetDraw={config.targetDraw} onClose={onClose} onCopyConsensus={onCopyConsensus} onOpenWheeling={onOpenWheeling} />;
     }
 
     if (config.type === 'draw_popout') {
@@ -1664,7 +1664,7 @@ function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, on
         const pred = getPrediction(num, allDraws, poolSize);
         const poolData = pred || { final: [], p2: [], p3: [], p4: [], p5: [], p6: [], p7: [], anti: [] };
 
-        return <DrawPopoutModal draw={s} pred={poolData} allDraws={allDraws} onClose={onClose} onCopyConsensus={onCopyConsensus} onOpenWheeling={onOpenWheeling} />;
+        return <DrawPopoutModal draw={s} pred={poolData} allDraws={allDraws} onClose={onClose} onCopyConsensus={onCopyConsensus} onOpenWheeling={onOpenWheeling} onOpenMultipool={onOpenMultipool} />;
     }
 
     return null;
@@ -1745,7 +1745,189 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
     };
 }
 
-function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpenWheeling }: { draw: Draw; pred: PoolResult; allDraws: Draw[]; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void }) {
+function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw) {
+    const histIdx = allDraws.findIndex(d => d.num === draw.num);
+    const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+    const poolSizes = [9, 12, 15, 18, 21, 27];
+    
+    let configsInit: Record<number, { pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+    
+    poolSizes.forEach(sz => {
+        const mlPools = calculateMLPools(histDraws, sz);
+        const poolList = [
+            { id: 'final', name: 'Final', nums: mlPools.final },
+            { id: 'p2', name: 'Pool2', nums: mlPools.p2 },
+            { id: 'p3', name: 'Pool3', nums: mlPools.p3 },
+            { id: 'p4', name: 'Pool4', nums: mlPools.p4 },
+            { id: 'p5', name: 'Pool5', nums: mlPools.p5 },
+            { id: 'p6', name: 'Pool6', nums: mlPools.p6 },
+            { id: 'p7', name: 'Pool7', nums: mlPools.p7 }
+        ];
+        const opt = getOptimalCheckboxes(poolList, draw.win);
+        configsInit[sz] = { pools: opt.pools, freqs: opt.freqs };
+    });
+
+    let poolSizeFilteredSets: number[][] = [];
+    poolSizes.forEach(sz => {
+        const mlPools = calculateMLPools(histDraws, sz);
+        const poolList = [
+            { id: 'final', name: 'Final', nums: mlPools.final },
+            { id: 'p2', name: 'Pool2', nums: mlPools.p2 },
+            { id: 'p3', name: 'Pool3', nums: mlPools.p3 },
+            { id: 'p4', name: 'Pool4', nums: mlPools.p4 },
+            { id: 'p5', name: 'Pool5', nums: mlPools.p5 },
+            { id: 'p6', name: 'Pool6', nums: mlPools.p6 },
+            { id: 'p7', name: 'Pool7', nums: mlPools.p7 }
+        ];
+        const cfg = configsInit[sz];
+        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+        let freqMap: Record<number, number> = {};
+        activePoolObjs.forEach(p => {
+            p.nums.forEach(n => {
+                freqMap[n] = (freqMap[n] || 0) + 1;
+            });
+        });
+        let filteredForSz: number[] = [];
+        for (let n = 1; n <= 28; n++) {
+            let f = freqMap[n] || 0;
+            if (cfg.freqs[f]) {
+                filteredForSz.push(n);
+            }
+        }
+
+        // Ensure every winning number is included in filteredForSz for this sz if possible
+        draw.win.forEach(w => {
+            if (!filteredForSz.includes(w)) {
+                for (let p of poolList) {
+                    if (p.nums.includes(w)) {
+                        cfg.pools[p.id] = true;
+                        let fInPool = 0;
+                        poolList.forEach(tp => { if (tp.nums.includes(w) && cfg.pools[tp.id]) fInPool++; });
+                        cfg.freqs[fInPool] = true;
+                        break;
+                    }
+                }
+                activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                freqMap = {};
+                activePoolObjs.forEach(p => {
+                    p.nums.forEach(n => {
+                        freqMap[n] = (freqMap[n] || 0) + 1;
+                    });
+                });
+                filteredForSz = [];
+                for (let n = 1; n <= 28; n++) {
+                    let f = freqMap[n] || 0;
+                    if (cfg.freqs[f]) filteredForSz.push(n);
+                }
+            }
+        });
+
+        poolSizeFilteredSets.push(filteredForSz);
+    });
+
+    let masterFreqMap: Record<number, number> = {};
+    poolSizeFilteredSets.forEach(set => {
+        set.forEach(n => {
+            masterFreqMap[n] = (masterFreqMap[n] || 0) + 1;
+        });
+    });
+
+    let bestFinalFreqs: Record<number, boolean> = {};
+    let maxHits = -1;
+    let minFiltered = 9999;
+    const finalFreqOptions = [6, 5, 4, 3, 2, 1, 0];
+
+    // First pass: search for mask where ALL 5 winning numbers are included (hits === 5), with minimal count >= 5
+    for (let mask = 1; mask < 128; mask++) {
+        let currFreqs: Record<number, boolean> = {};
+        for (let i = 0; i < 7; i++) {
+            currFreqs[finalFreqOptions[i]] = (mask & (1 << i)) !== 0;
+        }
+
+        // Check that all 5 winning numbers are included in finalNums
+        let allWinnersIncluded = true;
+        for (let w of draw.win) {
+            let f = masterFreqMap[w] || 0;
+            if (!currFreqs[f]) {
+                allWinnersIncluded = false;
+                break;
+            }
+        }
+        if (!allWinnersIncluded) continue;
+
+        let finalNums: number[] = [];
+        for (let n = 1; n <= 28; n++) {
+            let f = masterFreqMap[n] || 0;
+            if (currFreqs[f]) finalNums.push(n);
+        }
+        let hits = draw.win.filter(w => finalNums.includes(w)).length;
+        let count = finalNums.length;
+
+        if (hits === 5 && count >= 5) {
+            if (maxHits < 5 || count < minFiltered) {
+                maxHits = 5;
+                minFiltered = count;
+                bestFinalFreqs = currFreqs;
+            }
+        }
+    }
+
+    // Second pass: if no valid config found with all 5 winners and count >= 5, find any config with max hits and all winners included
+    if (maxHits < 5 || Object.keys(bestFinalFreqs).length === 0) {
+        for (let mask = 1; mask < 128; mask++) {
+            let currFreqs: Record<number, boolean> = {};
+            for (let i = 0; i < 7; i++) {
+                currFreqs[finalFreqOptions[i]] = (mask & (1 << i)) !== 0;
+            }
+
+            let allWinnersIncluded = true;
+            for (let w of draw.win) {
+                let f = masterFreqMap[w] || 0;
+                if (!currFreqs[f]) {
+                    allWinnersIncluded = false;
+                    break;
+                }
+            }
+            if (!allWinnersIncluded) continue;
+
+            let finalNums: number[] = [];
+            for (let n = 1; n <= 28; n++) {
+                let f = masterFreqMap[n] || 0;
+                if (currFreqs[f]) finalNums.push(n);
+            }
+            let hits = draw.win.filter(w => finalNums.includes(w)).length;
+            let count = finalNums.length;
+
+            let isBetter = false;
+            if (hits > maxHits) {
+                isBetter = true;
+            } else if (hits === maxHits) {
+                if (count < minFiltered && count >= hits) {
+                    isBetter = true;
+                }
+            }
+
+            if (isBetter) {
+                maxHits = hits;
+                minFiltered = count;
+                bestFinalFreqs = currFreqs;
+            }
+        }
+    }
+
+    // Always guarantee that the winning numbers' master frequencies are true in bestFinalFreqs
+    if (Object.keys(bestFinalFreqs).length === 0) {
+        bestFinalFreqs = { 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false };
+    }
+    draw.win.forEach(w => {
+        let f = masterFreqMap[w] || 0;
+        bestFinalFreqs[f] = true;
+    });
+
+    return { configs: configsInit, finalFreqs: bestFinalFreqs };
+}
+
+function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpenWheeling, onOpenMultipool }: { draw: Draw; pred: PoolResult; allDraws: Draw[]; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void; onOpenMultipool: (draw: Draw) => void }) {
     const poolList = [
         { id: 'final', name: 'Final', nums: pred.final || [], color: '#ffeb3b' },
         { id: 'p2', name: 'Pool2', nums: pred.p2 || [], color: '#00e5ff' },
@@ -1834,6 +2016,13 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
                                 <span className="pill bg-[rgba(0,229,255,.1)] border border-[rgba(0,229,255,.3)] text-[#00e5ff] text-[9px] font-bold px-2.5 py-0.5 rounded-full">
                                     Filtrados: {stats.filteredNums.length} números
                                 </span>
+                                <button 
+                                    onClick={() => onOpenMultipool(draw)}
+                                    className="bg-[rgba(255,235,59,.15)] border border-[rgba(255,235,59,.4)] text-[#ffeb3b] hover:bg-[rgba(255,235,59,.25)] px-2.5 py-0.5 rounded-full text-[9px] font-extrabold cursor-pointer transition flex items-center gap-1"
+                                    title="Abrir herramienta Multipool con configuración óptima para este sorteo"
+                                >
+                                    ⚡ Multipool (Óptimo)
+                                </button>
                                 <button 
                                     onClick={() => onCopyConsensus(stats.filteredNums)} 
                                     className="bg-[rgba(0,229,255,.15)] border border-[rgba(0,229,255,.4)] text-[#00e5ff] hover:bg-[rgba(0,229,255,.25)] px-2.5 py-0.5 rounded-full text-[9px] font-extrabold cursor-pointer transition flex items-center gap-1"
@@ -1997,7 +2186,7 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
     );
 }
 
-function MultipoolModal({ allDraws, onClose, onCopyConsensus, onOpenWheeling }: { allDraws: Draw[]; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum?: number, customSlice?: number[]) => void }) {
+function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpenWheeling }: { allDraws: Draw[]; targetDraw?: Draw; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum?: number, customSlice?: number[]) => void }) {
     const poolSizes = [9, 12, 15, 18, 21, 27];
     const poolDefs = [
         {id: 'final', name: 'Final', color: '#ffeb3b'},
@@ -2009,7 +2198,16 @@ function MultipoolModal({ allDraws, onClose, onCopyConsensus, onOpenWheeling }: 
         {id: 'p7', name: 'Pool7', color: '#ff4081'}
     ];
 
-    const [configs, setConfigs] = useState<Record<number, { pools: Record<string, boolean>; freqs: Record<number, boolean> }>>(() => {
+    const histDraws = React.useMemo(() => {
+        if (!targetDraw) return allDraws;
+        const histIdx = allDraws.findIndex(d => d.num === targetDraw.num);
+        return histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+    }, [allDraws, targetDraw]);
+
+    const initialConfig = React.useMemo(() => {
+        if (targetDraw) {
+            return getOptimalMultipoolConfig(allDraws, targetDraw);
+        }
         let init: Record<number, { pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
         poolSizes.forEach(sz => {
             init[sz] = {
@@ -2017,12 +2215,19 @@ function MultipoolModal({ allDraws, onClose, onCopyConsensus, onOpenWheeling }: 
                 freqs: { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
             };
         });
-        return init;
-    });
+        return {
+            configs: init,
+            finalFreqs: { 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
+        };
+    }, [allDraws, targetDraw]);
 
-    const [finalFreqs, setFinalFreqs] = useState<Record<number, boolean>>({
-        6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false
-    });
+    const [configs, setConfigs] = useState(initialConfig.configs);
+    const [finalFreqs, setFinalFreqs] = useState(initialConfig.finalFreqs);
+
+    useEffect(() => {
+        setConfigs(initialConfig.configs);
+        setFinalFreqs(initialConfig.finalFreqs);
+    }, [initialConfig]);
 
     const [activeTabSz, setActiveTabSz] = useState<number>(21);
 
@@ -2041,7 +2246,7 @@ function MultipoolModal({ allDraws, onClose, onCopyConsensus, onOpenWheeling }: 
     const multipoolResult = React.useMemo(() => {
         let poolSizeFilteredSets: number[][] = [];
         poolSizes.forEach(sz => {
-            const mlPools = calculateMLPools(allDraws, sz);
+            const mlPools = calculateMLPools(histDraws, sz);
             const poolList = [
                 { id: 'final', name: 'Final', nums: mlPools.final },
                 { id: 'p2', name: 'Pool2', nums: mlPools.p2 },
@@ -2111,67 +2316,69 @@ function MultipoolModal({ allDraws, onClose, onCopyConsensus, onOpenWheeling }: 
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                    <div className="flex items-center gap-1 bg-[#181818] p-1.5 rounded-lg border border-[#333] flex-wrap">
-                        <span className="text-[10px] font-bold text-[#aaa] mr-2">Configurar Pool Size:</span>
-                        {poolSizes.map(sz => (
-                            <button
-                                key={sz}
-                                onClick={() => setActiveTabSz(sz)}
-                                className={`px-3 py-1 rounded text-[11px] font-extrabold cursor-pointer transition ${activeTabSz === sz ? 'bg-[#7c4dff] text-white shadow-[0_0_10px_rgba(124,77,255,0.6)]' : 'bg-[#222] text-[#aaa] hover:bg-[#333]'}`}
-                            >
-                                {sz} nums
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="bg-[#161616] border border-[#2e2e2e] rounded-xl p-3 space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-[12px] font-black text-[#00e5ff]">Configuración para Pool Size: {activeTabSz}</span>
-                            <span className="text-[10px] text-[#888]">Resultantes en este nivel: {multipoolResult.poolSizeFilteredSets[poolSizes.indexOf(activeTabSz)]?.length || 0} #</span>
+                    {targetDraw && (
+                        <div className="bg-[#ffeb3b] text-black rounded-xl p-2.5 text-center shadow-[0_0_15px_rgba(255,235,59,0.2)]">
+                            <div className="text-[9px] font-black tracking-wide">● NÚMEROS GANADORES REALES (Sorteo {targetDraw.num})</div>
+                            <div className="text-[18px] font-black tracking-wider my-0.5">{targetDraw.win.map(n => String(n).padStart(2, '0')).join(' ')}</div>
                         </div>
+                    )}
 
-                        <div>
-                            <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS INCLUIDOS PARA {activeTabSz} NUMS:</div>
-                            <div className="flex flex-wrap gap-2">
-                                {poolDefs.map(pool => (
-                                    <label key={pool.id} className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-2.5 py-1 rounded-lg hover:border-[#555]">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={configs[activeTabSz]?.pools[pool.id] || false} 
-                                            onChange={(e) => {
-                                                const updated = { ...configs };
-                                                updated[activeTabSz].pools[pool.id] = e.target.checked;
-                                                setConfigs({...updated});
-                                            }}
-                                            className="cursor-pointer accent-[#7c4dff]"
-                                        />
-                                        <span style={{color: pool.color}}>●</span>
-                                        <span>{pool.name}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
+                    <div className="text-[11px] font-black text-[#00e5ff] mb-1">Configuración Simultánea de los 6 Pool Sizes (9, 12, 15, 18, 21, 27):</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        {poolSizes.map((sz, szIdx) => {
+                            const resCount = multipoolResult.poolSizeFilteredSets[szIdx]?.length || 0;
+                            return (
+                                <div key={sz} className="bg-[#161616] border border-[#2e2e2e] rounded-xl p-2.5 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[11px] font-black text-[#ffeb3b]">Pool Size: {sz} nums</span>
+                                        <span className="text-[9px] text-[#888] bg-[#222] px-2 py-0.5 rounded">Resultantes: {resCount} #</span>
+                                    </div>
 
-                        <div>
-                            <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIA REQUERIDA (DENTRO DE {activeTabSz}):</div>
-                            <div className="flex flex-wrap gap-2">
-                                {[7, 6, 5, 4, 3, 2, 1, 0].map(freq => (
-                                    <label key={freq} className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-2.5 py-1 rounded-lg hover:border-[#555]">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={configs[activeTabSz]?.freqs[freq] || false} 
-                                            onChange={(e) => {
-                                                const updated = { ...configs };
-                                                updated[activeTabSz].freqs[freq] = e.target.checked;
-                                                setConfigs({...updated});
-                                            }}
-                                            className="cursor-pointer accent-[#7c4dff]"
-                                        />
-                                        <span>Freq {freq}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
+                                    <div>
+                                        <div className="text-[8px] font-bold text-[#aaa] mb-1">POOLS ({sz}):</div>
+                                        <div className="flex flex-wrap gap-1">
+                                            {poolDefs.map(pool => (
+                                                <label key={pool.id} className="flex items-center gap-1 text-[9px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-2 py-0.5 rounded hover:border-[#555]">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={configs[sz]?.pools[pool.id] || false} 
+                                                        onChange={(e) => {
+                                                            const updated = { ...configs };
+                                                            updated[sz].pools[pool.id] = e.target.checked;
+                                                            setConfigs({...updated});
+                                                        }}
+                                                        className="cursor-pointer accent-[#7c4dff]"
+                                                    />
+                                                    <span style={{color: pool.color}}>●</span>
+                                                    <span>{pool.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="text-[8px] font-bold text-[#aaa] mb-1">FRECUENCIAS ({sz}):</div>
+                                        <div className="flex flex-wrap gap-1">
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(freq => (
+                                                <label key={freq} className="flex items-center gap-1 text-[9px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-2 py-0.5 rounded hover:border-[#555]">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={configs[sz]?.freqs[freq] || false} 
+                                                        onChange={(e) => {
+                                                            const updated = { ...configs };
+                                                            updated[sz].freqs[freq] = e.target.checked;
+                                                            setConfigs({...updated});
+                                                        }}
+                                                        className="cursor-pointer accent-[#7c4dff]"
+                                                    />
+                                                    <span>F{freq}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     <div className="bg-[#141414] border border-[#00e5ff44] rounded-xl p-3">
@@ -2214,10 +2421,11 @@ function MultipoolModal({ allDraws, onClose, onCopyConsensus, onOpenWheeling }: 
                                     <div className="grid grid-cols-7 sm:grid-cols-14 gap-1.5">
                                         {multipoolResult.finalResultNums.map(n => {
                                             let masterCount = multipoolResult.masterFreqMap[n] || 0;
+                                            let isWin = targetDraw ? targetDraw.win.includes(n) : false;
                                             return (
-                                                <div key={n} className="bg-[#1e1e1e] border border-[#333] rounded-lg p-1.5 text-center flex flex-col items-center">
-                                                    <span className="text-[12px] font-black text-[#ffeb3b]">{String(n).padStart(2, '0')}</span>
-                                                    <span className="text-[8px] text-[#00e5ff]">f:{masterCount}/6</span>
+                                                <div key={n} className={`border rounded-lg p-1.5 text-center flex flex-col items-center ${isWin ? 'bg-[#2e7d32] border-[#4caf50]' : 'bg-[#1e1e1e] border-[#333]'}`}>
+                                                    <span className={`text-[12px] font-black ${isWin ? 'text-white' : 'text-[#ffeb3b]'}`}>{String(n).padStart(2, '0')}</span>
+                                                    <span className={`text-[8px] ${isWin ? 'text-[#a5d6a7]' : 'text-[#00e5ff]'}`}>f:{masterCount}/6</span>
                                                 </div>
                                             );
                                         })}
