@@ -2245,13 +2245,10 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
     const [activeRecipe, setActiveRecipe] = useState<string | null>(targetDraw ? `draw_${targetDraw.num}` : 'master_5');
 
     const histDraws = React.useMemo(() => {
-        if (activeRecipe && activeRecipe.startsWith('master_')) {
-            return allDraws;
-        }
         if (!targetDraw) return allDraws;
         const histIdx = allDraws.findIndex(d => d.num === targetDraw.num);
         return histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
-    }, [allDraws, targetDraw, activeRecipe]);
+    }, [allDraws, targetDraw]);
 
     const last20Draws = React.useMemo(() => {
         if (!allDraws || allDraws.length === 0) return [];
