@@ -1875,20 +1875,20 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: num
 }
 
 function getRecipeConfig(recipeId: number) {
-    const targetSz = recipeId === 1 ? 8 : recipeId === 2 ? 10 : recipeId === 3 ? 12 : recipeId === 4 ? 9 : 11;
-    let includedPools = recipeId === 1 ? ['final', 'p2', 'p5'] :
+    const targetSz = recipeId === 1 ? 10 : recipeId === 2 ? 10 : recipeId === 3 ? 12 : recipeId === 4 ? 9 : 11;
+    let includedPools = recipeId === 1 ? ['final', 'p2', 'p4'] :
                         recipeId === 2 ? ['final', 'p2', 'p3', 'p4'] :
                         recipeId === 3 ? ['final', 'p2', 'p4', 'p6', 'p7'] :
                         recipeId === 4 ? ['final', 'p2', 'p3', 'p5'] :
                         ['final', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
 
-    let targetFreqsArr = recipeId === 1 ? [3, 2, 0] :
+    let targetFreqsArr = recipeId === 1 ? [3, 2] :
                       recipeId === 2 ? [4, 3, 2] :
                       recipeId === 3 ? [3, 2, 1] :
                       recipeId === 4 ? [4, 3] :
                       [3, 2, 1];
 
-    let targetFinalFreqs: Record<number, boolean> = recipeId === 1 ? { 6: false, 5: false, 4: true, 3: true, 2: true, 1: false, 0: false } :
+    let targetFinalFreqs: Record<number, boolean> = recipeId === 1 ? { 6: false, 5: false, 4: true, 3: true, 2: false, 1: false, 0: false } :
                            recipeId === 2 ? { 6: false, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false } :
                            recipeId === 3 ? { 6: false, 5: false, 4: true, 3: true, 2: true, 1: true, 0: false } :
                            recipeId === 4 ? { 6: false, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false } :
