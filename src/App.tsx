@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import html2canvas from 'html2canvas';
 
 // --- Algorithmic & ML Functions ---
 const WHEELING_SIZES: Record<number, number> = { 12: 12, 24: 24, 36: 36, 48: 48 };
@@ -840,18 +841,24 @@ export default function App() {
                                         {id: 'p5', name: 'Pool5', color: '#e040fb'},
                                         {id: 'p6', name: 'Pool6', color: '#26c6da'},
                                         {id: 'p7', name: 'Pool7', color: '#ff4081'}
-                                    ].map(pool => (
-                                        <label key={pool.id} className="flex items-center gap-1.5 text-[11px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-2.5 py-1 rounded-lg hover:border-[#555]">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selectedConsensusPools[pool.id]} 
-                                                onChange={(e) => setSelectedConsensusPools({...selectedConsensusPools, [pool.id]: e.target.checked})}
-                                                className="cursor-pointer accent-[#7c4dff]"
-                                            />
-                                            <span style={{color: pool.color}}>●</span>
-                                            <span>{pool.name}</span>
-                                        </label>
-                                    ))}
+                                    ].map(pool => {
+                                        const isChecked = selectedConsensusPools[pool.id];
+                                        return (
+                                            <label key={pool.id} className={`flex items-center gap-1.5 text-[11px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${isChecked ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-[0_0_8px_rgba(124,77,255,0.4)]' : 'bg-[#1a1a1a] border-[#333] text-[#aaa]'}`}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isChecked} 
+                                                    onChange={(e) => setSelectedConsensusPools({...selectedConsensusPools, [pool.id]: e.target.checked})}
+                                                    className="sr-only"
+                                                />
+                                                <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] ${isChecked ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
+                                                    {isChecked ? '✓' : ''}
+                                                </span>
+                                                <span style={{color: pool.color}}>●</span>
+                                                <span>{pool.name}</span>
+                                            </label>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -859,17 +866,23 @@ export default function App() {
                             <div className="mt-3">
                                 <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIA REQUERIDA (NÚMERO DE APARICIONES EN LOS POOLS SELECCIONADOS):</div>
                                 <div className="flex flex-wrap gap-2">
-                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(freq => (
-                                        <label key={freq} className="flex items-center gap-1.5 text-[11px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-3 py-1 rounded-lg hover:border-[#555]">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selectedFrequencies[freq]} 
-                                                onChange={(e) => setSelectedFrequencies({...selectedFrequencies, [freq]: e.target.checked})}
-                                                className="cursor-pointer accent-[#7c4dff]"
-                                            />
-                                            <span>Freq {freq}</span>
-                                        </label>
-                                    ))}
+                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(freq => {
+                                        const isChecked = selectedFrequencies[freq];
+                                        return (
+                                            <label key={freq} className={`flex items-center gap-1.5 text-[11px] font-bold cursor-pointer border px-3 py-1 rounded-lg transition ${isChecked ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-[0_0_8px_rgba(124,77,255,0.4)]' : 'bg-[#1a1a1a] border-[#333] text-[#aaa]'}`}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isChecked} 
+                                                    onChange={(e) => setSelectedFrequencies({...selectedFrequencies, [freq]: e.target.checked})}
+                                                    className="sr-only"
+                                                />
+                                                <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] ${isChecked ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
+                                                    {isChecked ? '✓' : ''}
+                                                </span>
+                                                <span>Freq {freq}</span>
+                                            </label>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -1745,7 +1758,7 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
     };
 }
 
-function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw) {
+function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: number = 5) {
     const histIdx = allDraws.findIndex(d => d.num === draw.num);
     const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
     const poolSizes = [9, 12, 15, 18, 21, 27];
@@ -1795,7 +1808,6 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw) {
             }
         }
 
-        // Ensure every winning number is included in filteredForSz for this sz if possible
         draw.win.forEach(w => {
             if (!filteredForSz.includes(w)) {
                 for (let p of poolList) {
@@ -1834,26 +1846,14 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw) {
 
     let bestFinalFreqs: Record<number, boolean> = {};
     let maxHits = -1;
-    let minFiltered = 9999;
+    let minDiff = 99999;
     const finalFreqOptions = [6, 5, 4, 3, 2, 1, 0];
 
-    // First pass: search for mask where ALL 5 winning numbers are included (hits === 5), with minimal count >= 5
     for (let mask = 1; mask < 128; mask++) {
         let currFreqs: Record<number, boolean> = {};
         for (let i = 0; i < 7; i++) {
             currFreqs[finalFreqOptions[i]] = (mask & (1 << i)) !== 0;
         }
-
-        // Check that all 5 winning numbers are included in finalNums
-        let allWinnersIncluded = true;
-        for (let w of draw.win) {
-            let f = masterFreqMap[w] || 0;
-            if (!currFreqs[f]) {
-                allWinnersIncluded = false;
-                break;
-            }
-        }
-        if (!allWinnersIncluded) continue;
 
         let finalNums: number[] = [];
         for (let n = 1; n <= 28; n++) {
@@ -1862,63 +1862,28 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw) {
         }
         let hits = draw.win.filter(w => finalNums.includes(w)).length;
         let count = finalNums.length;
+        let diff = Math.abs(count - targetSize);
 
-        if (hits === 5 && count >= 5) {
-            if (maxHits < 5 || count < minFiltered) {
-                maxHits = 5;
-                minFiltered = count;
-                bestFinalFreqs = currFreqs;
-            }
-        }
-    }
-
-    // Second pass: if no valid config found with all 5 winners and count >= 5, find any config with max hits and all winners included
-    if (maxHits < 5 || Object.keys(bestFinalFreqs).length === 0) {
-        for (let mask = 1; mask < 128; mask++) {
-            let currFreqs: Record<number, boolean> = {};
-            for (let i = 0; i < 7; i++) {
-                currFreqs[finalFreqOptions[i]] = (mask & (1 << i)) !== 0;
-            }
-
-            let allWinnersIncluded = true;
-            for (let w of draw.win) {
-                let f = masterFreqMap[w] || 0;
-                if (!currFreqs[f]) {
-                    allWinnersIncluded = false;
-                    break;
-                }
-            }
-            if (!allWinnersIncluded) continue;
-
-            let finalNums: number[] = [];
-            for (let n = 1; n <= 28; n++) {
-                let f = masterFreqMap[n] || 0;
-                if (currFreqs[f]) finalNums.push(n);
-            }
-            let hits = draw.win.filter(w => finalNums.includes(w)).length;
-            let count = finalNums.length;
-
-            let isBetter = false;
-            if (hits > maxHits) {
+        let isBetter = false;
+        if (hits > maxHits) {
+            isBetter = true;
+        } else if (hits === maxHits) {
+            if (diff < minDiff) {
                 isBetter = true;
-            } else if (hits === maxHits) {
-                if (count < minFiltered && count >= hits) {
-                    isBetter = true;
-                }
             }
+        }
 
-            if (isBetter) {
-                maxHits = hits;
-                minFiltered = count;
-                bestFinalFreqs = currFreqs;
-            }
+        if (isBetter) {
+            maxHits = hits;
+            minDiff = diff;
+            bestFinalFreqs = currFreqs;
         }
     }
 
-    // Always guarantee that the winning numbers' master frequencies are true in bestFinalFreqs
     if (Object.keys(bestFinalFreqs).length === 0) {
-        bestFinalFreqs = { 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false };
+        bestFinalFreqs = { 6: false, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false };
     }
+
     draw.win.forEach(w => {
         let f = masterFreqMap[w] || 0;
         bestFinalFreqs[f] = true;
@@ -2198,6 +2163,16 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
         {id: 'p7', name: 'Pool7', color: '#ff4081'}
     ];
 
+    const [targetSize, setTargetSize] = useState<number>(5);
+    const [localToast, setLocalToast] = useState<string | null>(null);
+    const [showLoadModal, setShowLoadModal] = useState(false);
+    const [importText, setImportText] = useState('');
+
+    function showLocToast(msg: string) {
+        setLocalToast(msg);
+        setTimeout(() => setLocalToast(null), 2500);
+    }
+
     const histDraws = React.useMemo(() => {
         if (!targetDraw) return allDraws;
         const histIdx = allDraws.findIndex(d => d.num === targetDraw.num);
@@ -2206,7 +2181,7 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
 
     const initialConfig = React.useMemo(() => {
         if (targetDraw) {
-            return getOptimalMultipoolConfig(allDraws, targetDraw);
+            return getOptimalMultipoolConfig(allDraws, targetDraw, targetSize);
         }
         let init: Record<number, { pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
         poolSizes.forEach(sz => {
@@ -2219,17 +2194,18 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
             configs: init,
             finalFreqs: { 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
         };
-    }, [allDraws, targetDraw]);
+    }, [allDraws, targetDraw, targetSize]);
 
     const [configs, setConfigs] = useState(initialConfig.configs);
     const [finalFreqs, setFinalFreqs] = useState(initialConfig.finalFreqs);
+    const [activePoolSizes, setActivePoolSizes] = useState<Record<number, boolean>>({
+        9: true, 12: true, 15: true, 18: true, 21: true, 27: true
+    });
 
     useEffect(() => {
         setConfigs(initialConfig.configs);
         setFinalFreqs(initialConfig.finalFreqs);
     }, [initialConfig]);
-
-    const [activeTabSz, setActiveTabSz] = useState<number>(21);
 
     function handleClearAll() {
         let init: Record<number, { pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
@@ -2241,11 +2217,99 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
         });
         setConfigs(init);
         setFinalFreqs({ 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false });
+        setActivePoolSizes({ 9: true, 12: true, 15: true, 18: true, 21: true, 27: true });
+    }
+
+    function handleCopyFingerprint() {
+        const fingerprint = {
+            version: '1.1',
+            type: 'chispazo_multipool_fingerprint',
+            drawNum: targetDraw?.num || null,
+            targetSize,
+            configs,
+            finalFreqs,
+            activePoolSizes,
+            timestamp: new Date().toISOString()
+        };
+        const text = JSON.stringify(fingerprint, null, 2);
+        navigator.clipboard.writeText(text).then(() => {
+            showLocToast('¡Fingerprint metodológico copiado al portapapeles!');
+        });
+    }
+
+    function handleApplyFingerprint() {
+        try {
+            const data = JSON.parse(importText);
+            if (data.configs && data.finalFreqs) {
+                setConfigs(data.configs);
+                setFinalFreqs(data.finalFreqs);
+                if (data.activePoolSizes) setActivePoolSizes(data.activePoolSizes);
+                if (data.targetSize) setTargetSize(data.targetSize);
+                setShowLoadModal(false);
+                setImportText('');
+                showLocToast('¡Fingerprint aplicado exitosamente!');
+            } else {
+                showLocToast('Error: Formato de fingerprint inválido');
+            }
+        } catch (e) {
+            showLocToast('Error al parsear JSON de fingerprint');
+        }
+    }
+
+    async function handleCopyImage() {
+        const el = document.getElementById('multipool-modal-body');
+        if (!el) return;
+        try {
+            const originalMaxHeight = el.style.maxHeight;
+            const originalOverflow = el.style.overflow;
+            el.style.maxHeight = 'none';
+            el.style.overflow = 'visible';
+
+            const canvas = await html2canvas(el, { 
+                backgroundColor: '#121212', 
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                windowWidth: el.scrollWidth,
+                windowHeight: el.scrollHeight
+            });
+
+            el.style.maxHeight = originalMaxHeight;
+            el.style.overflow = originalOverflow;
+
+            canvas.toBlob(async (blob) => {
+                if (blob) {
+                    try {
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                        showLocToast('¡Imagen completa del Multipool copiada al portapapeles!');
+                    } catch (err) {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `multipool_sorteo_${targetDraw?.num || 'master'}.png`;
+                        a.click();
+                        showLocToast('¡Imagen descargada exitosamente!');
+                    }
+                } else {
+                    showLocToast('Error al generar blob de imagen');
+                }
+            }, 'image/png');
+        } catch (err: any) {
+            console.error('html2canvas error:', err);
+            showLocToast('Error al generar imagen. Verifique permisos.');
+        }
     }
 
     const multipoolResult = React.useMemo(() => {
         let poolSizeFilteredSets: number[][] = [];
+        let activePoolSizesCount = 0;
         poolSizes.forEach(sz => {
+            if (!activePoolSizes[sz]) {
+                poolSizeFilteredSets.push([]);
+                return;
+            }
+            activePoolSizesCount++;
             const mlPools = calculateMLPools(histDraws, sz);
             const poolList = [
                 { id: 'final', name: 'Final', nums: mlPools.final },
@@ -2275,10 +2339,12 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
         });
 
         let masterFreqMap: Record<number, number> = {};
-        poolSizeFilteredSets.forEach(set => {
-            set.forEach(n => {
-                masterFreqMap[n] = (masterFreqMap[n] || 0) + 1;
-            });
+        poolSizeFilteredSets.forEach((set, szIdx) => {
+            if (activePoolSizes[poolSizes[szIdx]]) {
+                set.forEach(n => {
+                    masterFreqMap[n] = (masterFreqMap[n] || 0) + 1;
+                });
+            }
         });
 
         let finalResultNums: number[] = [];
@@ -2296,18 +2362,58 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
             return a - b;
         });
 
-        return { masterFreqMap, finalResultNums, poolSizeFilteredSets };
-    }, [allDraws, configs, finalFreqs]);
+        return { masterFreqMap, finalResultNums, poolSizeFilteredSets, activePoolSizesCount };
+    }, [allDraws, configs, finalFreqs, activePoolSizes, histDraws]);
 
     return (
         <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={onClose}>
-            <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[850px] max-h-[92vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
+            <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[880px] max-h-[94vh] flex flex-col overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                {/* Header with Toolbars & Buttons */}
+                <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center flex-wrap gap-2">
                     <div>
                         <div className="text-[13px] font-black text-[#ffeb3b]">⚡ Herramienta Multipool (Consenso Multiescala 6 Pool Sizes)</div>
-                        <div className="text-[9px] text-[#888]">Configura pools y frecuencias por cada pool size (9, 12, 15, 18, 21, 27) y aplica el filtro de frecuencia final (0-6).</div>
+                        <div className="text-[9px] text-[#888]">Configura pools y frecuencias por cada pool size y optimiza el target de números resultantes.</div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Target Size Gap Selector */}
+                        <div className="flex items-center bg-[#111] border border-[#333] rounded-lg px-2 py-0.5">
+                            <span className="text-[9px] text-[#aaa] font-bold mr-1.5">Target:</span>
+                            {[5, 6, 7, 8, 9, 10].map(sz => (
+                                <button
+                                    key={sz}
+                                    onClick={() => setTargetSize(sz)}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition ${targetSize === sz ? 'bg-[#7c4dff] text-white shadow-sm' : 'text-[#888] hover:text-white'}`}
+                                    title={`Optimizar para target de ${sz} números resultantes`}
+                                >
+                                    {sz}#
+                                </button>
+                            ))}
+                        </div>
+
+                        <button 
+                            onClick={handleCopyFingerprint} 
+                            className="bg-[rgba(0,229,255,.15)] border border-[rgba(0,229,255,.4)] text-[#00e5ff] hover:bg-[rgba(0,229,255,.25)] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
+                            title="Copiar fingerprint metodológico en texto"
+                        >
+                            📋 Copiar Fingerprint
+                        </button>
+
+                        <button 
+                            onClick={() => setShowLoadModal(true)} 
+                            className="bg-[rgba(124,77,255,.15)] border border-[rgba(124,77,255,.4)] text-[#b388ff] hover:bg-[rgba(124,77,255,.25)] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
+                            title="Cargar fingerprint metodológico desde texto"
+                        >
+                            📥 Cargar
+                        </button>
+
+                        <button 
+                            onClick={handleCopyImage} 
+                            className="bg-[rgba(255,235,59,.15)] border border-[rgba(255,235,59,.4)] text-[#ffeb3b] hover:bg-[rgba(255,235,59,.25)] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
+                            title="Copiar multipool completo en modo de imagen"
+                        >
+                            📸 Copiar Imagen
+                        </button>
+
                         <button onClick={handleClearAll} className="bg-[#2a2a2a] border border-[#555] text-[#ffeb3b] rounded-lg px-2.5 py-1 text-[10px] font-bold cursor-pointer hover:bg-[#333]">
                             Limpiar
                         </button>
@@ -2315,7 +2421,37 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {/* Local Toast inside Modal */}
+                {localToast && (
+                    <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-[#7c4dff] text-white px-4 py-1.5 rounded-full text-[11px] font-black shadow-[0_4px_15px_rgba(124,77,255,0.4)] z-[9999] transition-opacity">
+                        {localToast}
+                    </div>
+                )}
+
+                {/* Import Fingerprint Modal Overlay */}
+                {showLoadModal && (
+                    <div className="absolute inset-0 bg-black/90 z-[999] flex items-center justify-center p-4">
+                        <div className="bg-[#1a1a1a] border border-[#444] rounded-xl p-4 w-full max-w-[500px] space-y-3">
+                            <div className="flex justify-between items-center">
+                                <b className="text-[12px] text-[#b388ff]">📥 Cargar Fingerprint Metodológico</b>
+                                <button onClick={() => setShowLoadModal(false)} className="text-[#888] hover:text-white text-[14px]">×</button>
+                            </div>
+                            <p className="text-[10px] text-[#aaa]">Pega el texto JSON del fingerprint para recrear las condiciones y configuración exacta del multipool:</p>
+                            <textarea 
+                                value={importText}
+                                onChange={(e) => setImportText(e.target.value)}
+                                placeholder='Pega aquí el JSON del fingerprint...'
+                                className="w-full h-32 bg-[#121212] border border-[#333] rounded-lg p-2 text-[10px] font-mono text-[#ffeb3b] focus:outline-none focus:border-[#7c4dff]"
+                            />
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setShowLoadModal(false)} className="bg-[#222] border border-[#444] text-[#aaa] px-3 py-1.5 rounded-lg text-[10px] cursor-pointer">Cancelar</button>
+                                <button onClick={handleApplyFingerprint} className="bg-[#7c4dff] text-white px-4 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer hover:bg-[#6539dc]">Aplicar Fingerprint</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div id="multipool-modal-body" className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#121212]">
                     {targetDraw && (
                         <div className="bg-[#ffeb3b] text-black rounded-xl p-2.5 text-center shadow-[0_0_15px_rgba(255,235,59,0.2)]">
                             <div className="text-[9px] font-black tracking-wide">● NÚMEROS GANADORES REALES (Sorteo {targetDraw.num})</div>
@@ -2323,57 +2459,83 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                         </div>
                     )}
 
-                    <div className="text-[11px] font-black text-[#00e5ff] mb-1">Configuración Simultánea de los 6 Pool Sizes (9, 12, 15, 18, 21, 27):</div>
+                    <div className="text-[11px] font-black text-[#00e5ff] mb-1">Configuración Simultánea de los 6 Pool Sizes (9, 12, 15, 18, 21, 27) - Target: {targetSize} números:</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                         {poolSizes.map((sz, szIdx) => {
+                            const isActive = activePoolSizes[sz] !== false;
                             const resCount = multipoolResult.poolSizeFilteredSets[szIdx]?.length || 0;
                             return (
-                                <div key={sz} className="bg-[#161616] border border-[#2e2e2e] rounded-xl p-2.5 space-y-2">
+                                <div key={sz} className={`bg-[#161616] border rounded-xl p-2.5 space-y-2 transition ${isActive ? 'border-[#2e2e2e]' : 'border-[#333] opacity-40'}`}>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[11px] font-black text-[#ffeb3b]">Pool Size: {sz} nums</span>
+                                        <div className="flex items-center gap-2">
+                                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={isActive}
+                                                    onChange={(e) => setActivePoolSizes({...activePoolSizes, [sz]: e.target.checked})}
+                                                    className="sr-only"
+                                                />
+                                                <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] ${isActive ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
+                                                    {isActive ? '✓' : ''}
+                                                </span>
+                                                <span className="text-[11px] font-black text-[#ffeb3b]">Pool Size: {sz} nums</span>
+                                            </label>
+                                        </div>
                                         <span className="text-[9px] text-[#888] bg-[#222] px-2 py-0.5 rounded">Resultantes: {resCount} #</span>
                                     </div>
 
                                     <div>
                                         <div className="text-[8px] font-bold text-[#aaa] mb-1">POOLS ({sz}):</div>
                                         <div className="flex flex-wrap gap-1">
-                                            {poolDefs.map(pool => (
-                                                <label key={pool.id} className="flex items-center gap-1 text-[9px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-2 py-0.5 rounded hover:border-[#555]">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={configs[sz]?.pools[pool.id] || false} 
-                                                        onChange={(e) => {
-                                                            const updated = { ...configs };
-                                                            updated[sz].pools[pool.id] = e.target.checked;
-                                                            setConfigs({...updated});
-                                                        }}
-                                                        className="cursor-pointer accent-[#7c4dff]"
-                                                    />
-                                                    <span style={{color: pool.color}}>●</span>
-                                                    <span>{pool.name}</span>
-                                                </label>
-                                            ))}
+                                            {poolDefs.map(pool => {
+                                                const isChecked = configs[sz]?.pools[pool.id] || false;
+                                                return (
+                                                    <label key={pool.id} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${isChecked ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-[0_0_6px_rgba(124,77,255,0.4)]' : 'bg-[#1a1a1a] border-[#333] text-[#aaa]'}`}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={isChecked} 
+                                                            onChange={(e) => {
+                                                                const updated = { ...configs };
+                                                                updated[sz].pools[pool.id] = e.target.checked;
+                                                                setConfigs({...updated});
+                                                            }}
+                                                            className="sr-only"
+                                                        />
+                                                        <span className={`w-3 h-3 rounded flex items-center justify-center text-[8px] ${isChecked ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
+                                                            {isChecked ? '✓' : ''}
+                                                        </span>
+                                                        <span style={{color: pool.color}}>●</span>
+                                                        <span>{pool.name}</span>
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
                                     <div>
                                         <div className="text-[8px] font-bold text-[#aaa] mb-1">FRECUENCIAS ({sz}):</div>
                                         <div className="flex flex-wrap gap-1">
-                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(freq => (
-                                                <label key={freq} className="flex items-center gap-1 text-[9px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-2 py-0.5 rounded hover:border-[#555]">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={configs[sz]?.freqs[freq] || false} 
-                                                        onChange={(e) => {
-                                                            const updated = { ...configs };
-                                                            updated[sz].freqs[freq] = e.target.checked;
-                                                            setConfigs({...updated});
-                                                        }}
-                                                        className="cursor-pointer accent-[#7c4dff]"
-                                                    />
-                                                    <span>F{freq}</span>
-                                                </label>
-                                            ))}
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(freq => {
+                                                const isChecked = configs[sz]?.freqs[freq] || false;
+                                                return (
+                                                    <label key={freq} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${isChecked ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-[0_0_6px_rgba(124,77,255,0.4)]' : 'bg-[#1a1a1a] border-[#333] text-[#aaa]'}`}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={isChecked} 
+                                                            onChange={(e) => {
+                                                                const updated = { ...configs };
+                                                                updated[sz].freqs[freq] = e.target.checked;
+                                                                setConfigs({...updated});
+                                                            }}
+                                                            className="sr-only"
+                                                        />
+                                                        <span className={`w-3 h-3 rounded flex items-center justify-center text-[8px] ${isChecked ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
+                                                            {isChecked ? '✓' : ''}
+                                                        </span>
+                                                        <span>F{freq}</span>
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
@@ -2384,8 +2546,8 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                     <div className="bg-[#141414] border border-[#00e5ff44] rounded-xl p-3">
                         <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
                             <div>
-                                <h3 className="text-[12px] font-black text-[#ffeb3b]">🎯 Filtro de Frecuencia Final (Consenso entre los 6 Pool Sizes)</h3>
-                                <p className="text-[9px] text-[#888]">Filtra por frecuencia de aparición (0 a 6 pool sizes) para obtener la combinación maestra resultante.</p>
+                                <h3 className="text-[12px] font-black text-[#ffeb3b]">🎯 Filtro de Frecuencia Final (Consenso entre los Pool Sizes Activos)</h3>
+                                <p className="text-[9px] text-[#888]">Filtra por frecuencia de aparición (0 a {multipoolResult.activePoolSizesCount} pool sizes) para obtener la combinación maestra resultante.</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="pill bg-[rgba(255,235,59,.1)] border border-[rgba(255,235,59,.3)] text-[#ffeb3b] text-[10px] font-bold px-3 py-1 rounded-full">
@@ -2401,17 +2563,23 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                         </div>
 
                         <div className="flex flex-wrap gap-2 mb-3">
-                            {[6, 5, 4, 3, 2, 1, 0].map(freq => (
-                                <label key={freq} className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#1a1a1a] border border-[#333] px-3 py-1 rounded-lg hover:border-[#555]">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={finalFreqs[freq] || false} 
-                                        onChange={(e) => setFinalFreqs({...finalFreqs, [freq]: e.target.checked})}
-                                        className="cursor-pointer accent-[#7c4dff]"
-                                    />
-                                    <span>Freq {freq} / 6 Pools</span>
-                                </label>
-                            ))}
+                            {[6, 5, 4, 3, 2, 1, 0].map(freq => {
+                                const isChecked = finalFreqs[freq] || false;
+                                return (
+                                    <label key={freq} className={`flex items-center gap-1.5 text-[10px] font-bold cursor-pointer border px-3 py-1 rounded-lg transition ${isChecked ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-[0_0_8px_rgba(124,77,255,0.4)]' : 'bg-[#1a1a1a] border-[#333] text-[#aaa]'}`}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isChecked} 
+                                            onChange={(e) => setFinalFreqs({...finalFreqs, [freq]: e.target.checked})}
+                                            className="sr-only"
+                                        />
+                                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] ${isChecked ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
+                                            {isChecked ? '✓' : ''}
+                                        </span>
+                                        <span>Freq {freq} / {multipoolResult.activePoolSizesCount} Pools</span>
+                                    </label>
+                                );
+                            })}
                         </div>
 
                         <div className="pt-2.5 border-t border-[#222]">
@@ -2425,7 +2593,7 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                                             return (
                                                 <div key={n} className={`border rounded-lg p-1.5 text-center flex flex-col items-center ${isWin ? 'bg-[#2e7d32] border-[#4caf50]' : 'bg-[#1e1e1e] border-[#333]'}`}>
                                                     <span className={`text-[12px] font-black ${isWin ? 'text-white' : 'text-[#ffeb3b]'}`}>{String(n).padStart(2, '0')}</span>
-                                                    <span className={`text-[8px] ${isWin ? 'text-[#a5d6a7]' : 'text-[#00e5ff]'}`}>f:{masterCount}/6</span>
+                                                    <span className={`text-[8px] ${isWin ? 'text-[#a5d6a7]' : 'text-[#00e5ff]'}`}>f:{masterCount}/{multipoolResult.activePoolSizesCount}</span>
                                                 </div>
                                             );
                                         })}
