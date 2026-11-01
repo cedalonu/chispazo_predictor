@@ -2256,49 +2256,193 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
         }
     }
 
-    async function handleCopyImage() {
-        const el = document.getElementById('multipool-modal-body');
-        if (!el) return;
-        try {
-            const originalMaxHeight = el.style.maxHeight;
-            const originalOverflow = el.style.overflow;
-            el.style.maxHeight = 'none';
-            el.style.overflow = 'visible';
+    function handleCopyImage() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200;
+        canvas.height = 1550;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
 
-            const canvas = await html2canvas(el, { 
-                backgroundColor: '#121212', 
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                logging: false,
-                windowWidth: el.scrollWidth,
-                windowHeight: el.scrollHeight
+        // Background
+        ctx.fillStyle = '#121212';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        let curY = 45;
+
+        // Header Title
+        ctx.fillStyle = '#ffeb3b';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText('⚡ Herramienta Multipool (Consenso Multiescala 6 Pool Sizes)', 40, curY);
+        curY += 35;
+
+        ctx.fillStyle = '#00e5ff';
+        ctx.font = '18px sans-serif';
+        ctx.fillText(`Target: ${targetSize} números | Sorteo: ${targetDraw?.num || 'Master'}`, 40, curY);
+        curY += 30;
+
+        // Winning Numbers Banner
+        if (targetDraw) {
+            ctx.fillStyle = '#ffeb3b';
+            ctx.fillRect(40, curY, 1120, 55);
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText(`● NÚMEROS GANADORES REALES: ${targetDraw.win.map(n => String(n).padStart(2, '0')).join('  ')}`, 70, curY + 35);
+            curY += 70;
+        }
+
+        ctx.fillStyle = '#00e5ff';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText('Configuración de los 6 Pool Sizes (9, 12, 15, 18, 21, 27):', 40, curY);
+        curY += 25;
+
+        // Draw 6 Pool Sizes in 2 columns (3 rows)
+        const poolSizesList = [9, 12, 15, 18, 21, 27];
+        let cardWidth = 545;
+        let cardHeight = 160;
+
+        poolSizesList.forEach((sz, idx) => {
+            let col = idx % 2;
+            let row = Math.floor(idx / 2);
+            let x = 40 + col * 575;
+            let y = curY + row * 175;
+
+            let isActive = activePoolSizes[sz] !== false;
+            let resCount = multipoolResult.poolSizeFilteredSets[idx]?.length || 0;
+
+            // Card background
+            ctx.fillStyle = '#161616';
+            ctx.fillRect(x, y, cardWidth, cardHeight);
+            ctx.strokeStyle = isActive ? '#333333' : '#222222';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, cardWidth, cardHeight);
+
+            // Active checkbox & Pool size header
+            ctx.fillStyle = isActive ? '#7c4dff' : '#222222';
+            ctx.fillRect(x + 15, y + 15, 18, 18);
+            ctx.strokeStyle = isActive ? '#b388ff' : '#444444';
+            ctx.strokeRect(x + 15, y + 15, 18, 18);
+            if (isActive) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillText('✓', x + 18, y + 29);
+            }
+
+            ctx.fillStyle = '#ffeb3b';
+            ctx.font = 'bold 15px sans-serif';
+            ctx.fillText(`Pool Size: ${sz} nums`, x + 42, y + 29);
+
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '12px sans-serif';
+            ctx.fillText(`Resultantes: ${resCount} #`, x + 415, y + 29);
+
+            // Pools Checkboxes (7 pools)
+            ctx.fillStyle = '#888888';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('POOLS:', x + 15, y + 60);
+
+            let pX = x + 65;
+            poolDefs.forEach(pool => {
+                let pChecked = configs[sz]?.pools[pool.id] || false;
+                ctx.fillStyle = pChecked ? '#7c4dff' : '#222222';
+                ctx.fillRect(pX, y + 46, 14, 14);
+                ctx.strokeStyle = pChecked ? '#b388ff' : '#444444';
+                ctx.strokeRect(pX, y + 46, 14, 14);
+                if (pChecked) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 11px sans-serif';
+                    ctx.fillText('✓', pX + 2, y + 57);
+                }
+
+                ctx.fillStyle = pChecked ? '#ffffff' : '#999999';
+                ctx.font = '11px sans-serif';
+                ctx.fillText(pool.name, pX + 18, y + 58);
+                pX += 67;
             });
 
-            el.style.maxHeight = originalMaxHeight;
-            el.style.overflow = originalOverflow;
+            // Frequencies Checkboxes (8 freqs)
+            ctx.fillStyle = '#888888';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('FREQS:', x + 15, y + 105);
 
-            canvas.toBlob(async (blob) => {
-                if (blob) {
-                    try {
-                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                        showLocToast('¡Imagen completa del Multipool copiada al portapapeles!');
-                    } catch (err) {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `multipool_sorteo_${targetDraw?.num || 'master'}.png`;
-                        a.click();
-                        showLocToast('¡Imagen descargada exitosamente!');
-                    }
-                } else {
-                    showLocToast('Error al generar blob de imagen');
+            let fX = x + 65;
+            [7, 6, 5, 4, 3, 2, 1, 0].forEach(f => {
+                let fChecked = configs[sz]?.freqs[f] || false;
+                ctx.fillStyle = fChecked ? '#7c4dff' : '#222222';
+                ctx.fillRect(fX, y + 91, 14, 14);
+                ctx.strokeStyle = fChecked ? '#b388ff' : '#444444';
+                ctx.strokeRect(fX, y + 91, 14, 14);
+                if (fChecked) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 11px sans-serif';
+                    ctx.fillText('✓', fX + 2, y + 102);
                 }
-            }, 'image/png');
-        } catch (err: any) {
-            console.error('html2canvas error:', err);
-            showLocToast('Error al generar imagen. Verifique permisos.');
-        }
+
+                ctx.fillStyle = fChecked ? '#ffffff' : '#999999';
+                ctx.font = '11px sans-serif';
+                ctx.fillText(`F${f}`, fX + 18, y + 103);
+                fX += 58;
+            });
+        });
+
+        curY += 3 * 175 + 15;
+
+        // Final Frequency Filter & Master Result
+        ctx.fillStyle = '#141414';
+        ctx.fillRect(40, curY, 1120, 270);
+        ctx.strokeStyle = '#00e5ff44';
+        ctx.strokeRect(40, curY, 1120, 270);
+
+        ctx.fillStyle = '#ffeb3b';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText('🎯 Filtro de Frecuencia Final (Consenso Master)', 60, curY + 30);
+
+        ctx.fillStyle = '#ffeb3b';
+        ctx.font = '15px sans-serif';
+        ctx.fillText(`Total Final: ${multipoolResult.finalResultNums.length} números`, 930, curY + 30);
+
+        ctx.fillStyle = '#cccccc';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('Números resultantes del Multipool Master:', 60, curY + 65);
+
+        let mY = curY + 85;
+        let mX = 60;
+        multipoolResult.finalResultNums.forEach((n, idx) => {
+            let isWin = targetDraw ? targetDraw.win.includes(n) : false;
+            ctx.fillStyle = isWin ? '#2e7d32' : '#1e1e1e';
+            ctx.fillRect(mX, mY, 70, 70);
+            ctx.strokeStyle = isWin ? '#4caf50' : '#333333';
+            ctx.strokeRect(mX, mY, 70, 70);
+
+            ctx.fillStyle = isWin ? '#ffffff' : '#ffeb3b';
+            ctx.font = 'bold 26px sans-serif';
+            ctx.fillText(String(n).padStart(2, '0'), mX + 12, mY + 42);
+
+            ctx.fillStyle = isWin ? '#a5d6a7' : '#00e5ff';
+            ctx.font = '11px sans-serif';
+            ctx.fillText(`f:${multipoolResult.masterFreqMap[n] || 0}/${multipoolResult.activePoolSizesCount}`, mX + 14, mY + 60);
+
+            mX += 82;
+            if ((idx + 1) % 12 === 0) {
+                mX = 60;
+                mY += 80;
+            }
+        });
+
+        canvas.toBlob((blob) => {
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `multipool_completo_sorteo_${targetDraw?.num || 'master'}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showLocToast('¡Imagen completa descargada exitosamente!');
+            } else {
+                showLocToast('Error al generar blob de imagen');
+            }
+        }, 'image/png');
     }
 
     const multipoolResult = React.useMemo(() => {
