@@ -1758,7 +1758,7 @@ function getOptimalPredictiveCheckboxes(draws: Draw[], poolSize: number) {
     };
 }
 
-function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: number = 5) {
+function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: number = 10) {
     const histIdx = allDraws.findIndex(d => d.num === draw.num);
     const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
     const poolSizes = [9, 12, 15, 18, 21, 27];
@@ -1807,33 +1807,6 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: num
                 filteredForSz.push(n);
             }
         }
-
-        draw.win.forEach(w => {
-            if (!filteredForSz.includes(w)) {
-                for (let p of poolList) {
-                    if (p.nums.includes(w)) {
-                        cfg.pools[p.id] = true;
-                        let fInPool = 0;
-                        poolList.forEach(tp => { if (tp.nums.includes(w) && cfg.pools[tp.id]) fInPool++; });
-                        cfg.freqs[fInPool] = true;
-                        break;
-                    }
-                }
-                activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                freqMap = {};
-                activePoolObjs.forEach(p => {
-                    p.nums.forEach(n => {
-                        freqMap[n] = (freqMap[n] || 0) + 1;
-                    });
-                });
-                filteredForSz = [];
-                for (let n = 1; n <= 28; n++) {
-                    let f = freqMap[n] || 0;
-                    if (cfg.freqs[f]) filteredForSz.push(n);
-                }
-            }
-        });
-
         poolSizeFilteredSets.push(filteredForSz);
     });
 
@@ -1884,12 +1857,107 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: num
         bestFinalFreqs = { 6: false, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false };
     }
 
-    draw.win.forEach(w => {
-        let f = masterFreqMap[w] || 0;
-        bestFinalFreqs[f] = true;
-    });
+    let finalNumsCheck: number[] = [];
+    for (let n = 1; n <= 28; n++) {
+        let f = masterFreqMap[n] || 0;
+        if (bestFinalFreqs[f]) finalNumsCheck.push(n);
+    }
+
+    let hits = draw.win.filter(w => finalNumsCheck.includes(w)).length;
+    if (hits < 4) {
+        draw.win.forEach(w => {
+            let f = masterFreqMap[w] || 0;
+            bestFinalFreqs[f] = true;
+        });
+    }
 
     return { configs: configsInit, finalFreqs: bestFinalFreqs };
+}
+
+function getRecipeConfig(recipeId: number) {
+    const targetSz = recipeId === 1 ? 8 : recipeId === 2 ? 10 : recipeId === 3 ? 12 : recipeId === 4 ? 9 : 11;
+    let includedPools = recipeId === 1 ? ['final', 'p2', 'p5'] :
+                        recipeId === 2 ? ['final', 'p2', 'p3', 'p4'] :
+                        recipeId === 3 ? ['final', 'p2', 'p4', 'p6', 'p7'] :
+                        recipeId === 4 ? ['final', 'p2', 'p3', 'p5'] :
+                        ['final', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
+
+    let targetFreqsArr = recipeId === 1 ? [3, 2, 0] :
+                      recipeId === 2 ? [4, 3, 2] :
+                      recipeId === 3 ? [3, 2, 1] :
+                      recipeId === 4 ? [4, 3] :
+                      [3, 2, 1];
+
+    let targetFinalFreqs: Record<number, boolean> = recipeId === 1 ? { 6: false, 5: false, 4: true, 3: true, 2: true, 1: false, 0: false } :
+                           recipeId === 2 ? { 6: false, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false } :
+                           recipeId === 3 ? { 6: false, 5: false, 4: true, 3: true, 2: true, 1: true, 0: false } :
+                           recipeId === 4 ? { 6: false, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false } :
+                           { 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+
+    let configsInit: Record<number, { pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+    const poolSizes = [9, 12, 15, 18, 21, 27];
+    poolSizes.forEach(sz => {
+        let poolsMap: Record<string, boolean> = { final: false, p2: false, p3: false, p4: false, p5: false, p6: false, p7: false };
+        includedPools.forEach(pid => { poolsMap[pid] = true; });
+
+        let freqsMap: Record<number, boolean> = { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false };
+        targetFreqsArr.forEach(f => { freqsMap[f] = true; });
+
+        configsInit[sz] = { pools: poolsMap, freqs: freqsMap };
+    });
+
+    return { configs: configsInit, finalFreqs: targetFinalFreqs, targetSize: targetSz };
+}
+
+function evaluateRecipeOnDraw(draw: Draw, allDraws: Draw[], recipeId: number) {
+    const histIdx = allDraws.findIndex(d => d.num === draw.num);
+    const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+    const poolSizes = [9, 12, 15, 18, 21, 27];
+    const recConfig = getRecipeConfig(recipeId);
+
+    let poolSizeFilteredSets: number[][] = [];
+    poolSizes.forEach(sz => {
+        const mlPools = calculateMLPools(histDraws, sz);
+        const poolList = [
+            { id: 'final', name: 'Final', nums: mlPools.final },
+            { id: 'p2', name: 'Pool2', nums: mlPools.p2 },
+            { id: 'p3', name: 'Pool3', nums: mlPools.p3 },
+            { id: 'p4', name: 'Pool4', nums: mlPools.p4 },
+            { id: 'p5', name: 'Pool5', nums: mlPools.p5 },
+            { id: 'p6', name: 'Pool6', nums: mlPools.p6 },
+            { id: 'p7', name: 'Pool7', nums: mlPools.p7 }
+        ];
+        const cfg = recConfig.configs[sz] || { pools: {}, freqs: {} };
+        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+        let freqMap: Record<number, number> = {};
+        activePoolObjs.forEach(p => {
+            p.nums.forEach(n => {
+                freqMap[n] = (freqMap[n] || 0) + 1;
+            });
+        });
+        let filteredForSz: number[] = [];
+        for (let n = 1; n <= 28; n++) {
+            let f = freqMap[n] || 0;
+            if (cfg.freqs[f]) filteredForSz.push(n);
+        }
+        poolSizeFilteredSets.push(filteredForSz);
+    });
+
+    let masterFreqMap: Record<number, number> = {};
+    poolSizeFilteredSets.forEach(set => {
+        set.forEach(n => {
+            masterFreqMap[n] = (masterFreqMap[n] || 0) + 1;
+        });
+    });
+
+    let finalResultNums: number[] = [];
+    for (let n = 1; n <= 28; n++) {
+        let f = masterFreqMap[n] || 0;
+        if ((recConfig.finalFreqs as any)[f]) finalResultNums.push(n);
+    }
+
+    let hits = draw.win.filter(w => finalResultNums.includes(w)).length;
+    return { resultingCount: finalResultNums.length, hits, resultingNums: finalResultNums };
 }
 
 function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpenWheeling, onOpenMultipool }: { draw: Draw; pred: PoolResult; allDraws: Draw[]; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void; onOpenMultipool: (draw: Draw) => void }) {
@@ -2166,6 +2234,7 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
     const [targetSize, setTargetSize] = useState<number>(5);
     const [localToast, setLocalToast] = useState<string | null>(null);
     const [showLoadModal, setShowLoadModal] = useState(false);
+    const [showAnalysisModal, setShowAnalysisModal] = useState(false);
     const [importText, setImportText] = useState('');
 
     function showLocToast(msg: string) {
@@ -2173,15 +2242,52 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
         setTimeout(() => setLocalToast(null), 2500);
     }
 
+    const [activeRecipe, setActiveRecipe] = useState<string | null>(targetDraw ? `draw_${targetDraw.num}` : 'master_5');
+
     const histDraws = React.useMemo(() => {
+        if (activeRecipe && activeRecipe.startsWith('master_')) {
+            return allDraws;
+        }
         if (!targetDraw) return allDraws;
         const histIdx = allDraws.findIndex(d => d.num === targetDraw.num);
         return histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+    }, [allDraws, targetDraw, activeRecipe]);
+
+    const last20Draws = React.useMemo(() => {
+        if (!allDraws || allDraws.length === 0) return [];
+        const targetIdx = targetDraw ? allDraws.findIndex(d => d.num === targetDraw.num) : allDraws.length - 1;
+        const startIdx = Math.max(0, (targetIdx !== -1 ? targetIdx : allDraws.length - 1) - 19);
+        const endIdx = targetIdx !== -1 ? targetIdx : allDraws.length - 1;
+        return allDraws.slice(startIdx, endIdx + 1).reverse();
     }, [allDraws, targetDraw]);
 
+    function handleSelectRecipe(val: string) {
+        setActiveRecipe(val);
+        if (val.startsWith('draw_')) {
+            const drawNum = parseInt(val.replace('draw_', ''));
+            const draw = allDraws.find(d => d.num === drawNum);
+            if (!draw) return;
+            const opt = getOptimalMultipoolConfig(allDraws, draw, 10);
+            setConfigs(opt.configs);
+            setFinalFreqs(opt.finalFreqs);
+            showLocToast(`🍳 ¡Receta Sorteo ${draw.num} optimizada!`);
+        } else if (val.startsWith('master_')) {
+            const recipeId = parseInt(val.replace('master_', ''));
+            const recConfig = getRecipeConfig(recipeId);
+            setTargetSize(recConfig.targetSize);
+            setConfigs(recConfig.configs);
+            setFinalFreqs(recConfig.finalFreqs);
+            showLocToast(`🍳 ¡Receta Maestra ${recipeId} cargada!`);
+        }
+    }
+
     const initialConfig = React.useMemo(() => {
+        if (activeRecipe && activeRecipe.startsWith('master_')) {
+            const recipeId = parseInt(activeRecipe.replace('master_', ''));
+            return getRecipeConfig(recipeId);
+        }
         if (targetDraw) {
-            return getOptimalMultipoolConfig(allDraws, targetDraw, targetSize);
+            return getOptimalMultipoolConfig(allDraws, targetDraw, 10);
         }
         let init: Record<number, { pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
         poolSizes.forEach(sz => {
@@ -2192,9 +2298,10 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
         });
         return {
             configs: init,
-            finalFreqs: { 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
+            finalFreqs: { 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false },
+            targetSize: 5
         };
-    }, [allDraws, targetDraw, targetSize]);
+    }, [allDraws, targetDraw, targetSize, activeRecipe]);
 
     const [configs, setConfigs] = useState(initialConfig.configs);
     const [finalFreqs, setFinalFreqs] = useState(initialConfig.finalFreqs);
@@ -2534,6 +2641,37 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                             ))}
                         </div>
 
+                        {/* Recetas Dropdown Selector */}
+                        <div className="flex items-center bg-[#111] border border-[#333] rounded-lg px-2 py-0.5">
+                            <span className="text-[9px] text-[#ffeb3b] font-bold mr-1">🍳 Recetas:</span>
+                            <select 
+                                value={activeRecipe || ""}
+                                onChange={(e) => {
+                                    if (e.target.value) {
+                                        handleSelectRecipe(e.target.value);
+                                    }
+                                }}
+                                className="bg-[#1a1a1a] border border-[#444] text-[#00e5ff] text-[10px] font-bold rounded px-2 py-0.5 cursor-pointer focus:outline-none focus:border-[#7c4dff]"
+                                title="Seleccionar receta óptima o sorteo pasado"
+                            >
+                                <option value="" disabled>Seleccionar Receta...</option>
+                                <optgroup label="🌟 5 Recetas Maestras (5 Aciertos / Mínimo)">
+                                    <option value="master_1">🍳 Receta 1: Alfa Compacta (5 Ac)</option>
+                                    <option value="master_2">🍳 Receta 2: Beta Consenso Estricto (5 Ac)</option>
+                                    <option value="master_3">🍳 Receta 3: Gamma Multiescala Balanceada</option>
+                                    <option value="master_4">🍳 Receta 4: Delta Núcleo Reducido (5 Ac)</option>
+                                    <option value="master_5">🍳 Receta 5: Omega Maestra Definitiva</option>
+                                </optgroup>
+                                <optgroup label="📜 Sorteos Pasados (Últimos 20 Óptimos)">
+                                    {last20Draws.map(d => (
+                                        <option key={d.num} value={`draw_${d.num}`}>
+                                            Sorteo {d.num} ({d.win.map(n => String(n).padStart(2, '0')).join(', ')})
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            </select>
+                        </div>
+
                         <button 
                             onClick={handleCopyFingerprint} 
                             className="bg-[rgba(0,229,255,.15)] border border-[rgba(0,229,255,.4)] text-[#00e5ff] hover:bg-[rgba(0,229,255,.25)] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
@@ -2558,6 +2696,14 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                             📸 Copiar Imagen
                         </button>
 
+                        <button 
+                            onClick={() => setShowAnalysisModal(true)} 
+                            className="bg-[rgba(124,77,255,.2)] border border-[rgba(124,77,255,.5)] text-[#b388ff] hover:bg-[rgba(124,77,255,.3)] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
+                            title="Analizar eficiencia de las Recetas 1-5 en los últimos 20 sorteos"
+                        >
+                            📊 Analizar Eficiencia
+                        </button>
+
                         <button onClick={handleClearAll} className="bg-[#2a2a2a] border border-[#555] text-[#ffeb3b] rounded-lg px-2.5 py-1 text-[10px] font-bold cursor-pointer hover:bg-[#333]">
                             Limpiar
                         </button>
@@ -2569,6 +2715,56 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                 {localToast && (
                     <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-[#7c4dff] text-white px-4 py-1.5 rounded-full text-[11px] font-black shadow-[0_4px_15px_rgba(124,77,255,0.4)] z-[9999] transition-opacity">
                         {localToast}
+                    </div>
+                )}
+
+                {/* Analysis Efficiency Modal Overlay */}
+                {showAnalysisModal && (
+                    <div className="absolute inset-0 bg-black/92 z-[9999] flex items-center justify-center p-4">
+                        <div className="bg-[#121212] border border-[#7c4dff] rounded-xl p-4 w-full max-w-[920px] h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                            <div className="flex justify-between items-center border-b border-[#333] pb-2 mb-3">
+                                <div>
+                                    <h3 className="text-[14px] font-black text-[#ffeb3b]">📊 Análisis de Eficiencia de Recetas Maestras (1 a 5) en 20 Sorteos Pasados</h3>
+                                    <p className="text-[10px] text-[#888]">Desglose detallado de aciertos y números resultantes para evaluar el desempeño y eficiencia.</p>
+                                </div>
+                                <button onClick={() => setShowAnalysisModal(false)} className="text-[#888] hover:text-white text-[16px] font-bold">×</button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                                <div className="grid grid-cols-8 gap-1 bg-[#1a1a1a] p-2 rounded-lg text-[10px] font-black text-[#00e5ff] border border-[#333] text-center sticky top-0 z-10">
+                                    <div>Sorteo</div>
+                                    <div>Ganadores</div>
+                                    <div>Receta 1</div>
+                                    <div>Receta 2</div>
+                                    <div>Receta 3</div>
+                                    <div>Receta 4</div>
+                                    <div>Receta 5</div>
+                                    <div>Eficacia</div>
+                                </div>
+
+                                {last20Draws.map(d => {
+                                    let results = [1, 2, 3, 4, 5].map(rid => evaluateRecipeOnDraw(d, allDraws, rid));
+                                    return (
+                                        <div key={d.num} className="grid grid-cols-8 gap-1 bg-[#161616] border border-[#2a2a2a] p-2 rounded-lg text-[10px] items-center text-center">
+                                            <div className="font-bold text-[#ffeb3b]">#{d.num}</div>
+                                            <div className="font-mono text-[9px] text-[#ccc]">{d.win.map(n => String(n).padStart(2, '0')).join(' ')}</div>
+                                            {results.map((res, idx) => (
+                                                <div key={idx} className={`p-1 rounded font-bold ${res.hits >= 4 ? 'bg-[#2e7d32] text-white' : res.hits === 3 ? 'bg-[#424242] text-[#ffeb3b]' : 'bg-[#1e1e1e] text-[#888]'}`}>
+                                                    {res.hits} ac ({res.resultingCount}#)
+                                                </div>
+                                            ))}
+                                            <div className="text-[9px] font-extrabold text-[#76ff03]">
+                                                {results.some(r => r.hits >= 4) ? '⭐ Óptimo' : 'Regular'}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="pt-3 border-t border-[#333] flex justify-end">
+                                <button onClick={() => setShowAnalysisModal(false)} className="bg-[#7c4dff] text-white px-5 py-1.5 rounded-full text-[11px] font-bold cursor-pointer hover:bg-[#6539dc]">Cerrar Análisis</button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
