@@ -2283,6 +2283,13 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
             const recipeId = parseInt(activeRecipe.replace('master_', ''));
             return getRecipeConfig(recipeId);
         }
+        if (activeRecipe && activeRecipe.startsWith('draw_')) {
+            const drawNum = parseInt(activeRecipe.replace('draw_', ''));
+            const draw = allDraws.find(d => d.num === drawNum);
+            if (draw) {
+                return getOptimalMultipoolConfig(allDraws, draw, 10);
+            }
+        }
         if (targetDraw) {
             return getOptimalMultipoolConfig(allDraws, targetDraw, 10);
         }
