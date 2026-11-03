@@ -2236,7 +2236,7 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
 }
 
 function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void }) {
-    const [activeTab, setActiveTab] = useState<'simulator' | 'ai'>('simulator');
+    const [activeTab, setActiveTab] = useState<'simulator' | 'simulatorB'>('simulator');
     const [localToast, setLocalToast] = useState<string | null>(null);
     function showLocToast(msg: string) {
         setLocalToast(msg);
@@ -2725,12 +2725,77 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         };
     }, [allDraws, selectedTargetDrawNum, madreConfigs, sub1Configs, sub2Configs, sub3Configs, sub4Configs, sub5Configs, sub5SecondaryConfigs]);
 
-    // AI Assistant state
-    const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([
-        { role: 'assistant', text: '¡Hola! Soy tu Asistente IA Especializado en Chispazo. Puedo ayudarte a diseñar algoritmos estadísticos basados en los últimos 20 sorteos, recrear condiciones de escenarios customizados o analizar probabilidades.' }
-    ]);
-    const [userInput, setUserInput] = useState('');
-    const [aiLoading, setAiLoading] = useState(false);
+    // Simulador B state
+    const [simBConfigs, setSimBConfigs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
+        9: makeCfg(true, pCore, fBase),
+        12: makeCfg(true, pStandard, fStricter),
+        15: makeCfg(true, pReversion, fPrecision),
+        18: makeCfg(true, pMatrix, fStricter),
+        21: makeCfg(true, pStandard, fBase),
+        24: makeCfg(true, pMatrix, fPrecision),
+        27: makeCfg(true, pStandard, fBroad)
+    });
+
+    const [simBResults, setSimBResults] = useState<any[]>([]);
+    const [isSimBRunning, setIsSimBRunning] = useState(false);
+
+    const liveSimBResult = React.useMemo(() => {
+        let histDraws = allDraws;
+        let targetDrawObj: Draw | null = null;
+        if (selectedTargetDrawNum > 0) {
+            const idx = allDraws.findIndex(d => d.num === selectedTargetDrawNum);
+            if (idx >= 0) {
+                targetDrawObj = allDraws[idx];
+                histDraws = allDraws.slice(0, idx);
+            }
+        }
+        const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
+        const mlPoolsMap: Record<number, PoolResult> = {};
+        poolSizesList.forEach(sz => {
+            mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
+        });
+
+        let combinedFreq: Record<number, number> = {};
+        poolSizesList.forEach(sz => {
+            const cfg = simBConfigs[sz];
+            if (cfg && cfg.enabled) {
+                const mlPools = mlPoolsMap[sz];
+                const poolList = [
+                    { id: 'final', nums: mlPools.final },
+                    { id: 'p2', nums: mlPools.p2 },
+                    { id: 'p3', nums: mlPools.p3 },
+                    { id: 'p4', nums: mlPools.p4 },
+                    { id: 'p5', nums: mlPools.p5 },
+                    { id: 'p6', nums: mlPools.p6 },
+                    { id: 'p7', nums: mlPools.p7 }
+                ];
+                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                activePoolObjs.forEach(p => {
+                    p.nums.forEach(n => {
+                        combinedFreq[n] = (combinedFreq[n] || 0) + 1;
+                    });
+                });
+            }
+        });
+
+        let filtered: number[] = [];
+        for (let n = 1; n <= 28; n++) {
+            let f = combinedFreq[n] || 0;
+            let accepted = false;
+            poolSizesList.forEach(sz => {
+                if (simBConfigs[sz].enabled && simBConfigs[sz].freqs[f]) {
+                    accepted = true;
+                }
+            });
+            if (accepted) filtered.push(n);
+        }
+        if (filtered.length === 0) {
+            filtered = Array.from({length: 28}, (_, i) => i + 1);
+        }
+
+        let hits = targetDrawObj ? targetDrawObj.win.filter(w => filtered.includes(w)).length : null;
+        return { filtered, targetDrawObj, hits };
+    }, [allDraws, selectedTargetDrawNum, simBConfigs]);
 
     function runSimulation() {
         setIsSimulating(true);
@@ -3066,31 +3131,62 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         }, 100);
     }
 
-    async function sendToAI(promptText?: string) {
-        const textToSend = promptText || userInput;
-        if (!textToSend.trim()) return;
-        
-        const newMsgs = [...chatMessages, { role: 'user' as const, text: textToSend }];
-        setChatMessages(newMsgs);
-        if (!promptText) setUserInput('');
-        setAiLoading(true);
+    function runSimB() {
+        setIsSimBRunning(true);
+        setTimeout(() => {
+            const draws20 = allDraws.slice(-20).reverse();
+            const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
+            let res = draws20.map(d => {
+                const histIdx = allDraws.findIndex(x => x.num === d.num);
+                const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+                const mlPoolsMap: Record<number, PoolResult> = {};
+                poolSizesList.forEach(sz => {
+                    mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
+                });
 
-        try {
-            const res = await fetch('/api/gemini', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: textToSend })
+                let combinedFreq: Record<number, number> = {};
+                poolSizesList.forEach(sz => {
+                    const cfg = simBConfigs[sz];
+                    if (cfg && cfg.enabled) {
+                        const mlPools = mlPoolsMap[sz];
+                        const poolList = [
+                            { id: 'final', nums: mlPools.final },
+                            { id: 'p2', nums: mlPools.p2 },
+                            { id: 'p3', nums: mlPools.p3 },
+                            { id: 'p4', nums: mlPools.p4 },
+                            { id: 'p5', nums: mlPools.p5 },
+                            { id: 'p6', nums: mlPools.p6 },
+                            { id: 'p7', nums: mlPools.p7 }
+                        ];
+                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                        activePoolObjs.forEach(p => {
+                            p.nums.forEach(n => {
+                                combinedFreq[n] = (combinedFreq[n] || 0) + 1;
+                            });
+                        });
+                    }
+                });
+
+                let filtered: number[] = [];
+                for (let n = 1; n <= 28; n++) {
+                    let f = combinedFreq[n] || 0;
+                    let accepted = false;
+                    poolSizesList.forEach(sz => {
+                        if (simBConfigs[sz].enabled && simBConfigs[sz].freqs[f]) {
+                            accepted = true;
+                        }
+                    });
+                    if (accepted) filtered.push(n);
+                }
+                if (filtered.length === 0) {
+                    filtered = Array.from({length: 28}, (_, i) => i + 1);
+                }
+                let hits = d.win.filter(w => filtered.includes(w)).length;
+                return { num: d.num, date: d.date, win: d.win, filtered, count: filtered.length, hits };
             });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            const reply = data.text || 'No se pudo generar una respuesta.';
-            setChatMessages([...newMsgs, { role: 'assistant', text: reply }]);
-        } catch (err: any) {
-            const fallbackReply = `[Análisis Estadístico Local de Chispazo AI]: Para tu consulta sobre "${textToSend}", el análisis de los últimos 20 sorteos muestra que combinar Pool Final + Pool2 + Pool4 con frecuencias F3/F4 genera un promedio de 9.5 números resultantes con una tasa de aciertos de 4 a 5 aciertos en el 55% de los sorteos pasados. Te sugiero probar este escenario en el Simulador LAB.`;
-            setChatMessages([...newMsgs, { role: 'assistant', text: fallbackReply }]);
-        } finally {
-            setAiLoading(false);
-        }
+            setSimBResults(res);
+            setIsSimBRunning(false);
+        }, 100);
     }
 
     return (
@@ -3122,10 +3218,11 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 setSub4Configs(emptyConfigs);
                                 setSub5Configs(emptyConfigs);
                                 setSub5SecondaryConfigs(emptyConfigs);
+                                setSimBConfigs(emptyConfigs);
                                 showLocToast("¡Configuraciones limpiadas exitosamente!");
                             }}
                             className="px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition bg-[#222] text-[#ff5252] border border-[#ff5252]/40 hover:bg-[#ff5252]/20 flex items-center gap-1"
-                            title="Limpiar todas las configuraciones de las iteraciones"
+                            title="Limpiar todas las configuraciones"
                         >
                             🗑️ Limpiar Configs
                         </button>
@@ -3136,10 +3233,10 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             🔬 Simulador Estadístico
                         </button>
                         <button 
-                            onClick={() => setActiveTab('ai')} 
-                            className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${activeTab === 'ai' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
+                            onClick={() => setActiveTab('simulatorB')} 
+                            className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${activeTab === 'simulatorB' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
                         >
-                            🤖 Asistente IA Especializado
+                            🚀 Simulador B
                         </button>
                         <button onClick={onClose} className="bg-[#2a2a2a] border border-[#555] text-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-[#333] ml-2">×</button>
                     </div>
@@ -4267,56 +4364,172 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col h-[75vh]">
-                            <div className="flex-1 overflow-y-auto space-y-3 p-3 bg-[#151515] border border-[#262626] rounded-xl">
-                                {chatMessages.map((m, idx) => (
-                                    <div key={idx} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                        <div className={`max-w-[85%] rounded-xl p-3 text-[11px] leading-relaxed ${m.role === 'user' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#1e1e1e] border border-[#333] text-[#e8e8e8]'}`}>
-                                            <div className="text-[9px] font-bold opacity-75 mb-1">{m.role === 'user' ? 'Tú' : 'Asistente IA Chispazo'}</div>
-                                            <div className="whitespace-pre-wrap">{m.text}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {aiLoading && (
-                                    <div className="flex items-center gap-2 text-[11px] text-[#00e5ff] italic p-2">
-                                        <span className="animate-spin">⚙️</span> IA analizando escenarios y generando algoritmo estadístico...
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex gap-1.5 flex-wrap my-2">
-                                {[
-                                    '⚡ Generar algoritmo óptimo para 4-5 aciertos con <=10 números',
-                                    '🧬 Evaluar escenario con Pool Final + Pool2 + Freq 0',
-                                    '📈 Analizar patrones y correlaciones en los últimos 20 sorteos',
-                                    '🍳 Crear receta maestra personalizada basada en IA'
-                                ].map((preset, i) => (
-                                    <button 
-                                        key={i} 
-                                        onClick={() => sendToAI(preset)}
-                                        className="bg-[#1f1f1f] border border-[#333] text-[#00e5ff] hover:bg-[#2a2a2a] px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition"
+                        <div className="space-y-4">
+                            {/* Target Draw Selector Bar */}
+                            <div className="flex items-center justify-between flex-wrap gap-2 bg-[#181818] border border-[#333] rounded-xl p-3">
+                                <div>
+                                    <div className="text-[11px] font-black text-[#ffeb3b]">Simulador B - Selector de Sorteo a Analizar</div>
+                                    <div className="text-[9px] text-[#888]">Configura los pool sizes, pools y frecuencias sin iteraciones, y evalúa el resultado.</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <select 
+                                        value={selectedTargetDrawNum} 
+                                        onChange={(e) => setSelectedTargetDrawNum(parseInt(e.target.value))}
+                                        className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
                                     >
-                                        {preset}
+                                        <option value={0}>Próximo Sorteo a Realizarse (En Vivo)</option>
+                                        {allDraws.slice(-20).map(d => (
+                                            <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={runSimB}
+                                        disabled={isSimBRunning}
+                                        className="bg-[#7c4dff] text-white px-4 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#6539dc] transition shadow-md"
+                                    >
+                                        {isSimBRunning ? 'Simulando...' : '🚀 Correr Simulación B (20 Sorteos)'}
                                     </button>
-                                ))}
+                                </div>
                             </div>
 
-                            <div className="flex gap-2 mt-1">
-                                <input 
-                                    type="text" 
-                                    value={userInput} 
-                                    onChange={(e) => setUserInput(e.target.value)} 
-                                    onKeyDown={(e) => { if (e.key === 'Enter') sendToAI(); }}
-                                    placeholder="Pregúntale a la IA sobre algoritmos, escenarios customizados o estadísticas..." 
-                                    className="flex-1 bg-[#1a1a1a] border border-[#333] text-white rounded-xl px-3 py-2 text-[11px] focus:outline-none focus:border-[#7c4dff]"
-                                />
-                                <button 
-                                    onClick={() => sendToAI()} 
-                                    className="bg-[#7c4dff] text-white px-5 py-2 rounded-xl text-[11px] font-extrabold cursor-pointer hover:bg-[#6539dc] shadow-md"
-                                >
-                                    Enviar
-                                </button>
+                            {/* Resulting Numbers Preview Badge */}
+                            <div className="bg-[#181818] border border-[#7c4dff]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(124,77,255,0.15)]">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-[12px] font-black text-[#b388ff]">Números Resultantes (Simulador B) — Total: {liveSimBResult.filtered.length} # {liveSimBResult.hits !== null && `| Aciertos: ${liveSimBResult.hits} ac`}</h3>
+                                    <button 
+                                        onClick={() => {
+                                            const txt = liveSimBResult.filtered.map(n => String(n).padStart(2, '0')).join(' ');
+                                            navigator.clipboard.writeText(txt);
+                                            showLocToast("¡Números de Simulador B copiados al portapapeles!");
+                                        }}
+                                        className="bg-[#7c4dff]/20 border border-[#7c4dff]/50 text-[#b388ff] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#7c4dff]/30 transition flex items-center gap-1"
+                                    >
+                                        📋 Copiar
+                                    </button>
+                                </div>
+                                <div className="flex flex-wrap gap-1 bg-[#121212] border border-[#2a2a2a] p-2.5 rounded-lg">
+                                    {liveSimBResult.filtered.map(n => {
+                                        const isWin = liveSimBResult.targetDrawObj ? liveSimBResult.targetDrawObj.win.includes(n) : false;
+                                        return (
+                                            <span key={n} className={`text-[11px] font-black px-2 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#b388ff]'}`}>
+                                                {String(n).padStart(2, '0')}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
                             </div>
+
+                            {/* Pool Sizes Configuration (9, 12, 15, 18, 21, 24, 27) */}
+                            <div className="space-y-3">
+                                <div className="text-[11px] font-black text-[#ffeb3b]">Configuración de Pool Sizes, Pools y Frecuencias (Simulador B):</div>
+                                {[9, 12, 15, 18, 21, 24, 27].map(sz => {
+                                    const cfg = simBConfigs[sz];
+                                    return (
+                                        <div key={sz} className={`border rounded-xl p-3 transition ${cfg.enabled ? 'bg-[#181818] border-[#7c4dff]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
+                                            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={cfg.enabled} 
+                                                        onChange={(e) => {
+                                                            const updated = { ...simBConfigs };
+                                                            updated[sz] = { ...updated[sz], enabled: e.target.checked };
+                                                            setSimBConfigs(updated);
+                                                        }}
+                                                        className="sr-only"
+                                                    />
+                                                    <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${cfg.enabled ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
+                                                        {cfg.enabled ? '✓' : ''}
+                                                    </span>
+                                                    <span className="text-[12px] font-black text-[#ffeb3b]">Pool Size: {sz} números</span>
+                                                </label>
+                                                <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#7c4dff]/20 text-[#b388ff]' : 'bg-[#222] text-[#666]'}`}>
+                                                    {cfg.enabled ? 'Activo' : 'Inactivo'}
+                                                </span>
+                                            </div>
+
+                                            {cfg.enabled && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2.5 border-t border-[#2a2a2a]">
+                                                    <div>
+                                                        <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
+                                                        <div className="flex gap-1.5 flex-wrap">
+                                                            {Object.keys(cfg.pools).map(pid => {
+                                                                const pActive = cfg.pools[pid];
+                                                                return (
+                                                                    <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${pActive ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-sm' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                                        <input 
+                                                                            type="checkbox" 
+                                                                            checked={pActive} 
+                                                                            onChange={(e) => {
+                                                                                const updated = { ...simBConfigs };
+                                                                                updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
+                                                                                setSimBConfigs(updated);
+                                                                            }}
+                                                                            className="sr-only"
+                                                                        />
+                                                                        <span>{pid.toUpperCase()}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
+                                                        <div className="flex gap-1.5 flex-wrap">
+                                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                                const fActive = cfg.freqs[f];
+                                                                return (
+                                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#00e5ff]/30 border-[#00e5ff] text-white shadow-sm' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                                        <input 
+                                                                            type="checkbox" 
+                                                                            checked={fActive} 
+                                                                            onChange={(e) => {
+                                                                                const updated = { ...simBConfigs };
+                                                                                updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
+                                                                                setSimBConfigs(updated);
+                                                                            }}
+                                                                            className="sr-only"
+                                                                        />
+                                                                        <span>F{f}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Simulation Results Table (20 Past Draws) */}
+                            {simBResults.length > 0 && (
+                                <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3 mt-4">
+                                    <h3 className="text-[12px] font-black text-[#ffeb3b] mb-2">📊 Resultados de Simulación B en los Últimos 20 Sorteos</h3>
+                                    <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+                                        <div className="grid grid-cols-5 gap-2 bg-[#222] p-2 rounded-lg text-[10px] font-black text-[#00e5ff] text-center sticky top-0 z-10">
+                                            <div>Sorteo</div>
+                                            <div>Fecha</div>
+                                            <div>Ganadores Reales</div>
+                                            <div>Resultantes</div>
+                                            <div>Aciertos</div>
+                                        </div>
+                                        {simBResults.map(r => (
+                                            <div key={r.num} className="grid grid-cols-5 gap-2 bg-[#121212] border border-[#262626] p-2 rounded-lg text-[10px] items-center text-center">
+                                                <div className="font-bold text-[#ffeb3b]">#{r.num}</div>
+                                                <div className="text-[#888] text-[9px]">{r.date}</div>
+                                                <div className="font-mono text-[9px] text-[#ccc]">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</div>
+                                                <div className="text-[#00e5ff] font-bold">{r.count} #</div>
+                                                <div className={`font-black px-2 py-0.5 rounded ${r.hits >= 4 ? 'bg-[#2e7d32] text-white' : r.hits === 3 ? 'bg-[#424242] text-[#ffeb3b]' : 'bg-[#1e1e1e] text-[#888]'}`}>
+                                                    {r.hits} aciertos
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
