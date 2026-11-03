@@ -2237,6 +2237,11 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
 
 function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void }) {
     const [activeTab, setActiveTab] = useState<'simulator' | 'ai'>('simulator');
+    const [localToast, setLocalToast] = useState<string | null>(null);
+    function showLocToast(msg: string) {
+        setLocalToast(msg);
+        setTimeout(() => setLocalToast(null), 2500);
+    }
     
     // Target draw selector state (0 = next upcoming draw, otherwise historical draw number)
     const [selectedTargetDrawNum, setSelectedTargetDrawNum] = useState<number>(0);
@@ -2249,81 +2254,98 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     const defaultPoolsMap = { final: true, p2: true, p3: false, p4: true, p5: false, p6: false, p7: false };
     const defaultFreqsMap = { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: false, 0: true };
 
+    // Advanced specialized configurations per pool size and iteration for sophisticated optimization
+    const makeCfg = (enabled: boolean, pMap: Record<string, boolean>, fMap: Record<number, boolean>) => ({
+        enabled,
+        pools: { ...pMap },
+        freqs: { ...fMap }
+    });
+
+    const fBase = { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: false, 0: false };
+    const fStricter = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false };
+    const fBroad = { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: true, 0: true };
+    const fPrecision = { 7: false, 6: true, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false };
+
+    const pStandard = { final: true, p2: true, p3: false, p4: true, p5: false, p6: true, p7: false };
+    const pReversion = { final: true, p2: false, p3: true, p4: false, p5: true, p6: false, p7: true };
+    const pMatrix = { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: true };
+    const pCore = { final: true, p2: true, p3: false, p4: true, p5: false, p6: false, p7: false };
+
     const [madreConfigs, setMadreConfigs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
-        9: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        12: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        15: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        18: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        21: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        24: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        27: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } }
+        9: makeCfg(true, pCore, fBase),
+        12: makeCfg(true, pStandard, fStricter),
+        15: makeCfg(true, pReversion, fPrecision),
+        18: makeCfg(true, pMatrix, fStricter),
+        21: makeCfg(true, pStandard, fBase),
+        24: makeCfg(true, pMatrix, fPrecision),
+        27: makeCfg(true, pStandard, fBroad)
     });
 
     const [sub1Configs, setSub1Configs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
-        9: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        12: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        15: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        18: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        21: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        24: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        27: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } }
+        9: makeCfg(true, pCore, fStricter),
+        12: makeCfg(true, pStandard, fPrecision),
+        15: makeCfg(true, pReversion, fStricter),
+        18: makeCfg(true, pMatrix, fPrecision),
+        21: makeCfg(true, pReversion, fStricter),
+        24: makeCfg(true, pMatrix, fBase),
+        27: makeCfg(false, pCore, fBroad)
     });
 
     const [sub2Configs, setSub2Configs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
-        9: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        12: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        15: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        18: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        21: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        24: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        27: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } }
+        9: makeCfg(false, pCore, fBroad),
+        12: makeCfg(true, pReversion, fStricter),
+        15: makeCfg(true, pMatrix, fPrecision),
+        18: makeCfg(true, pStandard, fStricter),
+        21: makeCfg(true, pReversion, fBase),
+        24: makeCfg(true, pMatrix, fBase),
+        27: makeCfg(false, pCore, fBroad)
     });
 
     const [sub2Expanded, setSub2Expanded] = useState<boolean>(false);
 
     const [sub3Configs, setSub3Configs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
-        9: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        12: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        15: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        18: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        21: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        24: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        27: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } }
+        9: makeCfg(false, pCore, fBroad),
+        12: makeCfg(true, pMatrix, fPrecision),
+        15: makeCfg(true, pStandard, fStricter),
+        18: makeCfg(true, pReversion, fPrecision),
+        21: makeCfg(true, pMatrix, fBase),
+        24: makeCfg(true, pCore, fStricter),
+        27: makeCfg(false, pCore, fBroad)
     });
 
     const [sub3Expanded, setSub3Expanded] = useState<boolean>(false);
 
     const [sub4Configs, setSub4Configs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
-        9: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        12: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        15: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        18: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        21: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        24: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        27: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } }
+        9: makeCfg(false, pCore, fBroad),
+        12: makeCfg(true, pStandard, fPrecision),
+        15: makeCfg(true, pMatrix, fPrecision),
+        18: makeCfg(true, pReversion, fStricter),
+        21: makeCfg(true, pCore, fPrecision),
+        24: makeCfg(false, pCore, fBroad),
+        27: makeCfg(false, pCore, fBroad)
     });
 
     const [sub4Expanded, setSub4Expanded] = useState<boolean>(false);
 
     const [sub5Configs, setSub5Configs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
-        9: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        12: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        15: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        18: { enabled: true, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        21: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        24: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        27: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } }
+        9: makeCfg(false, pCore, fBroad),
+        12: makeCfg(true, pMatrix, fPrecision),
+        15: makeCfg(true, pStandard, fPrecision),
+        18: makeCfg(true, pReversion, fPrecision),
+        21: makeCfg(true, pStandard, fStricter),
+        24: makeCfg(false, pCore, fBroad),
+        27: makeCfg(false, pCore, fBroad)
     });
 
     const [sub5Expanded, setSub5Expanded] = useState<boolean>(false);
     const [sub5SecondaryConfigs, setSub5SecondaryConfigs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
-        9: { enabled: true, pools: { final: true, p2: true, p3: false, p4: true, p5: false, p6: true, p7: false }, freqs: { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: true, 0: false } },
-        12: { enabled: true, pools: { final: true, p2: true, p3: false, p4: true, p5: false, p6: true, p7: false }, freqs: { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: true, 0: false } },
-        15: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        18: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        21: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        24: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } },
-        27: { enabled: false, pools: { ...defaultPoolsMap }, freqs: { ...defaultFreqsMap } }
+        9: makeCfg(true, pMatrix, fPrecision),
+        12: makeCfg(true, pReversion, fPrecision),
+        15: makeCfg(true, pStandard, fStricter),
+        18: makeCfg(true, pMatrix, fBase),
+        21: makeCfg(false, pCore, fBroad),
+        24: makeCfg(false, pCore, fBroad),
+        27: makeCfg(false, pCore, fBroad)
     });
     const [sub5SecondaryExpanded, setSub5SecondaryExpanded] = useState<boolean>(false);
 
@@ -2338,28 +2360,30 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         subKey: string | number,
         value: boolean
     ) {
-        if (type === 'enabled') {
-            setter({
-                ...state,
-                [sz]: { ...state[sz], enabled: value }
-            });
-        } else if (type === 'pools') {
-            setter({
-                ...state,
-                [sz]: {
-                    ...state[sz],
-                    pools: { ...state[sz].pools, [subKey]: value }
-                }
-            });
-        } else if (type === 'freqs') {
-            setter({
-                ...state,
-                [sz]: {
-                    ...state[sz],
-                    freqs: { ...state[sz].freqs, [Number(subKey)]: value }
-                }
-            });
-        }
+        React.startTransition(() => {
+            if (type === 'enabled') {
+                setter({
+                    ...state,
+                    [sz]: { ...state[sz], enabled: value }
+                });
+            } else if (type === 'pools') {
+                setter({
+                    ...state,
+                    [sz]: {
+                        ...state[sz],
+                        pools: { ...state[sz].pools, [subKey]: value }
+                    }
+                });
+            } else if (type === 'freqs') {
+                setter({
+                    ...state,
+                    [sz]: {
+                        ...state[sz],
+                        freqs: { ...state[sz].freqs, [Number(subKey)]: value }
+                    }
+                });
+            }
+        });
     }
 
     // Compute live resulting numbers for the selected target draw
@@ -2666,8 +2690,8 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             return a - b;
         });
 
-        if (sub5Filtered.length > 14 || sub5Filtered.length < 10) {
-            sub5Filtered = sub5Filtered.slice(0, 12);
+        if (sub5Filtered.length > 16 || sub5Filtered.length < 8) {
+            sub5Filtered = sub5Filtered.slice(0, 15);
         } else if (sub5Filtered.length === 0) {
             sub5Filtered = [...sub4Filtered].slice(0, 12);
         }
@@ -3013,8 +3037,8 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     return a - b;
                 });
 
-                if (sub5Filtered.length > 14 || sub5Filtered.length < 10) {
-                    sub5Filtered = sub5Filtered.slice(0, 12);
+                if (sub5Filtered.length > 16 || sub5Filtered.length < 8) {
+                    sub5Filtered = sub5Filtered.slice(0, 15);
                 } else if (sub5Filtered.length === 0) {
                     sub5Filtered = [...sub4Filtered].slice(0, 12);
                 }
@@ -3082,6 +3106,30 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     </div>
                     <div className="flex items-center gap-2">
                         <button 
+                            onClick={() => {
+                                const emptyConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+                                [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
+                                    emptyConfigs[sz] = {
+                                        enabled: false,
+                                        pools: { final: false, p2: false, p3: false, p4: false, p5: false, p6: false, p7: false },
+                                        freqs: { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
+                                    };
+                                });
+                                setMadreConfigs(emptyConfigs);
+                                setSub1Configs(emptyConfigs);
+                                setSub2Configs(emptyConfigs);
+                                setSub3Configs(emptyConfigs);
+                                setSub4Configs(emptyConfigs);
+                                setSub5Configs(emptyConfigs);
+                                setSub5SecondaryConfigs(emptyConfigs);
+                                showLocToast("¡Configuraciones limpiadas exitosamente!");
+                            }}
+                            className="px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition bg-[#222] text-[#ff5252] border border-[#ff5252]/40 hover:bg-[#ff5252]/20 flex items-center gap-1"
+                            title="Limpiar todas las configuraciones de las iteraciones"
+                        >
+                            🗑️ Limpiar Configs
+                        </button>
+                        <button 
                             onClick={() => setActiveTab('simulator')} 
                             className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${activeTab === 'simulator' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
                         >
@@ -3138,7 +3186,19 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">Números Resultantes (Madre):</div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Madre):</div>
+                                        <button 
+                                            onClick={() => {
+                                                const txt = liveTargetResult.motherFiltered.map(n => String(n).padStart(2, '0')).join(' ');
+                                                navigator.clipboard.writeText(txt);
+                                                showLocToast("¡Números de Escenario Madre copiados al portapapeles!");
+                                            }}
+                                            className="bg-[#00e5ff]/20 border border-[#00e5ff]/50 text-[#00e5ff] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#00e5ff]/30 transition flex items-center gap-1"
+                                        >
+                                            📋 Copiar
+                                        </button>
+                                    </div>
                                     <div className="flex flex-wrap gap-1">
                                         {liveTargetResult.motherFiltered.map(n => {
                                             const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
@@ -3259,7 +3319,19 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">Números Resultantes (Subescenario 1):</div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 1):</div>
+                                        <button 
+                                            onClick={() => {
+                                                const txt = liveTargetResult.subFiltered.map(n => String(n).padStart(2, '0')).join(' ');
+                                                navigator.clipboard.writeText(txt);
+                                                showLocToast("¡Números de Subescenario 1 copiados al portapapeles!");
+                                            }}
+                                            className="bg-[#ffeb3b]/20 border border-[#ffeb3b]/50 text-[#ffeb3b] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#ffeb3b]/30 transition flex items-center gap-1"
+                                        >
+                                            📋 Copiar
+                                        </button>
+                                    </div>
                                     <div className="flex flex-wrap gap-1">
                                         {liveTargetResult.subFiltered.map(n => {
                                             const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
@@ -3380,7 +3452,19 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">Números Resultantes (Subescenario 2 - Iteración #3):</div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 2 - Iteración #3):</div>
+                                        <button 
+                                            onClick={() => {
+                                                const txt = liveTargetResult.sub2Filtered.map(n => String(n).padStart(2, '0')).join(' ');
+                                                navigator.clipboard.writeText(txt);
+                                                showLocToast("¡Números de Subescenario 2 copiados al portapapeles!");
+                                            }}
+                                            className="bg-[#7c4dff]/20 border border-[#7c4dff]/50 text-[#b388ff] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#7c4dff]/30 transition flex items-center gap-1"
+                                        >
+                                            📋 Copiar
+                                        </button>
+                                    </div>
                                     <div className="flex flex-wrap gap-1">
                                         {liveTargetResult.sub2Filtered.map(n => {
                                             const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
@@ -3501,7 +3585,19 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">Números Resultantes (Subescenario 3 - Iteración #4):</div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 3 - Iteración #4):</div>
+                                        <button 
+                                            onClick={() => {
+                                                const txt = liveTargetResult.sub3Filtered.map(n => String(n).padStart(2, '0')).join(' ');
+                                                navigator.clipboard.writeText(txt);
+                                                showLocToast("¡Números de Subescenario 3 copiados al portapapeles!");
+                                            }}
+                                            className="bg-[#26c6da]/20 border border-[#26c6da]/50 text-[#26c6da] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#26c6da]/30 transition flex items-center gap-1"
+                                        >
+                                            📋 Copiar
+                                        </button>
+                                    </div>
                                     <div className="flex flex-wrap gap-1">
                                         {liveTargetResult.sub3Filtered.map(n => {
                                             const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
@@ -3622,7 +3718,19 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">Números Resultantes (Subescenario 4 - Iteración #5):</div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 4 - Iteración #5):</div>
+                                        <button 
+                                            onClick={() => {
+                                                const txt = liveTargetResult.sub4Filtered.map(n => String(n).padStart(2, '0')).join(' ');
+                                                navigator.clipboard.writeText(txt);
+                                                showLocToast("¡Números de Subescenario 4 copiados al portapapeles!");
+                                            }}
+                                            className="bg-[#e040fb]/20 border border-[#e040fb]/50 text-[#e040fb] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#e040fb]/30 transition flex items-center gap-1"
+                                        >
+                                            📋 Copiar
+                                        </button>
+                                    </div>
                                     <div className="flex flex-wrap gap-1">
                                         {liveTargetResult.sub4Filtered.map(n => {
                                             const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
@@ -3743,7 +3851,19 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">Números Resultantes (Subescenario 5 - Iteración #6):</div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 5 - Iteración #6):</div>
+                                        <button 
+                                            onClick={() => {
+                                                const txt = liveTargetResult.sub5Filtered.map(n => String(n).padStart(2, '0')).join(' ');
+                                                navigator.clipboard.writeText(txt);
+                                                showLocToast("¡Números de Subescenario 5 copiados al portapapeles!");
+                                            }}
+                                            className="bg-[#00e676]/20 border border-[#00e676]/50 text-[#00e676] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#00e676]/30 transition flex items-center gap-1"
+                                        >
+                                            📋 Copiar
+                                        </button>
+                                    </div>
                                     <div className="flex flex-wrap gap-1">
                                         {liveTargetResult.sub5Filtered.map(n => {
                                             const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
@@ -4200,6 +4320,12 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                         </div>
                     )}
                 </div>
+
+                {localToast && (
+                    <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-[#ffeb3b] text-black px-4 py-2 rounded-xl text-[11px] font-black shadow-2xl z-50">
+                        {localToast}
+                    </div>
+                )}
 
                 <div className="p-3 bg-[#0f0f0f] border-t border-[#222] flex justify-end">
                     <button onClick={onClose} className="bg-[#222] border border-[#444] text-[#ccc] rounded-full px-5 py-1.5 text-[11px] cursor-pointer hover:bg-[#333]">Cerrar LAB [Esc]</button>
