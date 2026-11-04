@@ -2236,6 +2236,7 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
 }
 
 function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void }) {
+    const [activeTab, setActiveTab] = useState<'simulator' | 'simulatorB'>('simulator');
     const [localToast, setLocalToast] = useState<string | null>(null);
     function showLocToast(msg: string) {
         setLocalToast(msg);
