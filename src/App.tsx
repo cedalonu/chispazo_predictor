@@ -3482,8 +3482,39 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
+                                <div className="bg-[#141414] border border-[#00e5ff]/40 rounded-xl p-3 mb-3">
+                                    <div className="text-[11px] font-black text-[#00e5ff] mb-1">🎯 Selector de Frecuencias Finales (Escenario Madre):</div>
+                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                            const fActive = madreFinalFreqs[f];
+                                            return (
+                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#00e5ff]/25 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                    <input type="checkbox" checked={fActive} onChange={(e) => setMadreFinalFreqs({...madreFinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                    <span>F{f}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                                 {madreExpanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
+                                        <div className="bg-[#141414] border border-[#00e5ff]/40 rounded-xl p-3 mb-3">
+                                            <div className="text-[11px] font-black text-[#00e5ff] mb-1">🎯 Selector de Frecuencias Finales (Escenario Madre):</div>
+                                            <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
+                                            <div className="flex gap-1.5 flex-wrap">
+                                                {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                    const fActive = madreFinalFreqs[f];
+                                                    return (
+                                                        <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#00e5ff]/25 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                            <input type="checkbox" checked={fActive} onChange={(e) => setMadreFinalFreqs({...madreFinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                            <span>F{f}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                         {[9, 12, 15, 18, 21, 24, 27].map(sz => {
                                             const cfg = madreConfigs[sz];
                                             return (
@@ -3610,6 +3641,22 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                                 <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#ffeb3b]'}`}>
                                                     {String(n).padStart(2, '0')}
                                                 </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#141414] border border-[#ffeb3b]/40 rounded-xl p-3 mb-3">
+                                    <div className="text-[11px] font-black text-[#ffeb3b] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 1):</div>
+                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                            const fActive = sub1FinalFreqs[f];
+                                            return (
+                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub1FinalFreqs({...sub1FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                    <span>F{f}</span>
+                                                </label>
                                             );
                                         })}
                                     </div>
@@ -3748,6 +3795,22 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
+                                <div className="bg-[#141414] border border-[#7c4dff]/40 rounded-xl p-3 mb-3">
+                                    <div className="text-[11px] font-black text-[#b388ff] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 2):</div>
+                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                            const fActive = sub2FinalFreqs[f];
+                                            return (
+                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#7c4dff]/25 border-[#7c4dff] text-[#b388ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub2FinalFreqs({...sub2FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                    <span>F{f}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                                 {sub2Expanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
                                         {[9, 12, 15, 18, 21, 24, 27].map(sz => {
@@ -3876,6 +3939,22 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                                 <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#26c6da]'}`}>
                                                     {String(n).padStart(2, '0')}
                                                 </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#141414] border border-[#26c6da]/40 rounded-xl p-3 mb-3">
+                                    <div className="text-[11px] font-black text-[#26c6da] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 3):</div>
+                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                            const fActive = sub3FinalFreqs[f];
+                                            return (
+                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#26c6da]/25 border-[#26c6da] text-[#26c6da]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub3FinalFreqs({...sub3FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                    <span>F{f}</span>
+                                                </label>
                                             );
                                         })}
                                     </div>
@@ -4014,6 +4093,22 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
+                                <div className="bg-[#141414] border border-[#e040fb]/40 rounded-xl p-3 mb-3">
+                                    <div className="text-[11px] font-black text-[#e040fb] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 4):</div>
+                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                            const fActive = sub4FinalFreqs[f];
+                                            return (
+                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#e040fb]/25 border-[#e040fb] text-[#e040fb]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub4FinalFreqs({...sub4FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                    <span>F{f}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                                 {sub4Expanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
                                         {[9, 12, 15, 18, 21, 24, 27].map(sz => {
@@ -4142,6 +4237,22 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                                 <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#00e676]'}`}>
                                                     {String(n).padStart(2, '0')}
                                                 </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#141414] border border-[#00e676]/40 rounded-xl p-3 mb-3">
+                                    <div className="text-[11px] font-black text-[#00e676] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 5):</div>
+                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                            const fActive = sub5FinalFreqs[f];
+                                            return (
+                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#00e676]/25 border-[#00e676] text-[#00e676]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub5FinalFreqs({...sub5FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                    <span>F{f}</span>
+                                                </label>
                                             );
                                         })}
                                     </div>
@@ -4328,29 +4439,106 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 )}
                             </div>
 
-                            <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-lg">
-                                <div className="text-[11px] font-black text-[#ffeb3b] mb-1">🎯 Selector de Frecuencias Finales Globales (Simulador Estadístico):</div>
-                                <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias globales maestro aplicado uniformemente a todas las iteraciones y pool sizes del Simulador Estadístico.</div>
-                                <div className="flex gap-1.5 flex-wrap">
-                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                        const fActive = madreFinalFreqs[f];
-                                        return (
-                                            <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={fActive} 
-                                                    onChange={(e) => {
-                                                        const val = e.target.checked;
-                                                        React.startTransition(() => {
-                                                            setMadreFinalFreqs({...madreFinalFreqs, [f]: val});
-                                                        });
-                                                    }}
-                                                    className="sr-only"
-                                                />
-                                                <span>F{f}</span>
-                                            </label>
-                                        );
-                                    })}
+                                                        <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-4 shadow-lg space-y-4">
+                                <div className="text-[12px] font-black text-[#ffeb3b]">🎯 Selectores de Frecuencias Finales por Iteración:</div>
+                                <div className="text-[9px] text-[#888]">Configura el filtro de frecuencias finales para cada una de las 6 iteraciones del Simulador Estadístico de acuerdo a sus pool sizes.</div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {/* 1. Madre */}
+                                    <div className="bg-[#141414] border border-[#00e5ff]/40 rounded-lg p-2.5">
+                                        <div className="text-[10px] font-black text-[#00e5ff] mb-1">Escenario Madre (Iteración #1)</div>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                const fActive = madreFinalFreqs[f];
+                                                return (
+                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#00e5ff]/25 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                        <input type="checkbox" checked={fActive} onChange={(e) => setMadreFinalFreqs({...madreFinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                        <span>F{f}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Sub1 */}
+                                    <div className="bg-[#141414] border border-[#ffeb3b]/40 rounded-lg p-2.5">
+                                        <div className="text-[10px] font-black text-[#ffeb3b] mb-1">Subescenario 1 (Iteración #2)</div>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                const fActive = sub1FinalFreqs[f];
+                                                return (
+                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub1FinalFreqs({...sub1FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                        <span>F{f}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Sub2 */}
+                                    <div className="bg-[#141414] border border-[#7c4dff]/40 rounded-lg p-2.5">
+                                        <div className="text-[10px] font-black text-[#b388ff] mb-1">Subescenario 2 (Iteración #3)</div>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                const fActive = sub2FinalFreqs[f];
+                                                return (
+                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#7c4dff]/25 border-[#7c4dff] text-[#b388ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub2FinalFreqs({...sub2FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                        <span>F{f}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 4. Sub3 */}
+                                    <div className="bg-[#141414] border border-[#26c6da]/40 rounded-lg p-2.5">
+                                        <div className="text-[10px] font-black text-[#26c6da] mb-1">Subescenario 3 (Iteración #4)</div>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                const fActive = sub3FinalFreqs[f];
+                                                return (
+                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#26c6da]/25 border-[#26c6da] text-[#26c6da]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub3FinalFreqs({...sub3FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                        <span>F{f}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 5. Sub4 */}
+                                    <div className="bg-[#141414] border border-[#e040fb]/40 rounded-lg p-2.5">
+                                        <div className="text-[10px] font-black text-[#e040fb] mb-1">Subescenario 4 (Iteración #5)</div>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                const fActive = sub4FinalFreqs[f];
+                                                return (
+                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#e040fb]/25 border-[#e040fb] text-[#e040fb]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub4FinalFreqs({...sub4FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                        <span>F{f}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 6. Sub5 */}
+                                    <div className="bg-[#141414] border border-[#00e676]/40 rounded-lg p-2.5">
+                                        <div className="text-[10px] font-black text-[#00e676] mb-1">Subescenario 5 (Iteración #6)</div>
+                                        <div className="flex gap-1 flex-wrap">
+                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                const fActive = sub5FinalFreqs[f];
+                                                return (
+                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#00e676]/25 border-[#00e676] text-[#00e676]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub5FinalFreqs({...sub5FinalFreqs, [f]: e.target.checked})} className="sr-only" />
+                                                        <span>F{f}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
