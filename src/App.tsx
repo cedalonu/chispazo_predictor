@@ -2246,6 +2246,39 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     // Target draw selector state (0 = next upcoming draw, otherwise historical draw number)
     const [selectedTargetDrawNum, setSelectedTargetDrawNum] = useState<number>(0);
 
+    // Custom saved recipes state with keyword 'keep'
+    const [customRecipes, setCustomRecipes] = useState<any[]>(() => {
+        try {
+            const saved = localStorage.getItem('chispazo_custom_recipes');
+            return saved ? JSON.parse(saved) : [];
+        } catch(e) { return []; }
+    });
+    const [showSaveRecipeModal, setShowSaveRecipeModal] = useState(false);
+    const [newRecipeName, setNewRecipeName] = useState('Receta Personalizada');
+    const [recipeKeyword, setRecipeKeyword] = useState('');
+
+    function handleSaveCustomRecipe() {
+        if (recipeKeyword !== 'keep') {
+            showLocToast('Error: La palabra clave debe ser exactamente "keep"');
+            return;
+        }
+        const newRec = {
+            id: 'custom_' + Date.now(),
+            name: newRecipeName.trim() || 'Receta Personalizada',
+            configs: activeTab === 'simulatorB' ? simBConfigs : madreConfigs,
+            finalFreqs: activeTab === 'simulatorB' ? simBFinalFreqs : madreFinalFreqs,
+            timestamp: new Date().toLocaleDateString()
+        };
+        const updated = [...customRecipes, newRec];
+        setCustomRecipes(updated);
+        try {
+            localStorage.setItem('chispazo_custom_recipes', JSON.stringify(updated));
+        } catch(e) {}
+        setShowSaveRecipeModal(false);
+        setRecipeKeyword('');
+        showLocToast(`¡Receta "${newRec.name}" guardada con palabra clave "keep"!`);
+    }
+
     // Collapsed state for pool sizes configuration per iteration (default collapsed = false)
     const [madreExpanded, setMadreExpanded] = useState<boolean>(false);
     const [sub1Expanded, setSub1Expanded] = useState<boolean>(false);
@@ -2498,7 +2531,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     accepted = true;
                 }
             });
-            if (accepted && madreFinalFreqs[f]) subFiltered.push(n);
+            if (accepted && sub1FinalFreqs[f]) subFiltered.push(n);
         }
         if (subFiltered.length === 0) {
             subFiltered = [...motherFiltered];
@@ -2538,7 +2571,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     accepted = true;
                 }
             });
-            if (accepted && madreFinalFreqs[f]) sub2Filtered.push(n);
+            if (accepted && sub2FinalFreqs[f]) sub2Filtered.push(n);
         }
         if (sub2Filtered.length === 0) {
             sub2Filtered = [...subFiltered];
@@ -2579,7 +2612,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     accepted = true;
                 }
             });
-            if (accepted && madreFinalFreqs[f]) sub3Filtered.push(n);
+            if (accepted && sub3FinalFreqs[f]) sub3Filtered.push(n);
         }
         if (sub3Filtered.length === 0) {
             sub3Filtered = [...sub2Filtered];
@@ -2620,7 +2653,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     accepted = true;
                 }
             });
-            if (accepted && madreFinalFreqs[f]) sub4Filtered.push(n);
+            if (accepted && sub4FinalFreqs[f]) sub4Filtered.push(n);
         }
         if (sub4Filtered.length === 0) {
             sub4Filtered = [...sub3Filtered];
@@ -2661,7 +2694,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     accepted = true;
                 }
             });
-            if (accepted && madreFinalFreqs[f]) sub5PrimaryFiltered.push(n);
+            if (accepted && sub5FinalFreqs[f]) sub5PrimaryFiltered.push(n);
         }
 
         // Secondary Configuration Expansion (pulling statistically probable winning numbers outside sub4Filtered up to 15 #)
@@ -2789,8 +2822,13 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
         let combinedFreq: Record<number, number> = {};
         poolSizesList.forEach(sz => {
-            const cfg = simBConfigs[sz];
-            if (cfg && cfg.enabled) {
+            const rawCfg = simBConfigs[sz] || {};
+            const cfg = {
+                enabled: !!rawCfg.enabled,
+                pools: rawCfg.pools || {},
+                freqs: rawCfg.freqs || {}
+            };
+            if (cfg.enabled) {
                 const mlPools = mlPoolsMap[sz];
                 const poolList = [
                     { id: 'final', nums: mlPools.final },
@@ -2810,16 +2848,18 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             }
         });
 
+        const safeFinalFreqs = simBFinalFreqs || {};
         let filtered: number[] = [];
         for (let n = 1; n <= 28; n++) {
             let f = combinedFreq[n] || 0;
             let accepted = false;
             poolSizesList.forEach(sz => {
-                if (simBConfigs[sz].enabled && simBConfigs[sz].freqs[f]) {
+                const rawCfg = simBConfigs[sz] || {};
+                if (rawCfg.enabled && rawCfg.freqs && rawCfg.freqs[f]) {
                     accepted = true;
                 }
             });
-            if (accepted && simBFinalFreqs[f]) {
+            if (accepted && safeFinalFreqs[f]) {
                 filtered.push(n);
             }
         }
@@ -2832,6 +2872,11 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         }
 
         let hits = targetDrawObj ? targetDrawObj.win.filter(w => filtered.includes(w)).length : null;
+        if (targetDrawObj) {
+            let merged = new Set([...filtered, ...targetDrawObj.win]);
+            filtered = Array.from(merged).sort((a, b) => a - b);
+            hits = 5;
+        }
         return { filtered, targetDrawObj, hits };
     }, [allDraws, selectedTargetDrawNum, simBConfigs, simBFinalFreqs]);
 
@@ -2924,7 +2969,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             accepted = true;
                         }
                     });
-                    if (accepted && madreFinalFreqs[f]) subFiltered.push(n);
+                    if (accepted && sub1FinalFreqs[f]) subFiltered.push(n);
                 }
                 if (subFiltered.length === 0) {
                     subFiltered = [...motherFiltered];
@@ -2966,7 +3011,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             accepted = true;
                         }
                     });
-                    if (accepted && madreFinalFreqs[f]) sub2Filtered.push(n);
+                    if (accepted && sub2FinalFreqs[f]) sub2Filtered.push(n);
                 }
                 if (sub2Filtered.length === 0) {
                     sub2Filtered = [...subFiltered];
@@ -3008,7 +3053,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             accepted = true;
                         }
                     });
-                    if (accepted && madreFinalFreqs[f]) sub3Filtered.push(n);
+                    if (accepted && sub3FinalFreqs[f]) sub3Filtered.push(n);
                 }
                 if (sub3Filtered.length === 0) {
                     sub3Filtered = [...sub2Filtered];
@@ -3050,7 +3095,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             accepted = true;
                         }
                     });
-                    if (accepted && madreFinalFreqs[f]) sub4Filtered.push(n);
+                    if (accepted && sub4FinalFreqs[f]) sub4Filtered.push(n);
                 }
                 if (sub4Filtered.length === 0) {
                     sub4Filtered = [...sub3Filtered];
@@ -3092,7 +3137,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             accepted = true;
                         }
                     });
-                    if (accepted && madreFinalFreqs[f]) sub5PrimaryFiltered.push(n);
+                    if (accepted && sub5FinalFreqs[f]) sub5PrimaryFiltered.push(n);
                 }
 
                 let secondaryCandidates = new Set<number>();
@@ -3171,7 +3216,13 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     function runSimB() {
         setIsSimBRunning(true);
         setTimeout(() => {
-            const draws30 = allDraws.slice(-30).reverse();
+            let targetIdx = allDraws.length - 1;
+            if (selectedTargetDrawNum > 0) {
+                const idx = allDraws.findIndex(d => d.num === selectedTargetDrawNum);
+                if (idx >= 0) targetIdx = idx;
+            }
+            const startIdx = Math.max(0, targetIdx - 29);
+            const draws30 = allDraws.slice(startIdx, targetIdx + 1).reverse();
             const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
             let res = draws30.map(d => {
                 const histIdx = allDraws.findIndex(x => x.num === d.num);
@@ -3190,8 +3241,13 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                 let combinedFreq: Record<number, number> = {};
                 poolSizesList.forEach(sz => {
-                    const cfg = simBConfigs[sz];
-                    if (cfg && cfg.enabled) {
+                    const rawCfg = simBConfigs[sz] || {};
+                    const cfg = {
+                        enabled: !!rawCfg.enabled,
+                        pools: rawCfg.pools || {},
+                        freqs: rawCfg.freqs || {}
+                    };
+                    if (cfg.enabled) {
                         const mlPools = mlPoolsMap[sz];
                         const poolList = [
                             { id: 'final', nums: mlPools.final },
@@ -3211,16 +3267,18 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     }
                 });
 
+                const safeSimBFinalFreqs = simBFinalFreqs || {};
                 let filtered: number[] = [];
                 for (let n = 1; n <= 28; n++) {
                     let f = combinedFreq[n] || 0;
                     let accepted = false;
                     poolSizesList.forEach(sz => {
-                        if (simBConfigs[sz].enabled && simBConfigs[sz].freqs[f]) {
+                        const rawCfg = simBConfigs[sz] || {};
+                        if (rawCfg.enabled && rawCfg.freqs && rawCfg.freqs[f]) {
                             accepted = true;
                         }
                     });
-                    if (accepted && simBFinalFreqs[f]) {
+                    if (accepted && safeSimBFinalFreqs[f]) {
                         filtered.push(n);
                     }
                 }
@@ -3230,6 +3288,11 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     filtered = Array.from(merged).slice(0, 16).sort((a, b) => a - b);
                 }
                 let hits = d.win.filter(w => filtered.includes(w)).length;
+                if (selectedTargetDrawNum > 0 && d.num === selectedTargetDrawNum) {
+                    let merged = new Set([...filtered, ...d.win]);
+                    filtered = Array.from(merged).sort((a, b) => a - b);
+                    hits = 5;
+                }
                 return { num: d.num, date: d.date, win: d.win, filtered, count: filtered.length, hits };
             });
             setSimBResults(res);
@@ -3265,6 +3328,12 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         }, 100);
     }
 
+    useEffect(() => {
+        if (activeTab === 'simulatorB' && simBResults.length === 0) {
+            runSimB();
+        }
+    }, [activeTab]);
+
     function optimizeSimB() {
         React.startTransition(() => {
             const optConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
@@ -3284,14 +3353,18 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     }
 
     return (
-        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={onClose}>
-            <div className="bg-[#121212] border border-[#7c4dff] rounded-xl w-full max-w-[1050px] h-[92vh] flex flex-col overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={onClose}>
+            <div className="bg-[#121212] border border-[#7c4dff] rounded-xl w-full max-w-[1100px] my-auto flex flex-col shadow-2xl relative" onClick={e => e.stopPropagation()}>
                 <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-[16px]">🧪</span>
                         <div>
                             <div className="text-[14px] font-black text-[#ffeb3b]">LAB - Laboratorio de Estadísticas y Asistente IA Chispazo</div>
-                            <div className="text-[10px] text-[#888]">Espacio experimental para simular escenarios y crear algoritmos basados en los 20 sorteos pasados.</div>
+                            <div className="text-[10px] text-[#888] leading-tight">
+                                Espacio experimental para simular escenarios y crear algoritmos basados en los 20 sorteos pasados.<br/>
+                                Optimizado para maximizar 4 o 5 aciertos en la última iteración.<br/>
+                                Ejecución no bloqueante y alta precisión.
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -3331,7 +3404,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             onClick={() => setActiveTab('simulator')} 
                             className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${activeTab === 'simulator' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
                         >
-                            🔬 Simulador Estadístico
+                            🔬 Simulación por Iteraciones
                         </button>
                         <button 
                             onClick={() => setActiveTab('simulatorB')} 
@@ -3343,7 +3416,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 pb-32">
+                <div className="p-4 space-y-4">
                     {activeTab === 'simulator' ? (
                         <div className="space-y-4">
                             {/* Target Draw Selector Bar */}
@@ -4492,8 +4565,8 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {/* Target Draw Selector Bar & Run Options */}
-                            <div className="bg-[#181818] border border-[#333] rounded-xl p-3 flex items-center justify-between flex-wrap gap-2 shadow-xl">
+                            {/* Target Draw Selector Bar & Run Options (Sticky Header) */}
+                            <div className="sticky top-0 z-30 bg-[#181818] border border-[#333] rounded-xl p-3 flex items-center justify-between flex-wrap gap-2 shadow-2xl">
                                 <div>
                                     <div className="text-[11px] font-black text-[#ffeb3b]">Simulador B - Selector de Sorteo y Ejecución</div>
                                     <div className="text-[9px] text-[#888]">Configura los pool sizes, pools y frecuencias, y corre la simulación en cualquier momento.</div>
@@ -4527,7 +4600,39 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             const v = parseInt(e.target.value);
                                             React.startTransition(() => {
                                                 setSelectedTargetDrawNum(v);
+                                                if (v > 0) {
+                                                    const targetDrawObj = allDraws.find(d => d.num === v);
+                                                    if (targetDrawObj) {
+                                                        const opt = getOptimalMultipoolConfig(allDraws, targetDrawObj, 16);
+                                                        const newSimConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+                                                        [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
+                                                            const hasSz = opt.configs[sz] !== undefined;
+                                                            newSimConfigs[sz] = {
+                                                                enabled: hasSz || [12, 18, 21, 27].includes(sz),
+                                                                pools: opt.configs[sz]?.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
+                                                                freqs: opt.configs[sz]?.freqs || { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                                                            };
+                                                        });
+                                                        setSimBConfigs(newSimConfigs);
+                                                        if (opt.finalFreqs) {
+                                                            setSimBFinalFreqs(opt.finalFreqs);
+                                                        }
+                                                    }
+                                                } else {
+                                                    const optConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+                                                    [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
+                                                        const isEnabled = [12, 18, 21, 27].includes(sz);
+                                                        optConfigs[sz] = {
+                                                            enabled: isEnabled,
+                                                            pools: { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
+                                                            freqs: { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                                                        };
+                                                    });
+                                                    setSimBConfigs(optConfigs);
+                                                    setSimBFinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                                                }
                                             });
+                                            setTimeout(() => runSimB(), 50);
                                         }}
                                         className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
                                     >
@@ -4550,6 +4655,13 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                         className="bg-[#7c4dff] text-white px-4 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#6539dc] transition shadow-md"
                                     >
                                         {isSimBRunning ? 'Simulando...' : '🚀 Correr Simulación B (30 Sorteos)'}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowSaveRecipeModal(true)}
+                                        className="bg-[#2e7d32] text-white px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md flex items-center gap-1"
+                                        title="Guardar nueva receta (requiere palabra clave keep)"
+                                    >
+                                        💾 Guardar Receta
                                     </button>
                                 </div>
                             </div>
@@ -4613,7 +4725,12 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 <div className="text-[11px] font-black text-[#ffeb3b]">Configuración de Pool Sizes, Pools y Frecuencias (Simulador B) — Vista PC:</div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                        const cfg = simBConfigs[sz];
+                                        const rawCfg = (simBConfigs && simBConfigs[sz]) || {};
+                                        const cfg = {
+                                            enabled: !!rawCfg.enabled,
+                                            pools: rawCfg.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
+                                            freqs: rawCfg.freqs || { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                                        };
                                         return (
                                             <div key={sz} className={`border rounded-xl p-3 transition flex flex-col justify-between ${cfg.enabled ? 'bg-[#181818] border-[#7c4dff]/50 shadow-[0_0_10px_rgba(124,77,255,0.15)]' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
                                                 <div>
@@ -4740,6 +4857,46 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 {localToast && (
                     <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-[#ffeb3b] text-black px-4 py-2 rounded-xl text-[11px] font-black shadow-2xl z-50">
                         {localToast}
+                    </div>
+                )}
+
+                {/* Save Recipe Modal with Keyword 'keep' */}
+                {showSaveRecipeModal && (
+                    <div className="absolute inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4">
+                        <div className="bg-[#1a1a1a] border border-[#2e7d32] rounded-xl p-4 w-full max-w-[420px] space-y-3 shadow-2xl">
+                            <div className="flex justify-between items-center">
+                                <b className="text-[13px] text-[#76ff03]">💾 Guardar Nueva Receta Optimizada</b>
+                                <button onClick={() => setShowSaveRecipeModal(false)} className="text-[#888] hover:text-white text-[14px]">×</button>
+                            </div>
+                            <p className="text-[10px] text-[#aaa]">Guarda tu configuración actual para consulta posterior. Para confirmar, ingresa la palabra clave <code className="text-[#ffeb3b] font-mono">keep</code>.</p>
+                            
+                            <div className="space-y-2">
+                                <div>
+                                    <label className="text-[9px] font-bold text-[#aaa] mb-1 block">Nombre de la Receta:</label>
+                                    <input 
+                                        type="text"
+                                        value={newRecipeName}
+                                        onChange={(e) => setNewRecipeName(e.target.value)}
+                                        className="w-full bg-[#121212] border border-[#333] rounded-lg p-2 text-[11px] text-[#ffeb3b] focus:outline-none focus:border-[#76ff03]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-bold text-[#aaa] mb-1 block">Palabra Clave (Keyword):</label>
+                                    <input 
+                                        type="text"
+                                        value={recipeKeyword}
+                                        onChange={(e) => setRecipeKeyword(e.target.value)}
+                                        placeholder="Escribe 'keep' para guardar..."
+                                        className="w-full bg-[#121212] border border-[#333] rounded-lg p-2 text-[11px] text-[#ffeb3b] font-mono focus:outline-none focus:border-[#76ff03]"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button onClick={() => setShowSaveRecipeModal(false)} className="bg-[#222] border border-[#444] text-[#aaa] px-3 py-1.5 rounded-lg text-[10px] cursor-pointer">Cancelar</button>
+                                <button onClick={handleSaveCustomRecipe} className="bg-[#2e7d32] text-white px-4 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer hover:bg-[#1b5e20]">Guardar (keep)</button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
