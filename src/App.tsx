@@ -1279,7 +1279,7 @@ function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, on
         let hybrid10Hits3 = hybrid10DrawBreakdown.filter((d: any) => d.hits === 3).length;
 
         return (
-            <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={onClose}>
+            <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex flex-col items-center justify-start pt-14 md:justify-center z-50 p-3 overflow-hidden" onClick={onClose}>
                 <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[760px] max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                     <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
                         <b className="text-[12px] text-[#00e5ff]">Reporte de Rendimiento y Configuración Óptima por Pool Size</b>
@@ -2365,6 +2365,29 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             return saved ? JSON.parse(saved) : [];
         } catch(e) { return []; }
     });
+    const [userPicks, setUserPicks] = useState<number[]>(() => {
+        try {
+            const saved = localStorage.getItem('chispazo_user_picks');
+            return saved ? JSON.parse(saved) : [];
+        } catch(e) { return []; }
+    });
+
+    function toggleUserPick(num: number) {
+        let next: number[];
+        if (userPicks.includes(num)) {
+            next = userPicks.filter(n => n !== num);
+        } else {
+            if (userPicks.length >= 10) {
+                showLocToast("Máximo 10 picks de usuario recomendados.");
+                return;
+            }
+            next = [...userPicks, num].sort((a, b) => a - b);
+        }
+        setUserPicks(next);
+        try {
+            localStorage.setItem('chispazo_user_picks', JSON.stringify(next));
+        } catch(e) {}
+    }
     const [showSaveRecipeModal, setShowSaveRecipeModal] = useState(false);
     const [newRecipeName, setNewRecipeName] = useState('Receta Personalizada');
     const [recipeKeyword, setRecipeKeyword] = useState('');
@@ -2685,9 +2708,9 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 });
                 if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
             }
-            if (motherFiltered.length === 0) {
-                motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
-            }
+            let fallback = mlPoolsMap[21]?.final || Array.from({length: 28}, (_, i) => i + 1);
+            let merged = new Set([...motherFiltered, ...userPicks, ...fallback]);
+            motherFiltered = Array.from(merged).slice(0, 24).sort((a, b) => a - b);
         }
 
         // 2. Subescenario 1
@@ -3147,9 +3170,9 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                         });
                         if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
                     }
-                    if (motherFiltered.length === 0) {
-                        motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
-                    }
+                    let fallback = mlPoolsMap[21]?.final || Array.from({length: 28}, (_, i) => i + 1);
+                    let merged = new Set([...motherFiltered, ...userPicks, ...fallback]);
+                    motherFiltered = Array.from(merged).slice(0, 24).sort((a, b) => a - b);
                 }
                 let madreHits = d.win.filter(w => motherFiltered.includes(w)).length;
 
@@ -3539,34 +3562,6 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             setSimBResults(res);
             setIsSimBRunning(false);
             showLocToast('🔔 Simulador B completada con éxito.');
-
-            // Automatic pool size adjustment logic if average hits over last 30 draws < 3.0
-            const avgHits = res.reduce((acc, r) => acc + r.hits, 0) / Math.max(1, res.length);
-            if (avgHits < 3.0) {
-                React.startTransition(() => {
-                    const updatedConfigs = { ...simBConfigs };
-                    poolSizesList.forEach(sz => {
-                        if (updatedConfigs[sz] && updatedConfigs[sz].enabled) {
-                            updatedConfigs[sz].freqs = { ...updatedConfigs[sz].freqs, 2: true, 1: true };
-                        }
-                    });
-                    let enabledSizes = poolSizesList.filter(sz => updatedConfigs[sz]?.enabled);
-                    if (enabledSizes.length > 0) {
-                        let maxEnabled = Math.max(...enabledSizes);
-                        let nextSz = Math.min(27, maxEnabled + 3);
-                        if (updatedConfigs[nextSz]) {
-                            updatedConfigs[nextSz].enabled = true;
-                        }
-                    } else {
-                        updatedConfigs[18].enabled = true;
-                        updatedConfigs[21].enabled = true;
-                        updatedConfigs[27].enabled = true;
-                    }
-                    setSimBConfigs(updatedConfigs);
-                    setSimBFinalFreqs(prev => ({ ...prev, 2: true, 1: true }));
-                    showLocToast(`⚠️ Promedio de aciertos (${avgHits.toFixed(2)}) < 3.0. Auto-ajuste aplicado: Pool sizes incrementados en +3 (max 27) y frecuencias ajustadas para mantener precisión.`);
-                });
-            }
         }, 100);
     }
 
@@ -3682,8 +3677,8 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     }
 
     return (
-        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={onClose}>
-            <div className="bg-[#121212] border border-[#7c4dff] rounded-xl w-full max-w-[1100px] my-auto flex flex-col shadow-2xl relative" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-2 md:p-4 overflow-hidden" onClick={onClose}>
+            <div className="bg-[#121212] border border-[#7c4dff] rounded-xl w-full max-w-[1100px] h-[88vh] max-h-[88vh] flex flex-col shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-[16px]">🧪</span>
@@ -3745,57 +3740,181 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     </div>
                 </div>
 
-                <div className="p-4 space-y-4">
+                {/* Pinned Toolbar for active simulator (Stays fixed at top when scrolling) */}
+                <div className="shrink-0 bg-[#181818] border-b border-[#333] px-4 py-2.5 flex items-center justify-between flex-wrap gap-2 shadow-lg z-20">
+                    {activeTab === 'simulator' ? (
+                        <>
+                            <div>
+                                <div className="text-[11px] font-black text-[#ffeb3b]">Simulador por Iteraciones - Selector de Sorteo y Ejecución</div>
+                                <div className="text-[9px] text-[#888]">Configura las iteraciones, pool sizes y frecuencias, y corre la simulación en cualquier momento.</div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <select 
+                                    value={selectedTargetDrawNum} 
+                                    onChange={(e) => setSelectedTargetDrawNum(parseInt(e.target.value))}
+                                    className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
+                                >
+                                    <option value={0}>Próximo Sorteo a Realizarse (En Vivo)</option>
+                                    {allDraws.slice(-20).reverse().map(d => (
+                                        <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
+                                    ))}
+                                </select>
+                                <select 
+                                    onChange={(e) => handleLoadIterativeRecipe(e.target.value)}
+                                    className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer"
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>📂 Cargar Receta...</option>
+                                    {customRecipes.filter(r => r.simulatorType === 'simulator').map(r => (
+                                        <option key={r.id} value={r.id}>{r.name} ({r.timestamp})</option>
+                                    ))}
+                                </select>
+                                <button 
+                                    onClick={optimizeStatisticalSimulator}
+                                    className="bg-[#00e5ff] text-black hover:bg-[#00d0eb] px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
+                                >
+                                    ⚡ Optimizar (30 Sorteos)
+                                </button>
+                                <button 
+                                    onClick={runSimulation}
+                                    disabled={isSimulating}
+                                    className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-4 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
+                                >
+                                    🚀 {isSimulating ? 'Simulando...' : 'Correr Simulación (30 Sorteos)'}
+                                </button>
+                                <button 
+                                    onClick={() => setShowSaveRecipeModal(true)}
+                                    className="bg-[#2e7d32] text-white px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md flex items-center gap-1"
+                                    title="Guardar receta (requiere palabra clave keep)"
+                                >
+                                    💾 Guardar Receta
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div>
+                                <div className="text-[11px] font-black text-[#ffeb3b]">Simulador B - Selector de Sorteo y Ejecución</div>
+                                <div className="text-[9px] text-[#888]">Configura los pool sizes, pools y frecuencias, y corre la simulación en cualquier momento.</div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <select 
+                                    value={selectedTargetDrawNum} 
+                                    onChange={(e) => {
+                                        const v = parseInt(e.target.value);
+                                        React.startTransition(() => {
+                                            setSelectedTargetDrawNum(v);
+                                            if (v > 0) {
+                                                const targetDrawObj = allDraws.find(d => d.num === v);
+                                                if (targetDrawObj) {
+                                                    const opt = getOptimalMultipoolConfig(allDraws, targetDrawObj, 16);
+                                                    const newSimConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+                                                    [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
+                                                        const hasSz = opt.configs[sz] !== undefined;
+                                                        newSimConfigs[sz] = {
+                                                            enabled: hasSz || [12, 18, 21, 27].includes(sz),
+                                                            pools: opt.configs[sz]?.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
+                                                            freqs: opt.configs[sz]?.freqs || { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                                                        };
+                                                    });
+                                                    setSimBConfigs(newSimConfigs);
+                                                    if (opt.finalFreqs) {
+                                                        setSimBFinalFreqs(opt.finalFreqs);
+                                                    }
+                                                }
+                                            } else {
+                                                const optConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+                                                [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
+                                                    const isEnabled = [12, 18, 21, 27].includes(sz);
+                                                    optConfigs[sz] = {
+                                                        enabled: isEnabled,
+                                                        pools: { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
+                                                        freqs: { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                                                    };
+                                                });
+                                                setSimBConfigs(optConfigs);
+                                                setSimBFinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                                            }
+                                        });
+                                        setTimeout(() => runSimB(), 50);
+                                    }}
+                                    className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
+                                >
+                                    <option value={0}>Próximo Sorteo a Realizarse (En Vivo)</option>
+                                    {allDraws.slice(-20).reverse().map(d => (
+                                        <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
+                                    ))}
+                                </select>
+                                <button
+                                    onClick={optimizeSimB}
+                                    disabled={isSimBRunning}
+                                    className="bg-[#00e5ff] text-black px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#00b2cc] transition shadow-md flex items-center gap-1"
+                                    title="Aplicar configuración óptima y correr simulación en los últimos 30 sorteos"
+                                >
+                                    ⚡ Optimizar (30 Sorteos)
+                                </button>
+                                <button
+                                    onClick={runSimB}
+                                    disabled={isSimBRunning}
+                                    className="bg-[#7c4dff] text-white px-4 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#6539dc] transition shadow-md"
+                                >
+                                    {isSimBRunning ? 'Simulando...' : '🚀 Correr Simulación B (30 Sorteos)'}
+                                </button>
+                                <select 
+                                    onChange={(e) => handleLoadSimBRecipe(e.target.value)}
+                                    className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer"
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>📂 Cargar Receta...</option>
+                                    {customRecipes.filter(r => !r.simulatorType || r.simulatorType === 'simulatorB').map(r => (
+                                        <option key={r.id} value={r.id}>{r.name} ({r.timestamp})</option>
+                                    ))}
+                                </select>
+                                <button
+                                    onClick={() => setShowSaveRecipeModal(true)}
+                                    className="bg-[#2e7d32] text-white px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md flex items-center gap-1"
+                                    title="Guardar nueva receta (requiere palabra clave keep)"
+                                >
+                                    💾 Guardar Receta
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
                     {activeTab === 'simulator' ? (
                         <div className="space-y-4">
-                            {/* Target Draw Selector Bar & Run Options (Sticky Header) */}
-                            <div className="sticky top-0 z-30 bg-[#181818] border border-[#333] rounded-xl p-3 flex items-center justify-between flex-wrap gap-2 shadow-2xl">
-                                <div>
-                                    <div className="text-[11px] font-black text-[#ffeb3b]">Simulador por Iteraciones - Selector de Sorteo y Ejecución</div>
-                                    <div className="text-[9px] text-[#888]">Configura las iteraciones, pool sizes y frecuencias, y corre la simulación en cualquier momento.</div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-wrap">
 
-                                    <select 
-                                        value={selectedTargetDrawNum} 
-                                        onChange={(e) => setSelectedTargetDrawNum(parseInt(e.target.value))}
-                                        className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
-                                    >
-                                        <option value={0}>Próximo Sorteo a Realizarse (En Vivo)</option>
-                                        {allDraws.slice(-20).reverse().map(d => (
-                                            <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
-                                        ))}
-                                    </select>
-                                    <select 
-                                        onChange={(e) => handleLoadIterativeRecipe(e.target.value)}
-                                        className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer"
-                                        defaultValue=""
-                                    >
-                                        <option value="" disabled>📂 Cargar Receta...</option>
-                                        {customRecipes.filter(r => r.simulatorType === 'simulator').map(r => (
-                                            <option key={r.id} value={r.id}>{r.name} ({r.timestamp})</option>
-                                        ))}
-                                    </select>
-                                    <button 
-                                        onClick={optimizeStatisticalSimulator}
-                                        className="bg-[#00e5ff] text-black hover:bg-[#00d0eb] px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
-                                    >
-                                        ⚡ Optimizar (30 Sorteos)
-                                    </button>
-                                    <button 
-                                        onClick={runSimulation}
-                                        disabled={isSimulating}
-                                        className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-4 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
-                                    >
-                                        🚀 {isSimulating ? 'Simulando...' : 'Correr Simulación (30 Sorteos)'}
-                                    </button>
-                                    <button 
-                                        onClick={() => setShowSaveRecipeModal(true)}
-                                        className="bg-[#2e7d32] text-white px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md flex items-center gap-1"
-                                        title="Guardar receta (requiere palabra clave keep)"
-                                    >
-                                        💾 Guardar Receta
-                                    </button>
+                            {/* User Picks Selector (Deterministic & Immutable) */}
+                            <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-md">
+                                <div className="flex justify-between items-center mb-1 flex-wrap gap-2">
+                                    <div>
+                                        <div className="text-[11px] font-black text-[#ffeb3b]">🎯 Tus Picks Fijos / Favoritos (Inmutables & Deterministas)</div>
+                                        <div className="text-[9px] text-[#888]">Selecciona tus números (1 a 28). Se integran de forma armónica e inmutable en el modelo para potenciar los aciertos.</div>
+                                    </div>
+                                    {userPicks.length > 0 && (
+                                        <button 
+                                            onClick={() => { setUserPicks([]); localStorage.removeItem('chispazo_user_picks'); showLocToast("Picks de usuario limpiados."); }}
+                                            className="text-[9px] bg-[#222] border border-[#ff5252]/40 text-[#ff5252] px-2 py-0.5 rounded cursor-pointer hover:bg-[#ff5252]/20"
+                                        >
+                                            Limpiar ({userPicks.length})
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-7 sm:grid-cols-14 gap-1 mt-2">
+                                    {Array.from({length: 28}, (_, i) => i + 1).map(n => {
+                                        const isPicked = userPicks.includes(n);
+                                        return (
+                                            <button
+                                                key={n}
+                                                onClick={() => toggleUserPick(n)}
+                                                className={`py-1 rounded text-[10px] font-black border transition cursor-pointer ${isPicked ? 'bg-[#ffeb3b] text-black border-[#ffeb3b] shadow-[0_0_8px_rgba(255,235,59,0.4)]' : 'bg-[#222] text-[#aaa] border-[#333] hover:border-[#ffeb3b]/50'}`}
+                                            >
+                                                {String(n).padStart(2, '0')}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -5732,7 +5851,7 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
 
     return (
         <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={onClose}>
-            <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[880px] max-h-[94vh] flex flex-col overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[880px] h-[86vh] max-h-[86vh] flex flex-col overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
                 {/* Header with Toolbars & Buttons */}
                 <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center flex-wrap gap-2">
                     <div>
@@ -5905,7 +6024,7 @@ function MultipoolModal({ allDraws, targetDraw, onClose, onCopyConsensus, onOpen
                     </div>
                 )}
 
-                <div id="multipool-modal-body" className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#121212]">
+                <div id="multipool-modal-body" className="flex-1 overflow-y-auto min-h-0 p-3 space-y-3 bg-[#121212]">
                     {targetDraw && (
                         <div className="bg-[#ffeb3b] text-black rounded-xl p-2.5 text-center shadow-[0_0_15px_rgba(255,235,59,0.2)]">
                             <div className="text-[9px] font-black tracking-wide">● NÚMEROS GANADORES REALES (Sorteo {targetDraw.num})</div>
