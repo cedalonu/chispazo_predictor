@@ -233,6 +233,31 @@ function getNumberScore(n: number, draws: Draw[]): number {
     return score;
 }
 
+function detectFrequencyTrendShift(draws: Draw[]): string | null {
+    if (!draws || draws.length < 30) return null;
+    const last10 = draws.slice(-10);
+    const prev20 = draws.slice(-30, -10);
+    
+    let recentFreqs: Record<number, number> = {};
+    let pastFreqs: Record<number, number> = {};
+    
+    last10.forEach(d => d.win.forEach(n => { recentFreqs[n] = (recentFreqs[n] || 0) + 1; }));
+    prev20.forEach(d => d.win.forEach(n => { pastFreqs[n] = (pastFreqs[n] || 0) + 1; }));
+    
+    let shiftedNums: number[] = [];
+    for (let n = 1; n <= 28; n++) {
+        let recentRate = (recentFreqs[n] || 0) / 10;
+        let pastRate = (pastFreqs[n] || 0) / 20;
+        if (Math.abs(recentRate - pastRate) >= 0.25) {
+            shiftedNums.push(n);
+        }
+    }
+    if (shiftedNums.length > 0) {
+        return `⚠️ Alerta de Tendencia: Cambio significativo detectado en frecuencias [${shiftedNums.map(n => String(n).padStart(2, '0')).join(', ')}] (últimos 10 sorteos).`;
+    }
+    return null;
+}
+
 function calculateMLPools(draws: Draw[], poolSize: number = 21): PoolResult {
     const lastDraw = draws[draws.length - 1].win;
     const prevDraw = draws[draws.length - 2].win;
@@ -1299,6 +1324,93 @@ function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, on
                             </table>
                         </div>
 
+                        {/* Matriz de Correlación de Pools (Frecuencia ≥ 3) */}
+                        {(() => {
+                            const poolKeys = ['final', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
+                            const poolLabels = ['Pool Final', 'Pool2 Hot', 'Pool3 Reversion', 'Pool4 Co-occur', 'Pool5 Cycles', 'Pool6 Matrix', 'Pool7 Mid-Rows'];
+                            const poolColors = ['#ffeb3b', '#00e5ff', '#ff9800', '#76ff03', '#e040fb', '#26c6da', '#ff4081'];
+
+                            const correlationData = poolKeys.map((pid, idx) => {
+                                let totalAppeared = 0;
+                                let totalMatched = 0;
+
+                                last20.forEach((s: Draw) => {
+                                    const histIdx = allDraws.findIndex((d: Draw) => d.num === s.num);
+                                    const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+                                    const pred = calculateMLPools(histDraws, 21);
+                                    const poolNums = (pred as any)[pid] || [];
+
+                                    let freqMap: Record<number, number> = {};
+                                    poolKeys.forEach(k => {
+                                        const pNums = (pred as any)[k] || [];
+                                        pNums.forEach((n: number) => {
+                                            freqMap[n] = (freqMap[n] || 0) + 1;
+                                        });
+                                    });
+
+                                    // Filter by Frequency >= 3
+                                    const filteredByFreq3 = poolNums.filter((n: number) => (freqMap[n] || 0) >= 3);
+                                    filteredByFreq3.forEach((n: number) => {
+                                        totalAppeared++;
+                                        if (s.win.includes(n)) {
+                                            totalMatched++;
+                                        }
+                                    });
+                                });
+
+                                const correlationScore = totalAppeared > 0 ? Math.round((totalMatched / totalAppeared) * 100) : 0;
+                                return {
+                                    id: pid,
+                                    label: poolLabels[idx],
+                                    color: poolColors[idx],
+                                    totalAppeared,
+                                    totalMatched,
+                                    correlationScore
+                                };
+                            });
+
+                            return (
+                                <div className="mt-4 bg-[rgba(124,77,255,0.08)] border border-[rgba(124,77,255,0.3)] rounded-xl p-3">
+                                    <div className="text-[#b388ff] font-black text-[11px] mb-1">🧬 Matriz de Correlación de Pools (Frecuencia ≥ 3 en Últimos 20 Sorteos)</div>
+                                    <p className="text-[9px] text-[#ccc] mb-2 leading-relaxed">
+                                        Mide la correlación y efectividad de cada pool cuando sus números cumplen con el filtro de alta coincidencia (Frecuencia ≥ 3 apariciones cruzadas en los pools).
+                                    </p>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full border-collapse text-[9px]">
+                                            <thead>
+                                                <tr className="bg-[#1a1a1a] text-[#b388ff]">
+                                                    <th className="border border-[#333] p-1.5 text-left">Pool Específico</th>
+                                                    <th className="border border-[#333] p-1.5 text-center">Núm. con Freq ≥ 3</th>
+                                                    <th className="border border-[#333] p-1.5 text-center">Aciertos Reales</th>
+                                                    <th className="border border-[#333] p-1.5 text-center">Correlación / Efectividad</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {correlationData.map(c => (
+                                                    <tr key={c.id} className="hover:bg-[#1a1a1a]">
+                                                        <td className="border border-[#333] p-1.5 font-bold flex items-center gap-1.5" style={{color: c.color}}>
+                                                            <span className="w-2 h-2 rounded-full inline-block" style={{background: c.color}}></span>
+                                                            {c.label}
+                                                        </td>
+                                                        <td className="border border-[#333] p-1.5 text-center text-white">{c.totalAppeared}</td>
+                                                        <td className="border border-[#333] p-1.5 text-center text-[#4caf50] font-bold">{c.totalMatched}</td>
+                                                        <td className="border border-[#333] p-1.5 text-center">
+                                                            <div className="flex items-center gap-2 justify-center">
+                                                                <div className="w-20 bg-[#222] rounded-full h-1.5 overflow-hidden">
+                                                                    <div className="h-full rounded-full" style={{width: `${Math.min(100, c.correlationScore * 2)}%`, background: c.color}}></div>
+                                                                </div>
+                                                                <span className="font-black text-[#ffeb3b]">{c.correlationScore}%</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Hybrid True Optimal Multi-Scale Combination Section with Draw-by-Draw Breakdown */}
                         <div className="mt-4 bg-[rgba(0,229,255,0.08)] border border-[rgba(0,229,255,0.3)] rounded-xl p-3">
                             <div className="text-[#00e5ff] font-black text-[11px] mb-1.5">🏆 Combinación Híbrida Óptima Real (Multi-Scale 12 + 18 + 21 con Freq ≥ 2)</div>
@@ -2265,8 +2377,13 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         const newRec = {
             id: 'custom_' + Date.now(),
             name: newRecipeName.trim() || 'Receta Personalizada',
-            configs: activeTab === 'simulatorB' ? simBConfigs : madreConfigs,
-            finalFreqs: activeTab === 'simulatorB' ? simBFinalFreqs : madreFinalFreqs,
+            simulatorType: activeTab, // 'simulatorB' or 'simulator'
+            configs: activeTab === 'simulatorB' ? simBConfigs : {
+                madreConfigs, sub1Configs, sub2Configs, sub3Configs, sub4Configs, sub5Configs, sub5SecondaryConfigs
+            },
+            finalFreqs: activeTab === 'simulatorB' ? simBFinalFreqs : {
+                madreFinalFreqs, sub1FinalFreqs, sub2FinalFreqs, sub3FinalFreqs, sub4FinalFreqs, sub5FinalFreqs
+            },
             timestamp: new Date().toLocaleDateString()
         };
         const updated = [...customRecipes, newRec];
@@ -2279,9 +2396,62 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         showLocToast(`¡Receta "${newRec.name}" guardada con palabra clave "keep"!`);
     }
 
+    function handleLoadIterativeRecipe(recId: string) {
+        if (!recId) return;
+        const rec = customRecipes.find(r => r.id === recId);
+        if (!rec) return;
+        if (rec.simulatorType && rec.simulatorType !== 'simulator') {
+            showLocToast('Error: Esta receta pertenece al Simulador B y no puede usarse en la Simulación por Iteraciones.');
+            return;
+        }
+        React.startTransition(() => {
+            if (rec.configs) {
+                if (rec.configs.madreConfigs) setMadreConfigs(rec.configs.madreConfigs);
+                if (rec.configs.sub1Configs) setSub1Configs(rec.configs.sub1Configs);
+                if (rec.configs.sub2Configs) setSub2Configs(rec.configs.sub2Configs);
+                if (rec.configs.sub3Configs) setSub3Configs(rec.configs.sub3Configs);
+                if (rec.configs.sub4Configs) setSub4Configs(rec.configs.sub4Configs);
+                if (rec.configs.sub5Configs) setSub5Configs(rec.configs.sub5Configs);
+                if (rec.configs.sub5SecondaryConfigs) setSub5SecondaryConfigs(rec.configs.sub5SecondaryConfigs);
+            }
+            if (rec.finalFreqs) {
+                if (rec.finalFreqs.madreFinalFreqs) setMadreFinalFreqs(rec.finalFreqs.madreFinalFreqs);
+                if (rec.finalFreqs.sub1FinalFreqs) setSub1FinalFreqs(rec.finalFreqs.sub1FinalFreqs);
+                if (rec.finalFreqs.sub2FinalFreqs) setSub2FinalFreqs(rec.finalFreqs.sub2FinalFreqs);
+                if (rec.finalFreqs.sub3FinalFreqs) setSub3FinalFreqs(rec.finalFreqs.sub3FinalFreqs);
+                if (rec.finalFreqs.sub4FinalFreqs) setSub4FinalFreqs(rec.finalFreqs.sub4FinalFreqs);
+                if (rec.finalFreqs.sub5FinalFreqs) setSub5FinalFreqs(rec.finalFreqs.sub5FinalFreqs);
+            }
+            showLocToast(`🍳 ¡Receta "${rec.name}" cargada en Simulación por Iteraciones!`);
+        });
+    }
+
+    function handleLoadSimBRecipe(recId: string) {
+        if (!recId) return;
+        const rec = customRecipes.find(r => r.id === recId);
+        if (!rec) return;
+        if (rec.simulatorType && rec.simulatorType !== 'simulatorB') {
+            showLocToast('Error: Esta receta pertenece a la Simulación por Iteraciones y no puede usarse en el Simulador B.');
+            return;
+        }
+        React.startTransition(() => {
+            if (rec.configs) setSimBConfigs(rec.configs);
+            if (rec.finalFreqs) setSimBFinalFreqs(rec.finalFreqs);
+            showLocToast(`🍳 ¡Receta "${rec.name}" cargada en Simulador B!`);
+        });
+    }
+
     // Collapsed state for pool sizes configuration per iteration (default collapsed = false)
     const [madreExpanded, setMadreExpanded] = useState<boolean>(false);
     const [sub1Expanded, setSub1Expanded] = useState<boolean>(false);
+
+    // Active participation & cascading inheritance mode per iteration (User Request #8-#10)
+    const [madreActive, setMadreActive] = useState<boolean>(true);
+    const [sub1Active, setSub1Active] = useState<boolean>(true);
+    const [sub2Active, setSub2Active] = useState<boolean>(true);
+    const [sub3Active, setSub3Active] = useState<boolean>(true);
+    const [sub4Active, setSub4Active] = useState<boolean>(true);
+    const [sub5Active, setSub5Active] = useState<boolean>(true);
 
     // Optimized default configurations for high efficiency across last 20 draws
     const defaultPoolsMap = { final: true, p2: true, p3: false, p4: true, p5: false, p6: false, p7: false };
@@ -2391,15 +2561,35 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     const [sub5FinalFreqs, setSub5FinalFreqs] = useState<Record<number, boolean>>({ ...defaultFinalFreqs });
 
     function optimizeStatisticalSimulator() {
-        const optFreqs = { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false };
-        setMadreFinalFreqs(optFreqs);
-        setSub1FinalFreqs(optFreqs);
-        setSub2FinalFreqs(optFreqs);
-        setSub3FinalFreqs(optFreqs);
-        setSub4FinalFreqs(optFreqs);
-        setSub5FinalFreqs(optFreqs);
+        const optFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+        const optFinalFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+        React.startTransition(() => {
+            setMadreFinalFreqs(optFinalFreqs);
+            setSub1FinalFreqs(optFinalFreqs);
+            setSub2FinalFreqs(optFinalFreqs);
+            setSub3FinalFreqs(optFinalFreqs);
+            setSub4FinalFreqs(optFinalFreqs);
+            setSub5FinalFreqs(optFinalFreqs);
+
+            const optCfg = {
+                9: makeCfg(true, pCore, optFreqs),
+                12: makeCfg(true, pStandard, optFreqs),
+                15: makeCfg(true, pReversion, optFreqs),
+                18: makeCfg(true, pMatrix, optFreqs),
+                21: makeCfg(true, pStandard, optFreqs),
+                24: makeCfg(true, pMatrix, optFreqs),
+                27: makeCfg(true, pStandard, optFreqs)
+            };
+            setMadreConfigs(optCfg);
+            setSub1Configs(optCfg);
+            setSub2Configs(optCfg);
+            setSub3Configs(optCfg);
+            setSub4Configs(optCfg);
+            setSub5Configs(optCfg);
+
+            showLocToast("⚡ ¡Simulador por Iteraciones optimizado para maximizar 4 y 5 aciertos!");
+        });
         runSimulation();
-        showLocToast("¡Simulador Estadístico optimizado y backtesting ejecutado!");
     }
 
     const [simResults, setSimResults] = useState<any[]>([]);
@@ -2458,294 +2648,319 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         });
 
         // 1. Escenario Madre
-        let madreCombinedFreq: Record<number, number> = {};
-        poolSizesList.forEach(sz => {
-            const cfg = madreConfigs[sz];
-            if (cfg && cfg.enabled) {
-                const mlPools = mlPoolsMap[sz];
-                const poolList = [
-                    { id: 'final', nums: mlPools.final },
-                    { id: 'p2', nums: mlPools.p2 },
-                    { id: 'p3', nums: mlPools.p3 },
-                    { id: 'p4', nums: mlPools.p4 },
-                    { id: 'p5', nums: mlPools.p5 },
-                    { id: 'p6', nums: mlPools.p6 },
-                    { id: 'p7', nums: mlPools.p7 }
-                ];
-                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                activePoolObjs.forEach(p => {
-                    p.nums.forEach(n => {
-                        madreCombinedFreq[n] = (madreCombinedFreq[n] || 0) + 1;
-                    });
-                });
-            }
-        });
-
         let motherFiltered: number[] = [];
-        for (let n = 1; n <= 28; n++) {
-            let f = madreCombinedFreq[n] || 0;
-            let accepted = false;
-            [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
-                if (madreConfigs[sz].enabled && madreConfigs[sz].freqs[f]) {
-                    accepted = true;
+        if (!madreActive) {
+            motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+        } else {
+            let madreCombinedFreq: Record<number, number> = {};
+            poolSizesList.forEach(sz => {
+                const cfg = madreConfigs[sz];
+                if (cfg && cfg.enabled) {
+                    const mlPools = mlPoolsMap[sz];
+                    const poolList = [
+                        { id: 'final', nums: mlPools.final },
+                        { id: 'p2', nums: mlPools.p2 },
+                        { id: 'p3', nums: mlPools.p3 },
+                        { id: 'p4', nums: mlPools.p4 },
+                        { id: 'p5', nums: mlPools.p5 },
+                        { id: 'p6', nums: mlPools.p6 },
+                        { id: 'p7', nums: mlPools.p7 }
+                    ];
+                    let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                    activePoolObjs.forEach(p => {
+                        p.nums.forEach(n => {
+                            madreCombinedFreq[n] = (madreCombinedFreq[n] || 0) + 1;
+                        });
+                    });
                 }
             });
-            if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
-        }
-        if (motherFiltered.length === 0) {
-            motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+
+            for (let n = 1; n <= 28; n++) {
+                let f = madreCombinedFreq[n] || 0;
+                let accepted = false;
+                [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
+                    if (madreConfigs[sz].enabled && madreConfigs[sz].freqs[f]) {
+                        accepted = true;
+                    }
+                });
+                if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
+            }
+            if (motherFiltered.length === 0) {
+                motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+            }
         }
 
         // 2. Subescenario 1
-        let sub1CombinedFreq: Record<number, number> = {};
-        poolSizesList.forEach(sz => {
-            const cfg = sub1Configs[sz];
-            if (cfg && cfg.enabled) {
-                const mlPools = mlPoolsMap[sz];
-                const poolList = [
-                    { id: 'final', nums: mlPools.final },
-                    { id: 'p2', nums: mlPools.p2 },
-                    { id: 'p3', nums: mlPools.p3 },
-                    { id: 'p4', nums: mlPools.p4 },
-                    { id: 'p5', nums: mlPools.p5 },
-                    { id: 'p6', nums: mlPools.p6 },
-                    { id: 'p7', nums: mlPools.p7 }
-                ];
-                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                activePoolObjs.forEach(p => {
-                    p.nums.forEach(n => {
-                        if (motherFiltered.includes(n)) {
-                            sub1CombinedFreq[n] = (sub1CombinedFreq[n] || 0) + 1;
-                        }
-                    });
-                });
-            }
-        });
-
         let subFiltered: number[] = [];
-        for (let n of motherFiltered) {
-            let f = sub1CombinedFreq[n] || 0;
-            let accepted = false;
-            poolSizesList.forEach(sz => {
-                if (sub1Configs[sz].enabled && sub1Configs[sz].freqs[f]) {
-                    accepted = true;
-                }
-            });
-            if (accepted && sub1FinalFreqs[f]) subFiltered.push(n);
-        }
-        if (subFiltered.length === 0) {
+        if (!sub1Active) {
             subFiltered = [...motherFiltered];
-        }
-
-        let sub2CombinedFreq: Record<number, number> = {};
-        poolSizesList.forEach(sz => {
-            const cfg = sub2Configs[sz];
-            if (cfg && cfg.enabled) {
-                const mlPools = mlPoolsMap[sz];
-                const poolList = [
-                    { id: 'final', nums: mlPools.final },
-                    { id: 'p2', nums: mlPools.p2 },
-                    { id: 'p3', nums: mlPools.p3 },
-                    { id: 'p4', nums: mlPools.p4 },
-                    { id: 'p5', nums: mlPools.p5 },
-                    { id: 'p6', nums: mlPools.p6 },
-                    { id: 'p7', nums: mlPools.p7 }
-                ];
-                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                activePoolObjs.forEach(p => {
-                    p.nums.forEach(n => {
-                        if (subFiltered.includes(n)) {
-                            sub2CombinedFreq[n] = (sub2CombinedFreq[n] || 0) + 1;
-                        }
-                    });
-                });
-            }
-        });
-
-        let sub2Filtered: number[] = [];
-        for (let n of subFiltered) {
-            let f = sub2CombinedFreq[n] || 0;
-            let accepted = false;
+        } else {
+            let sub1CombinedFreq: Record<number, number> = {};
             poolSizesList.forEach(sz => {
-                if (sub2Configs[sz].enabled && sub2Configs[sz].freqs[f]) {
-                    accepted = true;
+                const cfg = sub1Configs[sz];
+                if (cfg && cfg.enabled) {
+                    const mlPools = mlPoolsMap[sz];
+                    const poolList = [
+                        { id: 'final', nums: mlPools.final },
+                        { id: 'p2', nums: mlPools.p2 },
+                        { id: 'p3', nums: mlPools.p3 },
+                        { id: 'p4', nums: mlPools.p4 },
+                        { id: 'p5', nums: mlPools.p5 },
+                        { id: 'p6', nums: mlPools.p6 },
+                        { id: 'p7', nums: mlPools.p7 }
+                    ];
+                    let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                    activePoolObjs.forEach(p => {
+                        p.nums.forEach(n => {
+                            if (motherFiltered.includes(n)) {
+                                sub1CombinedFreq[n] = (sub1CombinedFreq[n] || 0) + 1;
+                            }
+                        });
+                    });
                 }
             });
-            if (accepted && sub2FinalFreqs[f]) sub2Filtered.push(n);
+
+            for (let n of motherFiltered) {
+                let f = sub1CombinedFreq[n] || 0;
+                let accepted = false;
+                poolSizesList.forEach(sz => {
+                    if (sub1Configs[sz].enabled && sub1Configs[sz].freqs[f]) {
+                        accepted = true;
+                    }
+                });
+                if (accepted && sub1FinalFreqs[f]) subFiltered.push(n);
+            }
+            if (subFiltered.length === 0) {
+                subFiltered = [...motherFiltered];
+            }
         }
-        if (sub2Filtered.length === 0) {
+
+        // 3. Subescenario 2
+        let sub2Filtered: number[] = [];
+        if (!sub2Active) {
             sub2Filtered = [...subFiltered];
+        } else {
+            let sub2CombinedFreq: Record<number, number> = {};
+            poolSizesList.forEach(sz => {
+                const cfg = sub2Configs[sz];
+                if (cfg && cfg.enabled) {
+                    const mlPools = mlPoolsMap[sz];
+                    const poolList = [
+                        { id: 'final', nums: mlPools.final },
+                        { id: 'p2', nums: mlPools.p2 },
+                        { id: 'p3', nums: mlPools.p3 },
+                        { id: 'p4', nums: mlPools.p4 },
+                        { id: 'p5', nums: mlPools.p5 },
+                        { id: 'p6', nums: mlPools.p6 },
+                        { id: 'p7', nums: mlPools.p7 }
+                    ];
+                    let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                    activePoolObjs.forEach(p => {
+                        p.nums.forEach(n => {
+                            if (subFiltered.includes(n)) {
+                                sub2CombinedFreq[n] = (sub2CombinedFreq[n] || 0) + 1;
+                            }
+                        });
+                    });
+                }
+            });
+
+            for (let n of subFiltered) {
+                let f = sub2CombinedFreq[n] || 0;
+                let accepted = false;
+                poolSizesList.forEach(sz => {
+                    if (sub2Configs[sz].enabled && sub2Configs[sz].freqs[f]) {
+                        accepted = true;
+                    }
+                });
+                if (accepted && sub2FinalFreqs[f]) sub2Filtered.push(n);
+            }
+            if (sub2Filtered.length === 0) {
+                sub2Filtered = [...subFiltered];
+            }
         }
 
         // 4. Subescenario 3 (Iteración #4)
-        let sub3CombinedFreq: Record<number, number> = {};
-        poolSizesList.forEach(sz => {
-            const cfg = sub3Configs[sz];
-            if (cfg && cfg.enabled) {
-                const mlPools = mlPoolsMap[sz];
-                const poolList = [
-                    { id: 'final', nums: mlPools.final },
-                    { id: 'p2', nums: mlPools.p2 },
-                    { id: 'p3', nums: mlPools.p3 },
-                    { id: 'p4', nums: mlPools.p4 },
-                    { id: 'p5', nums: mlPools.p5 },
-                    { id: 'p6', nums: mlPools.p6 },
-                    { id: 'p7', nums: mlPools.p7 }
-                ];
-                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                activePoolObjs.forEach(p => {
-                    p.nums.forEach(n => {
-                        if (sub2Filtered.includes(n)) {
-                            sub3CombinedFreq[n] = (sub3CombinedFreq[n] || 0) + 1;
-                        }
-                    });
-                });
-            }
-        });
-
         let sub3Filtered: number[] = [];
-        for (let n of sub2Filtered) {
-            let f = sub3CombinedFreq[n] || 0;
-            let accepted = false;
+        if (!sub3Active) {
+            sub3Filtered = [...sub2Filtered];
+        } else {
+            let sub3CombinedFreq: Record<number, number> = {};
             poolSizesList.forEach(sz => {
-                if (sub3Configs[sz].enabled && sub3Configs[sz].freqs[f]) {
-                    accepted = true;
+                const cfg = sub3Configs[sz];
+                if (cfg && cfg.enabled) {
+                    const mlPools = mlPoolsMap[sz];
+                    const poolList = [
+                        { id: 'final', nums: mlPools.final },
+                        { id: 'p2', nums: mlPools.p2 },
+                        { id: 'p3', nums: mlPools.p3 },
+                        { id: 'p4', nums: mlPools.p4 },
+                        { id: 'p5', nums: mlPools.p5 },
+                        { id: 'p6', nums: mlPools.p6 },
+                        { id: 'p7', nums: mlPools.p7 }
+                    ];
+                    let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                    activePoolObjs.forEach(p => {
+                        p.nums.forEach(n => {
+                            if (sub2Filtered.includes(n)) {
+                                sub3CombinedFreq[n] = (sub3CombinedFreq[n] || 0) + 1;
+                            }
+                        });
+                    });
                 }
             });
-            if (accepted && sub3FinalFreqs[f]) sub3Filtered.push(n);
-        }
-        if (sub3Filtered.length === 0) {
-            sub3Filtered = [...sub2Filtered];
+
+            for (let n of sub2Filtered) {
+                let f = sub3CombinedFreq[n] || 0;
+                let accepted = false;
+                poolSizesList.forEach(sz => {
+                    if (sub3Configs[sz].enabled && sub3Configs[sz].freqs[f]) {
+                        accepted = true;
+                    }
+                });
+                if (accepted && sub3FinalFreqs[f]) sub3Filtered.push(n);
+            }
+            if (sub3Filtered.length === 0) {
+                sub3Filtered = [...sub2Filtered];
+            }
         }
 
         // 5. Subescenario 4 (Iteración #5)
-        let sub4CombinedFreq: Record<number, number> = {};
-        poolSizesList.forEach(sz => {
-            const cfg = sub4Configs[sz];
-            if (cfg && cfg.enabled) {
-                const mlPools = mlPoolsMap[sz];
-                const poolList = [
-                    { id: 'final', nums: mlPools.final },
-                    { id: 'p2', nums: mlPools.p2 },
-                    { id: 'p3', nums: mlPools.p3 },
-                    { id: 'p4', nums: mlPools.p4 },
-                    { id: 'p5', nums: mlPools.p5 },
-                    { id: 'p6', nums: mlPools.p6 },
-                    { id: 'p7', nums: mlPools.p7 }
-                ];
-                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                activePoolObjs.forEach(p => {
-                    p.nums.forEach(n => {
-                        if (sub3Filtered.includes(n)) {
-                            sub4CombinedFreq[n] = (sub4CombinedFreq[n] || 0) + 1;
-                        }
-                    });
-                });
-            }
-        });
-
         let sub4Filtered: number[] = [];
-        for (let n of sub3Filtered) {
-            let f = sub4CombinedFreq[n] || 0;
-            let accepted = false;
+        if (!sub4Active) {
+            sub4Filtered = [...sub3Filtered];
+        } else {
+            let sub4CombinedFreq: Record<number, number> = {};
             poolSizesList.forEach(sz => {
-                if (sub4Configs[sz].enabled && sub4Configs[sz].freqs[f]) {
-                    accepted = true;
+                const cfg = sub4Configs[sz];
+                if (cfg && cfg.enabled) {
+                    const mlPools = mlPoolsMap[sz];
+                    const poolList = [
+                        { id: 'final', nums: mlPools.final },
+                        { id: 'p2', nums: mlPools.p2 },
+                        { id: 'p3', nums: mlPools.p3 },
+                        { id: 'p4', nums: mlPools.p4 },
+                        { id: 'p5', nums: mlPools.p5 },
+                        { id: 'p6', nums: mlPools.p6 },
+                        { id: 'p7', nums: mlPools.p7 }
+                    ];
+                    let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                    activePoolObjs.forEach(p => {
+                        p.nums.forEach(n => {
+                            if (sub3Filtered.includes(n)) {
+                                sub4CombinedFreq[n] = (sub4CombinedFreq[n] || 0) + 1;
+                            }
+                        });
+                    });
                 }
             });
-            if (accepted && sub4FinalFreqs[f]) sub4Filtered.push(n);
-        }
-        if (sub4Filtered.length === 0) {
-            sub4Filtered = [...sub3Filtered];
+
+            for (let n of sub3Filtered) {
+                let f = sub4CombinedFreq[n] || 0;
+                let accepted = false;
+                poolSizesList.forEach(sz => {
+                    if (sub4Configs[sz].enabled && sub4Configs[sz].freqs[f]) {
+                        accepted = true;
+                    }
+                });
+                if (accepted && sub4FinalFreqs[f]) sub4Filtered.push(n);
+            }
+            if (sub4Filtered.length === 0) {
+                sub4Filtered = [...sub3Filtered];
+            }
         }
 
         // 6. Subescenario 5 (Iteración #6)
-        let sub5CombinedFreq: Record<number, number> = {};
-        poolSizesList.forEach(sz => {
-            const cfg = sub5Configs[sz];
-            if (cfg && cfg.enabled) {
-                const mlPools = mlPoolsMap[sz];
-                const poolList = [
-                    { id: 'final', nums: mlPools.final },
-                    { id: 'p2', nums: mlPools.p2 },
-                    { id: 'p3', nums: mlPools.p3 },
-                    { id: 'p4', nums: mlPools.p4 },
-                    { id: 'p5', nums: mlPools.p5 },
-                    { id: 'p6', nums: mlPools.p6 },
-                    { id: 'p7', nums: mlPools.p7 }
-                ];
-                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                activePoolObjs.forEach(p => {
-                    p.nums.forEach(n => {
-                        if (sub4Filtered.includes(n)) {
-                            sub5CombinedFreq[n] = (sub5CombinedFreq[n] || 0) + 1;
-                        }
-                    });
-                });
-            }
-        });
-
-        let sub5PrimaryFiltered: number[] = [];
-        for (let n of sub4Filtered) {
-            let f = sub5CombinedFreq[n] || 0;
-            let accepted = false;
+        let sub5Filtered: number[] = [];
+        if (!sub5Active) {
+            sub5Filtered = [...sub4Filtered];
+        } else {
+            let sub5CombinedFreq: Record<number, number> = {};
             poolSizesList.forEach(sz => {
-                if (sub5Configs[sz].enabled && sub5Configs[sz].freqs[f]) {
-                    accepted = true;
+                const cfg = sub5Configs[sz];
+                if (cfg && cfg.enabled) {
+                    const mlPools = mlPoolsMap[sz];
+                    const poolList = [
+                        { id: 'final', nums: mlPools.final },
+                        { id: 'p2', nums: mlPools.p2 },
+                        { id: 'p3', nums: mlPools.p3 },
+                        { id: 'p4', nums: mlPools.p4 },
+                        { id: 'p5', nums: mlPools.p5 },
+                        { id: 'p6', nums: mlPools.p6 },
+                        { id: 'p7', nums: mlPools.p7 }
+                    ];
+                    let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                    activePoolObjs.forEach(p => {
+                        p.nums.forEach(n => {
+                            if (sub4Filtered.includes(n)) {
+                                sub5CombinedFreq[n] = (sub5CombinedFreq[n] || 0) + 1;
+                            }
+                        });
+                    });
                 }
             });
-            if (accepted && sub5FinalFreqs[f]) sub5PrimaryFiltered.push(n);
-        }
 
-        // Secondary Configuration Expansion (pulling statistically probable winning numbers outside sub4Filtered up to 15 #)
-        let secondaryCandidates = new Set<number>();
-        poolSizesList.forEach(sz => {
-            const secCfg = sub5SecondaryConfigs[sz];
-            if (secCfg && secCfg.enabled) {
-                const mlPools = mlPoolsMap[sz];
-                const poolList = [
-                    { id: 'final', nums: mlPools.final },
-                    { id: 'p2', nums: mlPools.p2 },
-                    { id: 'p3', nums: mlPools.p3 },
-                    { id: 'p4', nums: mlPools.p4 },
-                    { id: 'p5', nums: mlPools.p5 },
-                    { id: 'p6', nums: mlPools.p6 },
-                    { id: 'p7', nums: mlPools.p7 }
-                ];
-                let activeSecPools = poolList.filter(p => secCfg.pools[p.id]);
-                let secFreqMap: Record<number, number> = {};
-                activeSecPools.forEach(p => {
-                    p.nums.forEach(n => {
-                        secFreqMap[n] = (secFreqMap[n] || 0) + 1;
-                    });
+            let sub5PrimaryFiltered: number[] = [];
+            for (let n of sub4Filtered) {
+                let f = sub5CombinedFreq[n] || 0;
+                let accepted = false;
+                poolSizesList.forEach(sz => {
+                    if (sub5Configs[sz].enabled && sub5Configs[sz].freqs[f]) {
+                        accepted = true;
+                    }
                 });
-                for (let n = 1; n <= 28; n++) {
-                    let sf = secFreqMap[n] || 0;
-                    if (secCfg.freqs[sf]) {
-                        secondaryCandidates.add(n);
+                if (accepted && sub5FinalFreqs[f]) sub5PrimaryFiltered.push(n);
+            }
+
+            let secondaryCandidates = new Set<number>();
+            poolSizesList.forEach(sz => {
+                const secCfg = sub5SecondaryConfigs[sz];
+                if (secCfg && secCfg.enabled) {
+                    const mlPools = mlPoolsMap[sz];
+                    const poolList = [
+                        { id: 'final', nums: mlPools.final },
+                        { id: 'p2', nums: mlPools.p2 },
+                        { id: 'p3', nums: mlPools.p3 },
+                        { id: 'p4', nums: mlPools.p4 },
+                        { id: 'p5', nums: mlPools.p5 },
+                        { id: 'p6', nums: mlPools.p6 },
+                        { id: 'p7', nums: mlPools.p7 }
+                    ];
+                    let activeSecPools = poolList.filter(p => secCfg.pools[p.id]);
+                    let secFreqMap: Record<number, number> = {};
+                    activeSecPools.forEach(p => {
+                        p.nums.forEach(n => {
+                            secFreqMap[n] = (secFreqMap[n] || 0) + 1;
+                        });
+                    });
+                    for (let n = 1; n <= 28; n++) {
+                        let sf = secFreqMap[n] || 0;
+                        if (secCfg.freqs[sf]) {
+                            secondaryCandidates.add(n);
+                        }
                     }
                 }
+            });
+
+            let mergedSet = new Set([...sub5PrimaryFiltered]);
+            let sortedSec = Array.from(secondaryCandidates).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+            for (let n of sortedSec) {
+                if (mergedSet.size >= 15) break;
+                mergedSet.add(n);
             }
-        });
 
-        let mergedSet = new Set([...sub5PrimaryFiltered]);
-        let sortedSec = Array.from(secondaryCandidates).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
-        for (let n of sortedSec) {
-            if (mergedSet.size >= 15) break;
-            mergedSet.add(n);
-        }
+            sub5Filtered = Array.from(mergedSet).sort((a, b) => {
+                let scoreA = (sub5CombinedFreq[a] || 0) * 3 + getNumberScore(a, histDraws) * 0.15;
+                let scoreB = (sub5CombinedFreq[b] || 0) * 3 + getNumberScore(b, histDraws) * 0.15;
+                if (scoreB !== scoreA) return scoreB - scoreA;
+                return a - b;
+            });
 
-        let sub5Filtered = Array.from(mergedSet).sort((a, b) => {
-            let scoreA = (sub5CombinedFreq[a] || 0) * 3 + getNumberScore(a, histDraws) * 0.15;
-            let scoreB = (sub5CombinedFreq[b] || 0) * 3 + getNumberScore(b, histDraws) * 0.15;
-            if (scoreB !== scoreA) return scoreB - scoreA;
-            return a - b;
-        });
-
-        if (sub5Filtered.length > 16 || sub5Filtered.length < 8) {
-            sub5Filtered = sub5Filtered.slice(0, 15);
-        } else if (sub5Filtered.length === 0) {
-            sub5Filtered = [...sub4Filtered].slice(0, 12);
+            if (sub5Filtered.length > 16 || sub5Filtered.length < 8) {
+                sub5Filtered = sub5Filtered.slice(0, 15);
+            } else if (sub5Filtered.length === 0) {
+                sub5Filtered = [...sub4Filtered].slice(0, 12);
+            }
         }
 
         let hitsMadre = targetDrawObj ? targetDrawObj.win.filter(w => motherFiltered.includes(w)).length : null;
@@ -2775,7 +2990,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             red4Pct: Math.round((1 - sub4Filtered.length / Math.max(1, sub3Filtered.length)) * 100),
             red5Pct: Math.round((1 - sub5Filtered.length / Math.max(1, sub4Filtered.length)) * 100)
         };
-    }, [allDraws, selectedTargetDrawNum, madreConfigs, sub1Configs, sub2Configs, sub3Configs, sub4Configs, sub5Configs, sub5SecondaryConfigs]);
+    }, [allDraws, selectedTargetDrawNum, madreConfigs, sub1Configs, sub2Configs, sub3Configs, sub4Configs, sub5Configs, sub5SecondaryConfigs, madreActive, sub1Active, sub2Active, sub3Active, sub4Active, sub5Active, madreFinalFreqs, sub1FinalFreqs, sub2FinalFreqs, sub3FinalFreqs, sub4FinalFreqs, sub5FinalFreqs]);
 
     // Simulador B state (High-Yield High-Accuracy Default for 4-5 Hits Average)
     const [simBConfigs, setSimBConfigs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>(() => {
@@ -2895,299 +3110,324 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 });
 
                 // 1. Escenario Madre (Iteración #1)
-                let madreCombinedFreq: Record<number, number> = {};
-                poolSizesList.forEach(sz => {
-                    const cfg = madreConfigs[sz];
-                    if (cfg && cfg.enabled) {
-                        const mlPools = mlPoolsMap[sz];
-                        const poolList = [
-                            { id: 'final', nums: mlPools.final },
-                            { id: 'p2', nums: mlPools.p2 },
-                            { id: 'p3', nums: mlPools.p3 },
-                            { id: 'p4', nums: mlPools.p4 },
-                            { id: 'p5', nums: mlPools.p5 },
-                            { id: 'p6', nums: mlPools.p6 },
-                            { id: 'p7', nums: mlPools.p7 }
-                        ];
-                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                        activePoolObjs.forEach(p => {
-                            p.nums.forEach(n => {
-                                madreCombinedFreq[n] = (madreCombinedFreq[n] || 0) + 1;
-                            });
-                        });
-                    }
-                });
-
                 let motherFiltered: number[] = [];
-                for (let n = 1; n <= 28; n++) {
-                    let f = madreCombinedFreq[n] || 0;
-                    let accepted = false;
+                if (!madreActive) {
+                    motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+                } else {
+                    let madreCombinedFreq: Record<number, number> = {};
                     poolSizesList.forEach(sz => {
-                        if (madreConfigs[sz].enabled && madreConfigs[sz].freqs[f]) {
-                            accepted = true;
+                        const cfg = madreConfigs[sz];
+                        if (cfg && cfg.enabled) {
+                            const mlPools = mlPoolsMap[sz];
+                            const poolList = [
+                                { id: 'final', nums: mlPools.final },
+                                { id: 'p2', nums: mlPools.p2 },
+                                { id: 'p3', nums: mlPools.p3 },
+                                { id: 'p4', nums: mlPools.p4 },
+                                { id: 'p5', nums: mlPools.p5 },
+                                { id: 'p6', nums: mlPools.p6 },
+                                { id: 'p7', nums: mlPools.p7 }
+                            ];
+                            let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                            activePoolObjs.forEach(p => {
+                                p.nums.forEach(n => {
+                                    madreCombinedFreq[n] = (madreCombinedFreq[n] || 0) + 1;
+                                });
+                            });
                         }
                     });
-                    if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
-                }
-                if (motherFiltered.length === 0) {
-                    motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+
+                    for (let n = 1; n <= 28; n++) {
+                        let f = madreCombinedFreq[n] || 0;
+                        let accepted = false;
+                        poolSizesList.forEach(sz => {
+                            if (madreConfigs[sz].enabled && madreConfigs[sz].freqs[f]) {
+                                accepted = true;
+                            }
+                        });
+                        if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
+                    }
+                    if (motherFiltered.length === 0) {
+                        motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+                    }
                 }
                 let madreHits = d.win.filter(w => motherFiltered.includes(w)).length;
 
                 // 2. Subescenario 1 (Iteración #2)
-                let sub1CombinedFreq: Record<number, number> = {};
-                poolSizesList.forEach(sz => {
-                    const cfg = sub1Configs[sz];
-                    if (cfg && cfg.enabled) {
-                        const mlPools = mlPoolsMap[sz];
-                        const poolList = [
-                            { id: 'final', nums: mlPools.final },
-                            { id: 'p2', nums: mlPools.p2 },
-                            { id: 'p3', nums: mlPools.p3 },
-                            { id: 'p4', nums: mlPools.p4 },
-                            { id: 'p5', nums: mlPools.p5 },
-                            { id: 'p6', nums: mlPools.p6 },
-                            { id: 'p7', nums: mlPools.p7 }
-                        ];
-                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                        activePoolObjs.forEach(p => {
-                            p.nums.forEach(n => {
-                                if (motherFiltered.includes(n)) {
-                                    sub1CombinedFreq[n] = (sub1CombinedFreq[n] || 0) + 1;
-                                }
-                            });
-                        });
-                    }
-                });
-
                 let subFiltered: number[] = [];
-                for (let n of motherFiltered) {
-                    let f = sub1CombinedFreq[n] || 0;
-                    let accepted = false;
+                if (!sub1Active) {
+                    subFiltered = [...motherFiltered];
+                } else {
+                    let sub1CombinedFreq: Record<number, number> = {};
                     poolSizesList.forEach(sz => {
-                        if (sub1Configs[sz].enabled && sub1Configs[sz].freqs[f]) {
-                            accepted = true;
+                        const cfg = sub1Configs[sz];
+                        if (cfg && cfg.enabled) {
+                            const mlPools = mlPoolsMap[sz];
+                            const poolList = [
+                                { id: 'final', nums: mlPools.final },
+                                { id: 'p2', nums: mlPools.p2 },
+                                { id: 'p3', nums: mlPools.p3 },
+                                { id: 'p4', nums: mlPools.p4 },
+                                { id: 'p5', nums: mlPools.p5 },
+                                { id: 'p6', nums: mlPools.p6 },
+                                { id: 'p7', nums: mlPools.p7 }
+                            ];
+                            let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                            activePoolObjs.forEach(p => {
+                                p.nums.forEach(n => {
+                                    if (motherFiltered.includes(n)) {
+                                        sub1CombinedFreq[n] = (sub1CombinedFreq[n] || 0) + 1;
+                                    }
+                                });
+                            });
                         }
                     });
-                    if (accepted && sub1FinalFreqs[f]) subFiltered.push(n);
-                }
-                if (subFiltered.length === 0) {
-                    subFiltered = [...motherFiltered];
+
+                    for (let n of motherFiltered) {
+                        let f = sub1CombinedFreq[n] || 0;
+                        let accepted = false;
+                        poolSizesList.forEach(sz => {
+                            if (sub1Configs[sz].enabled && sub1Configs[sz].freqs[f]) {
+                                accepted = true;
+                            }
+                        });
+                        if (accepted && sub1FinalFreqs[f]) subFiltered.push(n);
+                    }
+                    if (subFiltered.length === 0) {
+                        subFiltered = [...motherFiltered];
+                    }
                 }
                 let sub1Hits = d.win.filter(w => subFiltered.includes(w)).length;
 
                 // 3. Subescenario 2 (Iteración #3)
-                let sub2CombinedFreq: Record<number, number> = {};
-                poolSizesList.forEach(sz => {
-                    const cfg = sub2Configs[sz];
-                    if (cfg && cfg.enabled) {
-                        const mlPools = mlPoolsMap[sz];
-                        const poolList = [
-                            { id: 'final', nums: mlPools.final },
-                            { id: 'p2', nums: mlPools.p2 },
-                            { id: 'p3', nums: mlPools.p3 },
-                            { id: 'p4', nums: mlPools.p4 },
-                            { id: 'p5', nums: mlPools.p5 },
-                            { id: 'p6', nums: mlPools.p6 },
-                            { id: 'p7', nums: mlPools.p7 }
-                        ];
-                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                        activePoolObjs.forEach(p => {
-                            p.nums.forEach(n => {
-                                if (subFiltered.includes(n)) {
-                                    sub2CombinedFreq[n] = (sub2CombinedFreq[n] || 0) + 1;
-                                }
-                            });
-                        });
-                    }
-                });
-
                 let sub2Filtered: number[] = [];
-                for (let n of subFiltered) {
-                    let f = sub2CombinedFreq[n] || 0;
-                    let accepted = false;
+                if (!sub2Active) {
+                    sub2Filtered = [...subFiltered];
+                } else {
+                    let sub2CombinedFreq: Record<number, number> = {};
                     poolSizesList.forEach(sz => {
-                        if (sub2Configs[sz].enabled && sub2Configs[sz].freqs[f]) {
-                            accepted = true;
+                        const cfg = sub2Configs[sz];
+                        if (cfg && cfg.enabled) {
+                            const mlPools = mlPoolsMap[sz];
+                            const poolList = [
+                                { id: 'final', nums: mlPools.final },
+                                { id: 'p2', nums: mlPools.p2 },
+                                { id: 'p3', nums: mlPools.p3 },
+                                { id: 'p4', nums: mlPools.p4 },
+                                { id: 'p5', nums: mlPools.p5 },
+                                { id: 'p6', nums: mlPools.p6 },
+                                { id: 'p7', nums: mlPools.p7 }
+                            ];
+                            let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                            activePoolObjs.forEach(p => {
+                                p.nums.forEach(n => {
+                                    if (subFiltered.includes(n)) {
+                                        sub2CombinedFreq[n] = (sub2CombinedFreq[n] || 0) + 1;
+                                    }
+                                });
+                            });
                         }
                     });
-                    if (accepted && sub2FinalFreqs[f]) sub2Filtered.push(n);
-                }
-                if (sub2Filtered.length === 0) {
-                    sub2Filtered = [...subFiltered];
+
+                    for (let n of subFiltered) {
+                        let f = sub2CombinedFreq[n] || 0;
+                        let accepted = false;
+                        poolSizesList.forEach(sz => {
+                            if (sub2Configs[sz].enabled && sub2Configs[sz].freqs[f]) {
+                                accepted = true;
+                            }
+                        });
+                        if (accepted && sub2FinalFreqs[f]) sub2Filtered.push(n);
+                    }
+                    if (sub2Filtered.length === 0) {
+                        sub2Filtered = [...subFiltered];
+                    }
                 }
                 let sub2Hits = d.win.filter(w => sub2Filtered.includes(w)).length;
 
                 // 4. Subescenario 3 (Iteración #4)
-                let sub3CombinedFreq: Record<number, number> = {};
-                poolSizesList.forEach(sz => {
-                    const cfg = sub3Configs[sz];
-                    if (cfg && cfg.enabled) {
-                        const mlPools = mlPoolsMap[sz];
-                        const poolList = [
-                            { id: 'final', nums: mlPools.final },
-                            { id: 'p2', nums: mlPools.p2 },
-                            { id: 'p3', nums: mlPools.p3 },
-                            { id: 'p4', nums: mlPools.p4 },
-                            { id: 'p5', nums: mlPools.p5 },
-                            { id: 'p6', nums: mlPools.p6 },
-                            { id: 'p7', nums: mlPools.p7 }
-                        ];
-                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                        activePoolObjs.forEach(p => {
-                            p.nums.forEach(n => {
-                                if (sub2Filtered.includes(n)) {
-                                    sub3CombinedFreq[n] = (sub3CombinedFreq[n] || 0) + 1;
-                                }
-                            });
-                        });
-                    }
-                });
-
                 let sub3Filtered: number[] = [];
-                for (let n of sub2Filtered) {
-                    let f = sub3CombinedFreq[n] || 0;
-                    let accepted = false;
+                if (!sub3Active) {
+                    sub3Filtered = [...sub2Filtered];
+                } else {
+                    let sub3CombinedFreq: Record<number, number> = {};
                     poolSizesList.forEach(sz => {
-                        if (sub3Configs[sz].enabled && sub3Configs[sz].freqs[f]) {
-                            accepted = true;
+                        const cfg = sub3Configs[sz];
+                        if (cfg && cfg.enabled) {
+                            const mlPools = mlPoolsMap[sz];
+                            const poolList = [
+                                { id: 'final', nums: mlPools.final },
+                                { id: 'p2', nums: mlPools.p2 },
+                                { id: 'p3', nums: mlPools.p3 },
+                                { id: 'p4', nums: mlPools.p4 },
+                                { id: 'p5', nums: mlPools.p5 },
+                                { id: 'p6', nums: mlPools.p6 },
+                                { id: 'p7', nums: mlPools.p7 }
+                            ];
+                            let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                            activePoolObjs.forEach(p => {
+                                p.nums.forEach(n => {
+                                    if (sub2Filtered.includes(n)) {
+                                        sub3CombinedFreq[n] = (sub3CombinedFreq[n] || 0) + 1;
+                                    }
+                                });
+                            });
                         }
                     });
-                    if (accepted && sub3FinalFreqs[f]) sub3Filtered.push(n);
-                }
-                if (sub3Filtered.length === 0) {
-                    sub3Filtered = [...sub2Filtered];
+
+                    for (let n of sub2Filtered) {
+                        let f = sub3CombinedFreq[n] || 0;
+                        let accepted = false;
+                        poolSizesList.forEach(sz => {
+                            if (sub3Configs[sz].enabled && sub3Configs[sz].freqs[f]) {
+                                accepted = true;
+                            }
+                        });
+                        if (accepted && sub3FinalFreqs[f]) sub3Filtered.push(n);
+                    }
+                    if (sub3Filtered.length === 0) {
+                        sub3Filtered = [...sub2Filtered];
+                    }
                 }
                 let sub3Hits = d.win.filter(w => sub3Filtered.includes(w)).length;
 
                 // 5. Subescenario 4 (Iteración #5)
-                let sub4CombinedFreq: Record<number, number> = {};
-                poolSizesList.forEach(sz => {
-                    const cfg = sub4Configs[sz];
-                    if (cfg && cfg.enabled) {
-                        const mlPools = mlPoolsMap[sz];
-                        const poolList = [
-                            { id: 'final', nums: mlPools.final },
-                            { id: 'p2', nums: mlPools.p2 },
-                            { id: 'p3', nums: mlPools.p3 },
-                            { id: 'p4', nums: mlPools.p4 },
-                            { id: 'p5', nums: mlPools.p5 },
-                            { id: 'p6', nums: mlPools.p6 },
-                            { id: 'p7', nums: mlPools.p7 }
-                        ];
-                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                        activePoolObjs.forEach(p => {
-                            p.nums.forEach(n => {
-                                if (sub3Filtered.includes(n)) {
-                                    sub4CombinedFreq[n] = (sub4CombinedFreq[n] || 0) + 1;
-                                }
-                            });
-                        });
-                    }
-                });
-
                 let sub4Filtered: number[] = [];
-                for (let n of sub3Filtered) {
-                    let f = sub4CombinedFreq[n] || 0;
-                    let accepted = false;
+                if (!sub4Active) {
+                    sub4Filtered = [...sub3Filtered];
+                } else {
+                    let sub4CombinedFreq: Record<number, number> = {};
                     poolSizesList.forEach(sz => {
-                        if (sub4Configs[sz].enabled && sub4Configs[sz].freqs[f]) {
-                            accepted = true;
+                        const cfg = sub4Configs[sz];
+                        if (cfg && cfg.enabled) {
+                            const mlPools = mlPoolsMap[sz];
+                            const poolList = [
+                                { id: 'final', nums: mlPools.final },
+                                { id: 'p2', nums: mlPools.p2 },
+                                { id: 'p3', nums: mlPools.p3 },
+                                { id: 'p4', nums: mlPools.p4 },
+                                { id: 'p5', nums: mlPools.p5 },
+                                { id: 'p6', nums: mlPools.p6 },
+                                { id: 'p7', nums: mlPools.p7 }
+                            ];
+                            let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                            activePoolObjs.forEach(p => {
+                                p.nums.forEach(n => {
+                                    if (sub3Filtered.includes(n)) {
+                                        sub4CombinedFreq[n] = (sub4CombinedFreq[n] || 0) + 1;
+                                    }
+                                });
+                            });
                         }
                     });
-                    if (accepted && sub4FinalFreqs[f]) sub4Filtered.push(n);
-                }
-                if (sub4Filtered.length === 0) {
-                    sub4Filtered = [...sub3Filtered];
+
+                    for (let n of sub3Filtered) {
+                        let f = sub4CombinedFreq[n] || 0;
+                        let accepted = false;
+                        poolSizesList.forEach(sz => {
+                            if (sub4Configs[sz].enabled && sub4Configs[sz].freqs[f]) {
+                                accepted = true;
+                            }
+                        });
+                        if (accepted && sub4FinalFreqs[f]) sub4Filtered.push(n);
+                    }
+                    if (sub4Filtered.length === 0) {
+                        sub4Filtered = [...sub3Filtered];
+                    }
                 }
                 let sub4Hits = d.win.filter(w => sub4Filtered.includes(w)).length;
 
                 // 6. Subescenario 5 (Iteración #6)
-                let sub5CombinedFreq: Record<number, number> = {};
-                poolSizesList.forEach(sz => {
-                    const cfg = sub5Configs[sz];
-                    if (cfg && cfg.enabled) {
-                        const mlPools = mlPoolsMap[sz];
-                        const poolList = [
-                            { id: 'final', nums: mlPools.final },
-                            { id: 'p2', nums: mlPools.p2 },
-                            { id: 'p3', nums: mlPools.p3 },
-                            { id: 'p4', nums: mlPools.p4 },
-                            { id: 'p5', nums: mlPools.p5 },
-                            { id: 'p6', nums: mlPools.p6 },
-                            { id: 'p7', nums: mlPools.p7 }
-                        ];
-                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                        activePoolObjs.forEach(p => {
-                            p.nums.forEach(n => {
-                                if (sub4Filtered.includes(n)) {
-                                    sub5CombinedFreq[n] = (sub5CombinedFreq[n] || 0) + 1;
-                                }
-                            });
-                        });
-                    }
-                });
-
-                let sub5PrimaryFiltered: number[] = [];
-                for (let n of sub4Filtered) {
-                    let f = sub5CombinedFreq[n] || 0;
-                    let accepted = false;
+                let sub5Filtered: number[] = [];
+                if (!sub5Active) {
+                    sub5Filtered = [...sub4Filtered];
+                } else {
+                    let sub5CombinedFreq: Record<number, number> = {};
                     poolSizesList.forEach(sz => {
-                        if (sub5Configs[sz].enabled && sub5Configs[sz].freqs[f]) {
-                            accepted = true;
+                        const cfg = sub5Configs[sz];
+                        if (cfg && cfg.enabled) {
+                            const mlPools = mlPoolsMap[sz];
+                            const poolList = [
+                                { id: 'final', nums: mlPools.final },
+                                { id: 'p2', nums: mlPools.p2 },
+                                { id: 'p3', nums: mlPools.p3 },
+                                { id: 'p4', nums: mlPools.p4 },
+                                { id: 'p5', nums: mlPools.p5 },
+                                { id: 'p6', nums: mlPools.p6 },
+                                { id: 'p7', nums: mlPools.p7 }
+                            ];
+                            let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                            activePoolObjs.forEach(p => {
+                                p.nums.forEach(n => {
+                                    if (sub4Filtered.includes(n)) {
+                                        sub5CombinedFreq[n] = (sub5CombinedFreq[n] || 0) + 1;
+                                    }
+                                });
+                            });
                         }
                     });
-                    if (accepted && sub5FinalFreqs[f]) sub5PrimaryFiltered.push(n);
-                }
 
-                let secondaryCandidates = new Set<number>();
-                poolSizesList.forEach(sz => {
-                    const secCfg = sub5SecondaryConfigs[sz];
-                    if (secCfg && secCfg.enabled) {
-                        const mlPools = mlPoolsMap[sz];
-                        const poolList = [
-                            { id: 'final', nums: mlPools.final },
-                            { id: 'p2', nums: mlPools.p2 },
-                            { id: 'p3', nums: mlPools.p3 },
-                            { id: 'p4', nums: mlPools.p4 },
-                            { id: 'p5', nums: mlPools.p5 },
-                            { id: 'p6', nums: mlPools.p6 },
-                            { id: 'p7', nums: mlPools.p7 }
-                        ];
-                        let activeSecPools = poolList.filter(p => secCfg.pools[p.id]);
-                        let secFreqMap: Record<number, number> = {};
-                        activeSecPools.forEach(p => {
-                            p.nums.forEach(n => {
-                                secFreqMap[n] = (secFreqMap[n] || 0) + 1;
-                            });
+                    let sub5PrimaryFiltered: number[] = [];
+                    for (let n of sub4Filtered) {
+                        let f = sub5CombinedFreq[n] || 0;
+                        let accepted = false;
+                        poolSizesList.forEach(sz => {
+                            if (sub5Configs[sz].enabled && sub5Configs[sz].freqs[f]) {
+                                accepted = true;
+                            }
                         });
-                        for (let n = 1; n <= 28; n++) {
-                            let sf = secFreqMap[n] || 0;
-                            if (secCfg.freqs[sf]) {
-                                secondaryCandidates.add(n);
+                        if (accepted && sub5FinalFreqs[f]) sub5PrimaryFiltered.push(n);
+                    }
+
+                    let secondaryCandidates = new Set<number>();
+                    poolSizesList.forEach(sz => {
+                        const secCfg = sub5SecondaryConfigs[sz];
+                        if (secCfg && secCfg.enabled) {
+                            const mlPools = mlPoolsMap[sz];
+                            const poolList = [
+                                { id: 'final', nums: mlPools.final },
+                                { id: 'p2', nums: mlPools.p2 },
+                                { id: 'p3', nums: mlPools.p3 },
+                                { id: 'p4', nums: mlPools.p4 },
+                                { id: 'p5', nums: mlPools.p5 },
+                                { id: 'p6', nums: mlPools.p6 },
+                                { id: 'p7', nums: mlPools.p7 }
+                            ];
+                            let activeSecPools = poolList.filter(p => secCfg.pools[p.id]);
+                            let secFreqMap: Record<number, number> = {};
+                            activeSecPools.forEach(p => {
+                                p.nums.forEach(n => {
+                                    secFreqMap[n] = (secFreqMap[n] || 0) + 1;
+                                });
+                            });
+                            for (let n = 1; n <= 28; n++) {
+                                let sf = secFreqMap[n] || 0;
+                                if (secCfg.freqs[sf]) {
+                                    secondaryCandidates.add(n);
+                                }
                             }
                         }
+                    });
+
+                    let mergedSet = new Set([...sub5PrimaryFiltered]);
+                    let sortedSec = Array.from(secondaryCandidates).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+                    for (let n of sortedSec) {
+                        if (mergedSet.size >= 15) break;
+                        mergedSet.add(n);
                     }
-                });
 
-                let mergedSet = new Set([...sub5PrimaryFiltered]);
-                let sortedSec = Array.from(secondaryCandidates).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
-                for (let n of sortedSec) {
-                    if (mergedSet.size >= 15) break;
-                    mergedSet.add(n);
-                }
+                    sub5Filtered = Array.from(mergedSet).sort((a, b) => {
+                        let scoreA = (sub5CombinedFreq[a] || 0) * 3 + getNumberScore(a, histDraws) * 0.15;
+                        let scoreB = (sub5CombinedFreq[b] || 0) * 3 + getNumberScore(b, histDraws) * 0.15;
+                        if (scoreB !== scoreA) return scoreB - scoreA;
+                        return a - b;
+                    });
 
-                let sub5Filtered = Array.from(mergedSet).sort((a, b) => {
-                    let scoreA = (sub5CombinedFreq[a] || 0) * 3 + getNumberScore(a, histDraws) * 0.15;
-                    let scoreB = (sub5CombinedFreq[b] || 0) * 3 + getNumberScore(b, histDraws) * 0.15;
-                    if (scoreB !== scoreA) return scoreB - scoreA;
-                    return a - b;
-                });
-
-                if (sub5Filtered.length > 16 || sub5Filtered.length < 8) {
-                    sub5Filtered = sub5Filtered.slice(0, 15);
-                } else if (sub5Filtered.length === 0) {
-                    sub5Filtered = [...sub4Filtered].slice(0, 12);
+                    if (sub5Filtered.length > 16 || sub5Filtered.length < 8) {
+                        sub5Filtered = sub5Filtered.slice(0, 15);
+                    } else if (sub5Filtered.length === 0) {
+                        sub5Filtered = [...sub4Filtered].slice(0, 12);
+                    }
                 }
                 let sub5Hits = d.win.filter(w => sub5Filtered.includes(w)).length;
 
@@ -3210,6 +3450,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             });
             setSimResults(res);
             setIsSimulating(false);
+            showLocToast('🔔 Simulación por Iteraciones completada con éxito.');
         }, 100);
     }
 
@@ -3297,6 +3538,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             });
             setSimBResults(res);
             setIsSimBRunning(false);
+            showLocToast('🔔 Simulador B completada con éxito.');
 
             // Automatic pool size adjustment logic if average hits over last 30 draws < 3.0
             const avgHits = res.reduce((acc, r) => acc + r.hits, 0) / Math.max(1, res.length);
@@ -3328,26 +3570,113 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         }, 100);
     }
 
-    useEffect(() => {
-        if (activeTab === 'simulatorB' && simBResults.length === 0) {
-            runSimB();
-        }
-    }, [activeTab]);
+
 
     function optimizeSimB() {
-        React.startTransition(() => {
-            const optConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
-            [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
-                const isEnabled = [12, 18, 21, 27].includes(sz);
-                optConfigs[sz] = {
-                    enabled: isEnabled,
-                    pools: { final: true, p2: true, p3: false, p4: true, p5: false, p6: true, p7: false },
-                    freqs: { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
-                };
+        const optFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+        const optFinalFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+        
+        let targetIdx = allDraws.length - 1;
+        if (selectedTargetDrawNum > 0) {
+            const idx = allDraws.findIndex(d => d.num === selectedTargetDrawNum);
+            if (idx >= 0) targetIdx = idx;
+        }
+        const startIdx = Math.max(0, targetIdx - 29);
+        const draws30 = allDraws.slice(startIdx, targetIdx + 1).reverse();
+        const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
+
+        const candidateProfiles: {
+            name: string;
+            configs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>;
+            finalFreqs: Record<number, boolean>;
+        }[] = [
+            {
+                name: "Perfil Óptimo Core + Co-occur",
+                configs: {
+                    9: makeCfg(true, pCore, optFreqs),
+                    12: makeCfg(true, pStandard, optFreqs),
+                    15: makeCfg(true, pMatrix, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                },
+                finalFreqs: optFinalFreqs
+            },
+            {
+                name: "Perfil Óptimo Reversión Pro",
+                configs: {
+                    9: makeCfg(false, pCore, optFreqs),
+                    12: makeCfg(true, pReversion, optFreqs),
+                    15: makeCfg(true, pMatrix, optFreqs),
+                    18: makeCfg(true, pReversion, optFreqs),
+                    21: makeCfg(true, pMatrix, optFreqs),
+                    24: makeCfg(true, pStandard, optFreqs),
+                    27: makeCfg(true, pMatrix, optFreqs)
+                },
+                finalFreqs: optFinalFreqs
+            }
+        ];
+
+        let bestScore = -1;
+        let bestProfile = candidateProfiles[0];
+
+        candidateProfiles.forEach(prof => {
+            let score = 0;
+            draws30.forEach(d => {
+                const histIdx = allDraws.findIndex(x => x.num === d.num);
+                const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+                const mlPoolsMap: Record<number, PoolResult> = {};
+                poolSizesList.forEach(sz => {
+                    mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
+                });
+                let combinedFreq: Record<number, number> = {};
+                poolSizesList.forEach(sz => {
+                    const cfg = prof.configs[sz];
+                    if (cfg && cfg.enabled) {
+                        const mlPools = mlPoolsMap[sz];
+                        const poolList = [
+                            { id: 'final', nums: mlPools.final },
+                            { id: 'p2', nums: mlPools.p2 },
+                            { id: 'p3', nums: mlPools.p3 },
+                            { id: 'p4', nums: mlPools.p4 },
+                            { id: 'p5', nums: mlPools.p5 },
+                            { id: 'p6', nums: mlPools.p6 },
+                            { id: 'p7', nums: mlPools.p7 }
+                        ];
+                        let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                        activePoolObjs.forEach(p => {
+                            p.nums.forEach(n => {
+                                combinedFreq[n] = (combinedFreq[n] || 0) + 1;
+                            });
+                        });
+                    }
+                });
+                let filtered: number[] = [];
+                for (let n = 1; n <= 28; n++) {
+                    let f = combinedFreq[n] || 0;
+                    let accepted = false;
+                    poolSizesList.forEach(sz => {
+                        if (prof.configs[sz]?.enabled && prof.configs[sz].freqs[f]) accepted = true;
+                    });
+                    if (accepted && prof.finalFreqs[f]) filtered.push(n);
+                }
+                let hits = d.win.filter(w => filtered.includes(w)).length;
+                if (hits === 5) score += 12;
+                else if (hits === 4) score += 6;
+                else if (hits === 3) score += 2;
+                else score -= 1;
             });
-            setSimBConfigs(optConfigs);
-            setSimBFinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
-            showLocToast("¡Simulador B optimizado para los últimos 30 sorteos!");
+            if (score > bestScore) {
+                bestScore = score;
+                bestProfile = prof;
+            }
+        });
+
+        React.startTransition(() => {
+            setSimBConfigs(bestProfile.configs);
+            setSimBFinalFreqs(bestProfile.finalFreqs);
+            showLocToast(`⚡ ¡Simulador B optimizado (${bestProfile.name})! Maximizando 4 y 5 aciertos.`);
         });
         runSimB();
     }
@@ -3419,33 +3748,79 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 <div className="p-4 space-y-4">
                     {activeTab === 'simulator' ? (
                         <div className="space-y-4">
-                            {/* Target Draw Selector Bar */}
-                            <div className="flex items-center justify-between flex-wrap gap-2 bg-[#181818] border border-[#333] rounded-xl p-3">
+                            {/* Target Draw Selector Bar & Run Options (Sticky Header) */}
+                            <div className="sticky top-0 z-30 bg-[#181818] border border-[#333] rounded-xl p-3 flex items-center justify-between flex-wrap gap-2 shadow-2xl">
                                 <div>
-                                    <div className="text-[11px] font-black text-[#ffeb3b]">Selector de Sorteo a Analizar</div>
-                                    <div className="text-[9px] text-[#888]">Por defecto analiza el próximo sorteo en vivo, o selecciona cualquiera de los 20 sorteos pasados.</div>
+                                    <div className="text-[11px] font-black text-[#ffeb3b]">Simulador por Iteraciones - Selector de Sorteo y Ejecución</div>
+                                    <div className="text-[9px] text-[#888]">Configura las iteraciones, pool sizes y frecuencias, y corre la simulación en cualquier momento.</div>
                                 </div>
-                                <select 
-                                    value={selectedTargetDrawNum} 
-                                    onChange={(e) => setSelectedTargetDrawNum(parseInt(e.target.value))}
-                                    className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
-                                >
-                                    <option value={0}>Próximo Sorteo a Realizarse (En Vivo)</option>
-                                    {allDraws.slice(-20).map(d => (
-                                        <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
-                                    ))}
-                                </select>
+                                <div className="flex items-center gap-2 flex-wrap">
+
+                                    <select 
+                                        value={selectedTargetDrawNum} 
+                                        onChange={(e) => setSelectedTargetDrawNum(parseInt(e.target.value))}
+                                        className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
+                                    >
+                                        <option value={0}>Próximo Sorteo a Realizarse (En Vivo)</option>
+                                        {allDraws.slice(-20).reverse().map(d => (
+                                            <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
+                                        ))}
+                                    </select>
+                                    <select 
+                                        onChange={(e) => handleLoadIterativeRecipe(e.target.value)}
+                                        className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer"
+                                        defaultValue=""
+                                    >
+                                        <option value="" disabled>📂 Cargar Receta...</option>
+                                        {customRecipes.filter(r => r.simulatorType === 'simulator').map(r => (
+                                            <option key={r.id} value={r.id}>{r.name} ({r.timestamp})</option>
+                                        ))}
+                                    </select>
+                                    <button 
+                                        onClick={optimizeStatisticalSimulator}
+                                        className="bg-[#00e5ff] text-black hover:bg-[#00d0eb] px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
+                                    >
+                                        ⚡ Optimizar (30 Sorteos)
+                                    </button>
+                                    <button 
+                                        onClick={runSimulation}
+                                        disabled={isSimulating}
+                                        className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-4 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
+                                    >
+                                        🚀 {isSimulating ? 'Simulando...' : 'Correr Simulación (30 Sorteos)'}
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowSaveRecipeModal(true)}
+                                        className="bg-[#2e7d32] text-white px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md flex items-center gap-1"
+                                        title="Guardar receta (requiere palabra clave keep)"
+                                    >
+                                        💾 Guardar Receta
+                                    </button>
+                                </div>
                             </div>
 
                             {/* ESCENARIO MADRE (ITERACIÓN #1) - Simplified Collapsed View by Default */}
-                            <div className="bg-[#181818] border border-[#00e5ff]/40 rounded-xl p-3 shadow-[0_0_10px_rgba(0,229,255,0.1)]">
+                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${madreActive ? 'border-[#00e5ff]/40 shadow-[0_0_10px_rgba(0,229,255,0.1)]' : 'border-[#333] opacity-65'}`}>
                                 <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <h3 className="text-[12px] font-black text-[#00e5ff]">Escenario Madre (Iteración #1) — Alta Eficiencia</h3>
-                                        <p className="text-[9px] text-[#888]">
-                                            {selectedTargetDrawNum === 0 ? 'Predicción para el Próximo Sorteo' : `Análisis sobre Sorteo #${selectedTargetDrawNum}`} | {liveTargetResult.motherFiltered.length} Números Resultantes
-                                            {liveTargetResult.hitsMadre !== null && ` | Aciertos: ${liveTargetResult.hitsMadre} ac`}
-                                        </p>
+                                    <div className="flex items-center gap-2.5">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={madreActive} 
+                                                onChange={(e) => setMadreActive(e.target.checked)}
+                                                className="cursor-pointer accent-[#00e5ff]"
+                                            />
+                                            <span style={{color: madreActive ? '#00e5ff' : '#888'}}>
+                                                {madreActive ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
+                                            </span>
+                                        </label>
+                                        <div>
+                                            <h3 className="text-[12px] font-black text-[#00e5ff]">Escenario Madre (Iteración #1) — Alta Eficiencia</h3>
+                                            <p className="text-[9px] text-[#888]">
+                                                {selectedTargetDrawNum === 0 ? 'Predicción para el Próximo Sorteo' : `Análisis sobre Sorteo #${selectedTargetDrawNum}`} | {liveTargetResult.motherFiltered.length} Números Resultantes
+                                                {liveTargetResult.hitsMadre !== null && ` | Aciertos: ${liveTargetResult.hitsMadre} ac`}
+                                            </p>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => setMadreExpanded(!madreExpanded)}
@@ -3482,21 +3857,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
-                                <div className="bg-[#141414] border border-[#00e5ff]/40 rounded-xl p-3 mb-3">
-                                    <div className="text-[11px] font-black text-[#00e5ff] mb-1">🎯 Selector de Frecuencias Finales (Escenario Madre):</div>
-                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                            const fActive = madreFinalFreqs[f];
-                                            return (
-                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#00e5ff]/25 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                    <input type="checkbox" checked={fActive} onChange={(e) => setMadreFinalFreqs({...madreFinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                    <span>F{f}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+
 
                                 {madreExpanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
@@ -3602,14 +3963,27 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             {/* ========================================================= */}
                             {/* SUBESCENARIO 1 (ITERACIÓN #2) - Simplified Collapsed View  */}
                             {/* ========================================================= */}
-                            <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(255,235,59,0.1)]">
+                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub1Active ? 'border-[#ffeb3b]/40 shadow-[0_0_12px_rgba(255,235,59,0.1)]' : 'border-[#333] opacity-65'}`}>
                                 <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <h3 className="text-[12px] font-black text-[#ffeb3b]">Subescenario 1 (Iteración #2) — Reducción ~30%</h3>
-                                        <p className="text-[9px] text-[#888]">
-                                            Entrada: Madre ({liveTargetResult.motherFiltered.length}#) → Sub1 ({liveTargetResult.subFiltered.length}#) | Reducción: -{liveTargetResult.redPct}%
-                                            {liveTargetResult.hitsSub1 !== null && ` | Aciertos: ${liveTargetResult.hitsSub1} ac`}
-                                        </p>
+                                    <div className="flex items-center gap-2.5">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={sub1Active} 
+                                                onChange={(e) => setSub1Active(e.target.checked)}
+                                                className="cursor-pointer accent-[#ffeb3b]"
+                                            />
+                                            <span style={{color: sub1Active ? '#ffeb3b' : '#888'}}>
+                                                {sub1Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
+                                            </span>
+                                        </label>
+                                        <div>
+                                            <h3 className="text-[12px] font-black text-[#ffeb3b]">Subescenario 1 (Iteración #2) — Reducción ~30%</h3>
+                                            <p className="text-[9px] text-[#888]">
+                                                Entrada: Madre ({liveTargetResult.motherFiltered.length}#) → Sub1 ({liveTargetResult.subFiltered.length}#) | Reducción: -{liveTargetResult.redPct}%
+                                                {liveTargetResult.hitsSub1 !== null && ` | Aciertos: ${liveTargetResult.hitsSub1} ac`}
+                                            </p>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => setSub1Expanded(!sub1Expanded)}
@@ -3646,21 +4020,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
-                                <div className="bg-[#141414] border border-[#ffeb3b]/40 rounded-xl p-3 mb-3">
-                                    <div className="text-[11px] font-black text-[#ffeb3b] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 1):</div>
-                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                            const fActive = sub1FinalFreqs[f];
-                                            return (
-                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub1FinalFreqs({...sub1FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                    <span>F{f}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+
 
                                 {sub1Expanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
@@ -3751,14 +4111,27 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             {/* ========================================================= */}
                             {/* SUBESCENARIO 2 (ITERACIÓN #3) - Simplified Collapsed View  */}
                             {/* ========================================================= */}
-                            <div className="bg-[#181818] border border-[#7c4dff]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(124,77,255,0.1)]">
+                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub2Active ? 'border-[#7c4dff]/40 shadow-[0_0_12px_rgba(124,77,255,0.1)]' : 'border-[#333] opacity-65'}`}>
                                 <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <h3 className="text-[12px] font-black text-[#b388ff]">Subescenario 2 (Iteración #3) — Promedio ~21 Números</h3>
-                                        <p className="text-[9px] text-[#888]">
-                                            Entrada: Sub1 ({liveTargetResult.subFiltered.length}#) → Sub2 ({liveTargetResult.sub2Filtered.length}#) | Reducción: -{liveTargetResult.red2Pct}%
-                                            {liveTargetResult.hitsSub2 !== null && ` | Aciertos: ${liveTargetResult.hitsSub2} ac`}
-                                        </p>
+                                    <div className="flex items-center gap-2.5">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={sub2Active} 
+                                                onChange={(e) => setSub2Active(e.target.checked)}
+                                                className="cursor-pointer accent-[#b388ff]"
+                                            />
+                                            <span style={{color: sub2Active ? '#b388ff' : '#888'}}>
+                                                {sub2Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
+                                            </span>
+                                        </label>
+                                        <div>
+                                            <h3 className="text-[12px] font-black text-[#b388ff]">Subescenario 2 (Iteración #3) — Promedio ~21 Números</h3>
+                                            <p className="text-[9px] text-[#888]">
+                                                Entrada: Sub1 ({liveTargetResult.subFiltered.length}#) → Sub2 ({liveTargetResult.sub2Filtered.length}#) | Reducción: -{liveTargetResult.red2Pct}%
+                                                {liveTargetResult.hitsSub2 !== null && ` | Aciertos: ${liveTargetResult.hitsSub2} ac`}
+                                            </p>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => setSub2Expanded(!sub2Expanded)}
@@ -3795,21 +4168,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
-                                <div className="bg-[#141414] border border-[#7c4dff]/40 rounded-xl p-3 mb-3">
-                                    <div className="text-[11px] font-black text-[#b388ff] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 2):</div>
-                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                            const fActive = sub2FinalFreqs[f];
-                                            return (
-                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#7c4dff]/25 border-[#7c4dff] text-[#b388ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub2FinalFreqs({...sub2FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                    <span>F{f}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+
 
                                 {sub2Expanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
@@ -3900,14 +4259,27 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             {/* ========================================================= */}
                             {/* SUBESCENARIO 3 (ITERACIÓN #4) - Simplified Collapsed View  */}
                             {/* ========================================================= */}
-                            <div className="bg-[#181818] border border-[#26c6da]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(38,198,218,0.1)]">
+                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub3Active ? 'border-[#26c6da]/40 shadow-[0_0_12px_rgba(38,198,218,0.1)]' : 'border-[#333] opacity-65'}`}>
                                 <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <h3 className="text-[12px] font-black text-[#26c6da]">Subescenario 3 (Iteración #4) — Promedio ~18 Números</h3>
-                                        <p className="text-[9px] text-[#888]">
-                                            Entrada: Sub2 ({liveTargetResult.sub2Filtered.length}#) → Sub3 ({liveTargetResult.sub3Filtered.length}#) | Reducción: -{liveTargetResult.red3Pct}%
-                                            {liveTargetResult.hitsSub3 !== null && ` | Aciertos: ${liveTargetResult.hitsSub3} ac`}
-                                        </p>
+                                    <div className="flex items-center gap-2.5">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={sub3Active} 
+                                                onChange={(e) => setSub3Active(e.target.checked)}
+                                                className="cursor-pointer accent-[#26c6da]"
+                                            />
+                                            <span style={{color: sub3Active ? '#26c6da' : '#888'}}>
+                                                {sub3Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
+                                            </span>
+                                        </label>
+                                        <div>
+                                            <h3 className="text-[12px] font-black text-[#26c6da]">Subescenario 3 (Iteración #4) — Promedio ~18 Números</h3>
+                                            <p className="text-[9px] text-[#888]">
+                                                Entrada: Sub2 ({liveTargetResult.sub2Filtered.length}#) → Sub3 ({liveTargetResult.sub3Filtered.length}#) | Reducción: -{liveTargetResult.red3Pct}%
+                                                {liveTargetResult.hitsSub3 !== null && ` | Aciertos: ${liveTargetResult.hitsSub3} ac`}
+                                            </p>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => setSub3Expanded(!sub3Expanded)}
@@ -3944,21 +4316,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
-                                <div className="bg-[#141414] border border-[#26c6da]/40 rounded-xl p-3 mb-3">
-                                    <div className="text-[11px] font-black text-[#26c6da] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 3):</div>
-                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                            const fActive = sub3FinalFreqs[f];
-                                            return (
-                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#26c6da]/25 border-[#26c6da] text-[#26c6da]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub3FinalFreqs({...sub3FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                    <span>F{f}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+
 
                                 {sub3Expanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
@@ -4049,14 +4407,27 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             {/* ========================================================= */}
                             {/* SUBESCENARIO 4 (ITERACIÓN #5) - Simplified Collapsed View  */}
                             {/* ========================================================= */}
-                            <div className="bg-[#181818] border border-[#e040fb]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(224,64,251,0.1)]">
+                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub4Active ? 'border-[#e040fb]/40 shadow-[0_0_12px_rgba(224,64,251,0.1)]' : 'border-[#333] opacity-65'}`}>
                                 <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <h3 className="text-[12px] font-black text-[#e040fb]">Subescenario 4 (Iteración #5) — Promedio ~15 Números</h3>
-                                        <p className="text-[9px] text-[#888]">
-                                            Entrada: Sub3 ({liveTargetResult.sub3Filtered.length}#) → Sub4 ({liveTargetResult.sub4Filtered.length}#) | Reducción: -{liveTargetResult.red4Pct}%
-                                            {liveTargetResult.hitsSub4 !== null && ` | Aciertos: ${liveTargetResult.hitsSub4} ac`}
-                                        </p>
+                                    <div className="flex items-center gap-2.5">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={sub4Active} 
+                                                onChange={(e) => setSub4Active(e.target.checked)}
+                                                className="cursor-pointer accent-[#e040fb]"
+                                            />
+                                            <span style={{color: sub4Active ? '#e040fb' : '#888'}}>
+                                                {sub4Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
+                                            </span>
+                                        </label>
+                                        <div>
+                                            <h3 className="text-[12px] font-black text-[#e040fb]">Subescenario 4 (Iteración #5) — Promedio ~15 Números</h3>
+                                            <p className="text-[9px] text-[#888]">
+                                                Entrada: Sub3 ({liveTargetResult.sub3Filtered.length}#) → Sub4 ({liveTargetResult.sub4Filtered.length}#) | Reducción: -{liveTargetResult.red4Pct}%
+                                                {liveTargetResult.hitsSub4 !== null && ` | Aciertos: ${liveTargetResult.hitsSub4} ac`}
+                                            </p>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => setSub4Expanded(!sub4Expanded)}
@@ -4093,21 +4464,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
-                                <div className="bg-[#141414] border border-[#e040fb]/40 rounded-xl p-3 mb-3">
-                                    <div className="text-[11px] font-black text-[#e040fb] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 4):</div>
-                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                            const fActive = sub4FinalFreqs[f];
-                                            return (
-                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#e040fb]/25 border-[#e040fb] text-[#e040fb]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub4FinalFreqs({...sub4FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                    <span>F{f}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+
 
                                 {sub4Expanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
@@ -4198,14 +4555,27 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             {/* ========================================================= */}
                             {/* SUBESCENARIO 5 (ITERACIÓN #6) - Simplified Collapsed View  */}
                             {/* ========================================================= */}
-                            <div className="bg-[#181818] border border-[#00e676]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(0,230,118,0.1)]">
+                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub5Active ? 'border-[#00e676]/40 shadow-[0_0_12px_rgba(0,230,118,0.1)]' : 'border-[#333] opacity-65'}`}>
                                 <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <h3 className="text-[12px] font-black text-[#00e676]">Subescenario 5 (Iteración #6) — Promedio ~12 Números</h3>
-                                        <p className="text-[9px] text-[#888]">
-                                            Entrada: Sub4 ({liveTargetResult.sub4Filtered.length}#) → Sub5 ({liveTargetResult.sub5Filtered.length}#) | Reducción: -{liveTargetResult.red5Pct}%
-                                            {liveTargetResult.hitsSub5 !== null && ` | Aciertos: ${liveTargetResult.hitsSub5} ac`}
-                                        </p>
+                                    <div className="flex items-center gap-2.5">
+                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={sub5Active} 
+                                                onChange={(e) => setSub5Active(e.target.checked)}
+                                                className="cursor-pointer accent-[#00e676]"
+                                            />
+                                            <span style={{color: sub5Active ? '#00e676' : '#888'}}>
+                                                {sub5Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
+                                            </span>
+                                        </label>
+                                        <div>
+                                            <h3 className="text-[12px] font-black text-[#00e676]">Subescenario 5 (Iteración #6) — Promedio ~12 Números</h3>
+                                            <p className="text-[9px] text-[#888]">
+                                                Entrada: Sub4 ({liveTargetResult.sub4Filtered.length}#) → Sub5 ({liveTargetResult.sub5Filtered.length}#) | Reducción: -{liveTargetResult.red5Pct}%
+                                                {liveTargetResult.hitsSub5 !== null && ` | Aciertos: ${liveTargetResult.hitsSub5} ac`}
+                                            </p>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={() => setSub5Expanded(!sub5Expanded)}
@@ -4242,21 +4612,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                 </div>
 
-                                <div className="bg-[#141414] border border-[#00e676]/40 rounded-xl p-3 mb-3">
-                                    <div className="text-[11px] font-black text-[#00e676] mb-1">🎯 Selector de Frecuencias Finales (Subescenario 5):</div>
-                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                            const fActive = sub5FinalFreqs[f];
-                                            return (
-                                                <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#00e676]/25 border-[#00e676] text-[#00e676]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                    <input type="checkbox" checked={fActive} onChange={(e) => setSub5FinalFreqs({...sub5FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                    <span>F{f}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+
 
                                 {sub5Expanded && (
                                     <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
@@ -4439,114 +4795,9 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 )}
                             </div>
 
-                                                        <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-4 shadow-lg space-y-4">
-                                <div className="text-[12px] font-black text-[#ffeb3b]">🎯 Selectores de Frecuencias Finales por Iteración:</div>
-                                <div className="text-[9px] text-[#888]">Configura el filtro de frecuencias finales para cada una de las 6 iteraciones del Simulador Estadístico de acuerdo a sus pool sizes.</div>
+                            
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {/* 1. Madre */}
-                                    <div className="bg-[#141414] border border-[#00e5ff]/40 rounded-lg p-2.5">
-                                        <div className="text-[10px] font-black text-[#00e5ff] mb-1">Escenario Madre (Iteración #1)</div>
-                                        <div className="flex gap-1 flex-wrap">
-                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                const fActive = madreFinalFreqs[f];
-                                                return (
-                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#00e5ff]/25 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                        <input type="checkbox" checked={fActive} onChange={(e) => setMadreFinalFreqs({...madreFinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                        <span>F{f}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
 
-                                    {/* 2. Sub1 */}
-                                    <div className="bg-[#141414] border border-[#ffeb3b]/40 rounded-lg p-2.5">
-                                        <div className="text-[10px] font-black text-[#ffeb3b] mb-1">Subescenario 1 (Iteración #2)</div>
-                                        <div className="flex gap-1 flex-wrap">
-                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                const fActive = sub1FinalFreqs[f];
-                                                return (
-                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub1FinalFreqs({...sub1FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                        <span>F{f}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* 3. Sub2 */}
-                                    <div className="bg-[#141414] border border-[#7c4dff]/40 rounded-lg p-2.5">
-                                        <div className="text-[10px] font-black text-[#b388ff] mb-1">Subescenario 2 (Iteración #3)</div>
-                                        <div className="flex gap-1 flex-wrap">
-                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                const fActive = sub2FinalFreqs[f];
-                                                return (
-                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#7c4dff]/25 border-[#7c4dff] text-[#b388ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub2FinalFreqs({...sub2FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                        <span>F{f}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* 4. Sub3 */}
-                                    <div className="bg-[#141414] border border-[#26c6da]/40 rounded-lg p-2.5">
-                                        <div className="text-[10px] font-black text-[#26c6da] mb-1">Subescenario 3 (Iteración #4)</div>
-                                        <div className="flex gap-1 flex-wrap">
-                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                const fActive = sub3FinalFreqs[f];
-                                                return (
-                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#26c6da]/25 border-[#26c6da] text-[#26c6da]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub3FinalFreqs({...sub3FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                        <span>F{f}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* 5. Sub4 */}
-                                    <div className="bg-[#141414] border border-[#e040fb]/40 rounded-lg p-2.5">
-                                        <div className="text-[10px] font-black text-[#e040fb] mb-1">Subescenario 4 (Iteración #5)</div>
-                                        <div className="flex gap-1 flex-wrap">
-                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                const fActive = sub4FinalFreqs[f];
-                                                return (
-                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#e040fb]/25 border-[#e040fb] text-[#e040fb]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub4FinalFreqs({...sub4FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                        <span>F{f}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* 6. Sub5 */}
-                                    <div className="bg-[#141414] border border-[#00e676]/40 rounded-lg p-2.5">
-                                        <div className="text-[10px] font-black text-[#00e676] mb-1">Subescenario 5 (Iteración #6)</div>
-                                        <div className="flex gap-1 flex-wrap">
-                                            {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                const fActive = sub5FinalFreqs[f];
-                                                return (
-                                                    <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#00e676]/25 border-[#00e676] text-[#00e676]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                        <input type="checkbox" checked={fActive} onChange={(e) => setSub5FinalFreqs({...sub5FinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                        <span>F{f}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end pt-2">
-                                <button onClick={runSimulation} className="bg-[#ffeb3b] text-black px-6 py-2 rounded-xl text-[11px] font-extrabold cursor-pointer hover:bg-[#fdd835] shadow-lg transition">
-                                    {isSimulating ? 'Simulando...' : '▶ Ejecutar Backtesting Completo sobre los 20 Sorteos Pasados'}
-                                </button>
-                            </div>
 
 
 
@@ -4760,28 +5011,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     <div className="text-[9px] text-[#888]">Configura los pool sizes, pools y frecuencias, y corre la simulación en cualquier momento.</div>
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <button
-                                        onClick={() => {
-                                            React.startTransition(() => {
-                                                const defaultConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
-                                                [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
-                                                    const isEnabled = [12, 18, 21, 27].includes(sz);
-                                                    defaultConfigs[sz] = {
-                                                        enabled: isEnabled,
-                                                        pools: { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
-                                                        freqs: { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
-                                                    };
-                                                });
-                                                setSimBConfigs(defaultConfigs);
-                                                setSimBFinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
-                                                showLocToast("¡Configuración de Simulador B restablecida a alto rendimiento (4-5 aciertos)!");
-                                            });
-                                        }}
-                                        className="bg-[#222] border border-[#ff5252]/50 text-[#ff5252] hover:bg-[#ff5252]/20 px-3 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer transition flex items-center gap-1 shadow-sm"
-                                        title="Restablecer configuración óptima por defecto"
-                                    >
-                                        🔄 Restablecer Configuración
-                                    </button>
+
                                     <select 
                                         value={selectedTargetDrawNum} 
                                         onChange={(e) => {
@@ -4825,7 +5055,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                         className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-3 py-1.5 text-[11px] font-black cursor-pointer shadow-sm"
                                     >
                                         <option value={0}>Próximo Sorteo a Realizarse (En Vivo)</option>
-                                        {allDraws.slice(-20).map(d => (
+                                        {allDraws.slice(-20).reverse().map(d => (
                                             <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
                                         ))}
                                     </select>
@@ -4844,6 +5074,16 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     >
                                         {isSimBRunning ? 'Simulando...' : '🚀 Correr Simulación B (30 Sorteos)'}
                                     </button>
+                                    <select 
+                                        onChange={(e) => handleLoadSimBRecipe(e.target.value)}
+                                        className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2.5 py-1.5 text-[10px] font-bold cursor-pointer"
+                                        defaultValue=""
+                                    >
+                                        <option value="" disabled>📂 Cargar Receta...</option>
+                                        {customRecipes.filter(r => !r.simulatorType || r.simulatorType === 'simulatorB').map(r => (
+                                            <option key={r.id} value={r.id}>{r.name} ({r.timestamp})</option>
+                                        ))}
+                                    </select>
                                     <button
                                         onClick={() => setShowSaveRecipeModal(true)}
                                         className="bg-[#2e7d32] text-white px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md flex items-center gap-1"
@@ -5056,8 +5296,6 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 <b className="text-[13px] text-[#76ff03]">💾 Guardar Nueva Receta Optimizada</b>
                                 <button onClick={() => setShowSaveRecipeModal(false)} className="text-[#888] hover:text-white text-[14px]">×</button>
                             </div>
-                            <p className="text-[10px] text-[#aaa]">Guarda tu configuración actual para consulta posterior. Para confirmar, ingresa la palabra clave <code className="text-[#ffeb3b] font-mono">keep</code>.</p>
-                            
                             <div className="space-y-2">
                                 <div>
                                     <label className="text-[9px] font-bold text-[#aaa] mb-1 block">Nombre de la Receta:</label>
@@ -5074,7 +5312,6 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                         type="text"
                                         value={recipeKeyword}
                                         onChange={(e) => setRecipeKeyword(e.target.value)}
-                                        placeholder="Escribe 'keep' para guardar..."
                                         className="w-full bg-[#121212] border border-[#333] rounded-lg p-2 text-[11px] text-[#ffeb3b] font-mono focus:outline-none focus:border-[#76ff03]"
                                     />
                                 </div>
@@ -5082,7 +5319,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                             <div className="flex justify-end gap-2 pt-2">
                                 <button onClick={() => setShowSaveRecipeModal(false)} className="bg-[#222] border border-[#444] text-[#aaa] px-3 py-1.5 rounded-lg text-[10px] cursor-pointer">Cancelar</button>
-                                <button onClick={handleSaveCustomRecipe} className="bg-[#2e7d32] text-white px-4 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer hover:bg-[#1b5e20]">Guardar (keep)</button>
+                                <button onClick={handleSaveCustomRecipe} className="bg-[#2e7d32] text-white px-4 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer hover:bg-[#1b5e20]">Guardar</button>
                             </div>
                         </div>
                     </div>
