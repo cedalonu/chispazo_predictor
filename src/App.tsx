@@ -1,7 +1,100 @@
 import React, { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { GoogleGenAI } from '@google/genai';
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
+
+function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: number; date: string }[] }) {
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    if (!data || data.length === 0) return null;
+
+    const width = 600;
+    const height = 220;
+    const padding = { top: 20, right: 35, bottom: 30, left: 35 };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+
+    const maxCount = 28;
+    const maxHits = 5;
+
+    const dx = chartW / (data.length - 1 || 1);
+    const barWidth = Math.max(2, (chartW / data.length) * 0.6);
+
+    const linePoints = data.map((d, i) => {
+        const x = padding.left + i * dx;
+        const y = padding.top + chartH - (d.hits / maxHits) * chartH;
+        return { x, y, ...d };
+    });
+
+    const pathData = linePoints.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+
+    return (
+        <div className="relative w-full h-[240px] select-none">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+                {[0, 1, 2, 3, 4, 5].map(h => {
+                    const y = padding.top + chartH - (h / maxHits) * chartH;
+                    return (
+                        <g key={h}>
+                            <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#262626" strokeDasharray="3 3" />
+                            <text x={width - padding.right + 6} y={y + 3} fill="#888" fontSize="8" textAnchor="start">{h} ac</text>
+                        </g>
+                    );
+                })}
+                {data.map((d, i) => {
+                    const x = padding.left + i * dx - barWidth / 2;
+                    const barH = (d.count / maxCount) * chartH;
+                    const y = padding.top + chartH - barH;
+                    return (
+                        <rect
+                            key={i}
+                            x={x}
+                            y={y}
+                            width={barWidth}
+                            height={barH}
+                            fill="#00e5ff"
+                            opacity={hoveredIndex === i ? 0.9 : 0.5}
+                            rx={2}
+                            onMouseEnter={() => setHoveredIndex(i)}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                            className="transition-opacity cursor-pointer"
+                        />
+                    );
+                })}
+                <path d={pathData} fill="none" stroke="#ffeb3b" strokeWidth="2.5" />
+                {linePoints.map((p, i) => (
+                    <circle
+                        key={i}
+                        cx={p.x}
+                        cy={p.y}
+                        r={hoveredIndex === i ? 5 : 3}
+                        fill="#ffeb3b"
+                        stroke="#121212"
+                        strokeWidth="1.5"
+                        onMouseEnter={() => setHoveredIndex(i)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                        className="cursor-pointer transition-all"
+                    />
+                ))}
+                {data.map((d, i) => {
+                    if (i % Math.ceil(data.length / 8) === 0 || i === data.length - 1) {
+                        const x = padding.left + i * dx;
+                        return (
+                            <text key={i} x={x} y={height - 8} fill="#888" fontSize="8" textAnchor="middle">
+                                {d.draw}
+                            </text>
+                        );
+                    }
+                    return null;
+                })}
+            </svg>
+            {hoveredIndex !== null && (
+                <div className="absolute top-2 right-2 bg-[#181818] border border-[#333] p-2 rounded-lg text-[10px] shadow-xl pointer-events-none z-25 text-white">
+                    <div className="font-bold text-[#ffeb3b]">{data[hoveredIndex].draw} ({data[hoveredIndex].date})</div>
+                    <div className="text-[#00e5ff]">Números Resultantes: {data[hoveredIndex].count}</div>
+                    <div className="text-[#ffeb3b]">Aciertos: {data[hoveredIndex].hits} ac</div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 // --- Algorithmic & ML Functions ---
 const WHEELING_SIZES: Record<number, number> = { 12: 12, 24: 24, 36: 36, 48: 48 };
@@ -5471,27 +5564,9 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="w-full h-[260px] bg-[#121212] border border-[#262626] rounded-xl p-2">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <ComposedChart data={simBResults.map(r => ({ draw: `#${r.num}`, count: r.count, hits: r.hits, date: r.date }))}>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
-                                                    <XAxis dataKey="draw" stroke="#888888" fontSize={9} />
-                                                    <YAxis yAxisId="left" stroke="#00e5ff" fontSize={9} domain={[0, 28]} />
-                                                    <YAxis yAxisId="right" orientation="right" stroke="#ffeb3b" fontSize={9} domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
-                                                    <Tooltip 
-                                                        contentStyle={{ backgroundColor: '#181818', borderColor: '#333', borderRadius: '8px', fontSize: '10px', color: '#fff' }}
-                                                        formatter={(value: any, name: any) => [
-                                                            value, 
-                                                            name === 'count' ? 'Números Resultantes' : 'Aciertos'
-                                                        ]}
-                                                        labelStyle={{ color: '#ffeb3b', fontWeight: 'bold' }}
-                                                    />
-                                                    <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '4px' }} />
-                                                    <Bar yAxisId="left" dataKey="count" name="Números Resultantes" fill="#00e5ff" opacity={0.6} radius={[4, 4, 0, 0]} />
-                                                    <Line yAxisId="right" type="monotone" dataKey="hits" name="Aciertos (Hit Rate)" stroke="#ffeb3b" strokeWidth={2.5} dot={{ fill: '#ffeb3b', r: 3 }} activeDot={{ r: 6 }} />
-                                                </ComposedChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                        <div className="w-full h-[260px] bg-[#121212] border border-[#262626] rounded-xl p-2 flex flex-col justify-center items-center">
+                                             <CustomSVGChart data={simBResults.map(r => ({ draw: `#${r.num}`, count: r.count, hits: r.hits, date: r.date }))} />
+                                         </div>
                                     </div>
 
                                     <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3">

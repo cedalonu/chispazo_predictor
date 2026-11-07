@@ -8,14 +8,12 @@
     "build": "vite build && esbuild server.ts --platform=node --packages=external --bundle --outfile=server.js",
     "start": "node server.js",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit",
-    "postinstall": "node -e \"const fs=require('fs'); fs.mkdirSync('node_modules/react-is', {recursive:true}); fs.writeFileSync('node_modules/react-is/index.js', 'export const typeOf = () => {}; export const isValidElementType = () => true; export const isAsyncMode = () => false; export const isContextConsumer = () => false; export const isContextProvider = () => false; export const isElement = () => false; export const isForwardRef = () => false; export const isFragment = () => false; export const isLazy = () => false; export const isMemo = () => false; export const isPortal = () => false; export const isProfiler = () => false; export const isStrictMode = () => false; export const isSuspense = () => false; export const ForwardRef = \\'react.forward_ref\\'; export const Memo = \\'react.memo\\'; export const Fragment = \\'react.fragment\\'; export default { typeOf, isValidElementType, isAsyncMode, isContextConsumer, isContextProvider, isElement, isForwardRef, isFragment, isLazy, isMemo, isPortal, isProfiler, isStrictMode, isSuspense, ForwardRef, Memo, Fragment };'); fs.writeFileSync('node_modules/react-is/package.json', '{\\\"name\\\": \\\"react-is\\\", \\\"version\\\": \\\"19.0.0\\\", \\\"main\\\": \\\"index.js\\\"}');\""
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/html2canvas": "^0.5.35",
-    "@types/react-is": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
@@ -24,8 +22,6 @@
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "react-is": "^19.3.1",
-    "recharts": "^3.10.1",
     "vite": "^8.3.0"
   },
   "devDependencies": {
