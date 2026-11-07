@@ -3334,15 +3334,15 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         });
 
         const anyEnabled = poolSizesList.some(sz => simBConfigs[sz] && simBConfigs[sz].enabled);
-        if (!anyEnabled) {
-            let allNums = Array.from({length: 28}, (_, i) => i + 1);
-            let hits = targetDrawObj ? targetDrawObj.win.filter(w => allNums.includes(w)).length : null;
-            return { filtered: allNums, targetDrawObj, hits, mlPoolsMap };
+        let baseFiltered: number[] = [];
+        if (anyEnabled) {
+            baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
+            baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
         }
-
-        let baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
-        baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
         let merged = new Set([...baseFiltered, ...userPicks]);
+        if (merged.size === 0) {
+            merged = new Set(Array.from({length: 28}, (_, i) => i + 1));
+        }
         let filtered = Array.from(merged).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
 
         let hits = targetDrawObj ? targetDrawObj.win.filter(w => filtered.includes(w)).length : null;
@@ -3752,20 +3752,22 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 const histIdx = allDraws.findIndex(x => x.num === d.num);
                 const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
                 const anyEnabled = poolSizesList.some(sz => simBConfigs[sz] && simBConfigs[sz].enabled);
-                if (!anyEnabled) {
-                    let allNums = Array.from({length: 28}, (_, i) => i + 1);
-                    let hits = d.win.filter(w => allNums.includes(w)).length;
-                    return { num: d.num, date: d.date, win: d.win, filtered: allNums, count: allNums.length, hits };
+                const mlPoolsMap: Record<number, PoolResult> = {};
+                if (anyEnabled) {
+                    poolSizesList.forEach(sz => {
+                        mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
+                    });
                 }
 
-                const mlPoolsMap: Record<number, PoolResult> = {};
-                poolSizesList.forEach(sz => {
-                    mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
-                });
-
-                let baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
-                baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+                let baseFiltered: number[] = [];
+                if (anyEnabled) {
+                    baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
+                    baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+                }
                 let merged = new Set([...baseFiltered, ...userPicks]);
+                if (merged.size === 0) {
+                    merged = new Set(Array.from({length: 28}, (_, i) => i + 1));
+                }
                 let filtered = Array.from(merged).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
                 let hits = d.win.filter(w => filtered.includes(w)).length;
                 return { num: d.num, date: d.date, win: d.win, filtered, count: filtered.length, hits };
