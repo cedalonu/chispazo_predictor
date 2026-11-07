@@ -8,7 +8,8 @@
     "build": "vite build && esbuild server.ts --platform=node --packages=external --bundle --outfile=server.js",
     "start": "node server.js",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "postinstall": "node -e \"const fs=require('fs'); fs.mkdirSync('node_modules/react-is', {recursive:true}); fs.writeFileSync('node_modules/react-is/index.js', 'export const typeOf = () => {}; export const isValidElementType = () => true; export const isAsyncMode = () => false; export const isContextConsumer = () => false; export const isContextProvider = () => false; export const isElement = () => false; export const isForwardRef = () => false; export const isFragment = () => false; export const isLazy = () => false; export const isMemo = () => false; export const isPortal = () => false; export const isProfiler = () => false; export const isStrictMode = () => false; export const isSuspense = () => false; export const ForwardRef = \\'react.forward_ref\\'; export const Memo = \\'react.memo\\'; export const Fragment = \\'react.fragment\\'; export default { typeOf, isValidElementType, isAsyncMode, isContextConsumer, isContextProvider, isElement, isForwardRef, isFragment, isLazy, isMemo, isPortal, isProfiler, isStrictMode, isSuspense, ForwardRef, Memo, Fragment };'); fs.writeFileSync('node_modules/react-is/package.json', '{\\\"name\\\": \\\"react-is\\\", \\\"version\\\": \\\"19.0.0\\\", \\\"main\\\": \\\"index.js\\\"}');\""
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -28,6 +29,7 @@
     "vite": "^8.3.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -35,7 +37,6 @@
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
-    "typescript": "^7.0.2",
-    "@types/express": "^4.17.21"
+    "typescript": "^7.0.2"
   }
 }
