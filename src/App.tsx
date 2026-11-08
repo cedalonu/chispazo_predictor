@@ -3474,6 +3474,20 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     const pMatrix = { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: true };
     const pCore = { final: true, p2: true, p3: false, p4: true, p5: false, p6: false, p7: false };
 
+    const defaultPoolsForValidation = { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false };
+    const defaultFreqsForValidation = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+
+    function getValidCfg(rawCfg: any) {
+        if (!rawCfg) return { enabled: false, pools: { ...defaultPoolsForValidation }, freqs: { ...defaultFreqsForValidation } };
+        const poolsValid = rawCfg.pools && Object.values(rawCfg.pools).some(Boolean);
+        const freqsValid = rawCfg.freqs && Object.values(rawCfg.freqs).some(Boolean);
+        return {
+            enabled: !!rawCfg.enabled,
+            pools: poolsValid ? rawCfg.pools : { ...defaultPoolsForValidation },
+            freqs: freqsValid ? rawCfg.freqs : { ...defaultFreqsForValidation }
+        };
+    }
+
     const [madreConfigs, setMadreConfigs] = useState<Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>>({
         9: makeCfg(true, pCore, fBase),
         12: makeCfg(true, pStandard, fStricter),
