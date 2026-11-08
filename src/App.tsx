@@ -5056,7 +5056,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     setSub3FinalFreqs({ ...defaultFinalFreqs });
                                     setSub4FinalFreqs({ ...defaultFinalFreqs });
                                     setSub5FinalFreqs({ ...defaultFinalFreqs });
-                                    setSimBFinalFreqs({ 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: true });
+                                    setSimBFinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
                                     showLocToast("¡Configuraciones, iteraciones y picks limpiados exitosamente!");
                                 }}
                                 className="px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition bg-[#222] text-[#ff5252] border border-[#ff5252]/40 hover:bg-[#ff5252]/20 flex items-center gap-1"
