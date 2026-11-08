@@ -1,6 +1,6 @@
 {
-  "summary": "Implementation plan for dynamic threshold adjustment in Iteration #6 when deviation exceeds 10% from the target average of 12 numbers.",
-  "updatedAt": "2026-11-03T10:29:45.378108235Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Implementation plan to audit and align graphical backtesting hit calculations with actual historical simulation results for each focus/iteration.",
+  "updatedAt":  "2026-11-08T06:33:12.818315139Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

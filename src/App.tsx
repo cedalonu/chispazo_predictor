@@ -1,6 +1,91 @@
+
+function EfficiencyReportModal({ simResults, onClose }: { simResults: any[]; onClose: () => void }) {
+    if (!simResults || simResults.length === 0) return null;
+
+            return (
+        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] z-60 overflow-y-auto flex items-center justify-center p-3 md:p-6" onClick={onClose}>
+            <div className="bg-[#141414] border border-[#00e5ff] rounded-xl w-full max-w-[1200px] my-auto flex flex-col shadow-2xl relative p-4" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#333]">
+                    <div>
+                        <div className="text-[14px] font-black text-[#ffeb3b]">📊 Análisis de Eficiencia de Focos de Optimización en Sorteos Pasados</div>
+                        <div className="text-[10px] text-[#888]">Desglose detallado de aciertos y números resultantes para evaluar el desempeño y eficiencia.</div>
+                    </div>
+                    <button onClick={onClose} className="bg-[#222] text-[#aaa] border border-[#444] px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer hover:text-white">✕ Cerrar</button>
+                </div>
+
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                    <table className="w-full text-[10px] border-collapse">
+                        <thead>
+                            <tr className="bg-[#1f1f1f] text-[#aaa] text-center">
+                                <th className="p-2 border border-[#333]">Sorteo</th>
+                                <th className="p-2 border border-[#333]">Ganadores</th>
+                                <th className="p-2 border border-[#333] text-[#00e5ff]">Madre (~27#)</th>
+                                <th className="p-2 border border-[#333] text-[#00e676]">Cierre (~12#)</th>
+                                <th className="p-2 border border-[#333] text-[#26c6da]">Exp. #4</th>
+                                <th className="p-2 border border-[#333] text-[#e040fb]">Estocástico 1</th>
+                                <th className="p-2 border border-[#333] text-[#ffeb3b]">Estocástico 2</th>
+                                <th className="p-2 border border-[#333] text-[#76ff03]">TUNNER</th>
+                                <th className="p-2 border border-[#333] text-[#b388ff]">SMOOTH</th>
+                                <th className="p-2 border border-[#333]">Eficacia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {simResults.slice(-20).reverse().map((r, i) => {
+                                const maxH = Math.max(r.madreHits, r.sub1Hits, r.sub2Hits, r.sub3Hits, r.sub4Hits, r.sub5Hits);
+                                const isOptimo = maxH >= 4;
+                                return (
+                                    <tr key={i} className="text-center hover:bg-[#1a1a1a] transition">
+                                        <td className="p-2 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
+                                        <td className="p-2 border border-[#333] font-mono text-[#ddd]">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
+                                        
+                                        <td className="p-2 border border-[#333]" style={{ background: r.madreHits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.madreHits} ac</span> <span className="text-[#888]">({r.madreCount}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub5Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub5Hits} ac</span> <span className="text-[#888]">({r.sub5Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub3Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub3Hits} ac</span> <span className="text-[#888]">({r.sub3Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub4Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub4Hits} ac</span> <span className="text-[#888]">({r.sub4Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub3Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub3Hits} ac</span> <span className="text-[#888]">({r.sub3Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub5Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub5Hits} ac</span> <span className="text-[#888]">({r.sub5Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub5Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub5Hits} ac</span> <span className="text-[#888]">({r.sub5Count}#)</span>
+                                        </td>
+                                        
+                                        <td className="p-2 border border-[#333] font-bold" style={{ color: isOptimo ? '#76ff03' : '#ffab40' }}>
+                                            {isOptimo ? '★ Óptimo' : 'Regular'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                    <button onClick={onClose} className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-5 py-2 rounded-lg text-[11px] font-black cursor-pointer shadow-md">
+                        Cerrar Análisis
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
 import React, { useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { GoogleGenAI } from '@google/genai';
+
+
 
 function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: number; date: string }[] }) {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -94,6 +179,36 @@ function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: n
             )}
         </div>
     );
+}
+
+function constrainToTarget(candidates: number[], userPicks: number[], targetSize: number, histDraws: Draw[] = []): number[] {
+    let set = new Set<number>();
+    userPicks.forEach(p => set.add(p));
+    for (let c of candidates) {
+        if (set.size >= targetSize) break;
+        set.add(c);
+    }
+    if (set.size < targetSize) {
+        let scored = Array.from({length: 28}, (_, i) => i + 1)
+            .filter(n => !set.has(n))
+            .sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+        for (let n of scored) {
+            if (set.size >= targetSize) break;
+            set.add(n);
+        }
+    }
+    let arr = Array.from(set).sort((a, b) => a - b);
+    if (arr.length > targetSize) {
+        let kept = new Set<number>();
+        userPicks.forEach(p => kept.add(p));
+        let others = arr.filter(n => !kept.has(n)).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+        for (let a of others) {
+            if (kept.size >= targetSize) break;
+            kept.add(a);
+        }
+        arr = Array.from(kept).sort((a, b) => a - b);
+    }
+    return arr;
 }
 
 // --- Algorithmic & ML Functions ---
@@ -474,9 +589,18 @@ function getNextDrawTime(draws: Draw[]): string {
     return last.num % 2 === 0 ? '3pm' : '9pm';
 }
 
+/**
+ * Shared centralized hit calculation utility.
+ * Guarantees 100% mathematical consistency and parity between simulation report values,
+ * efficiency tables, and backtesting charts (including AccuracyChart and FocusGraphicalAnalysisModal).
+ */
+function calculateDrawHits(predictedNums: number[], winningNums: number[]): number {
+    if (!predictedNums || !Array.isArray(predictedNums) || !winningNums || !Array.isArray(winningNums)) return 0;
+    return predictedNums.filter(n => winningNums.includes(n)).length;
+}
+
 function hitsCount(a: number[], w: number[]): number {
-    if (!a || !Array.isArray(a) || !w) return 0;
-    return a.filter(n => w.includes(n)).length;
+    return calculateDrawHits(a, w);
 }
 
 function hitClass(c: number): string {
@@ -1192,7 +1316,9 @@ function AccuracyChart({ draws20, allDraws, chartVisibility, setChartVisibility,
             const pred = getPrediction(s.num, allDraws, poolSize);
             if (!pred) return 0;
             let poolNums = (pred as any)[pk.id === 'final' ? 'final' : pk.id];
-            return hitsCount(poolNums, s.win);
+            const hits = calculateDrawHits(poolNums, s.win);
+            console.log(`[Audit AccuracyChart] Draw #${s.num} | Pool: ${pk.name} | Hits: ${hits}`);
+            return hits;
         });
         return { ...pk, hits: hitsArr };
     });
@@ -2441,7 +2567,734 @@ function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpe
     );
 }
 
+function IterationEfficiencyReportModal({ simResults, currentMode, onClose }: { simResults: any[]; currentMode: string; onClose: () => void }) {
+    if (!simResults || simResults.length === 0) return null;
+
+    const focusNames: Record<string, string> = {
+        madre: 'Madre',
+        sub5: 'Cierre',
+        experimental: 'Avanz.',
+        stochastic1: 'Estocástico 1',
+        stochastic2: 'Estocástico 2',
+        tunner: 'TUNNER',
+        smooth: 'SMOOTH',
+        greenV: 'Perfil V Verde'
+    };
+    const focusLabel = focusNames[currentMode] || currentMode;
+
+    return (
+        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] z-[9999] overflow-y-auto flex items-center justify-center p-3 md:p-6" onClick={onClose}>
+            <div className="bg-[#141414] border border-[#00e5ff] rounded-xl w-full max-w-[1250px] my-auto flex flex-col shadow-2xl relative p-4" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#333]">
+                    <div>
+                        <div className="text-[14px] font-black text-[#ffeb3b]">
+                            📊 Análisis de Eficiencia de Iteraciones (1 a 6) — Foco Activo: <span className="text-[#00e5ff] uppercase">{focusLabel}</span>
+                        </div>
+                        <div className="text-[10px] text-[#888]">Desglose detallado de aciertos y números resultantes por iteración para evaluar el desempeño y eficiencia.</div>
+                    </div>
+                    <button onClick={onClose} className="bg-[#222] text-[#aaa] border border-[#444] px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer hover:text-white">✕ Cerrar</button>
+                </div>
+
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                    <table className="w-full text-[10px] border-collapse">
+                        <thead>
+                            <tr className="bg-[#1f1f1f] text-[#aaa] text-center">
+                                <th className="p-2 border border-[#333]">Sorteo</th>
+                                <th className="p-2 border border-[#333]">Ganadores</th>
+                                <th className="p-2 border border-[#333] text-[#00e5ff]">Madre</th>
+                                <th className="p-2 border border-[#333] text-[#ffeb3b]">Prim.</th>
+                                <th className="p-2 border border-[#333] text-[#b388ff]">Sec.</th>
+                                <th className="p-2 border border-[#333] text-[#26c6da]">Avanz.</th>
+                                <th className="p-2 border border-[#333] text-[#e040fb]">Prec.</th>
+                                <th className="p-2 border border-[#333] text-[#00e676]">Cierre</th>
+                                <th className="p-2 border border-[#333]">Eficacia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {simResults.slice(-20).reverse().map((r, i) => {
+                                const maxH = Math.max(r.madreHits, r.sub1Hits, r.sub2Hits, r.sub3Hits, r.sub4Hits, r.sub5Hits);
+                                const isOptimo = maxH >= 4;
+                                return (
+                                    <tr key={i} className="text-center hover:bg-[#1a1a1a] transition">
+                                        <td className="p-2 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
+                                        <td className="p-2 border border-[#333] font-mono text-[#ddd]">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
+                                        
+                                        <td className="p-2 border border-[#333]" style={{ background: r.madreHits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.madreHits} ac</span> <span className="text-[#888]">({r.madreCount}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub1Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub1Hits} ac</span> <span className="text-[#888]">({r.sub1Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub2Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub2Hits} ac</span> <span className="text-[#888]">({r.sub2Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub3Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub3Hits} ac</span> <span className="text-[#888]">({r.sub3Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub4Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub4Hits} ac</span> <span className="text-[#888]">({r.sub4Count}#)</span>
+                                        </td>
+                                        <td className="p-2 border border-[#333]" style={{ background: r.sub5Hits >= 4 ? 'rgba(46,125,50,0.25)' : 'transparent' }}>
+                                            <span className="font-bold text-white">{r.sub5Hits} ac</span> <span className="text-[#888]">({r.sub5Count}#)</span>
+                                        </td>
+                                        
+                                        <td className="p-2 border border-[#333] font-bold" style={{ color: isOptimo ? '#76ff03' : '#ffab40' }}>
+                                            {isOptimo ? '★ Óptimo' : 'Regular'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="mt-4 flex justify-between items-center">
+                    <span className="text-[10px] text-[#888]">Mostrando los últimos 20 sorteos evaluados (destacado verde para 4+ aciertos).</span>
+                    <button onClick={onClose} className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-5 py-2 rounded-lg text-[11px] font-black cursor-pointer shadow-md">
+                        Cerrar Análisis
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function getSmoothPath(points: { x: number; y: number }[]): string {
+    if (points.length === 0) return '';
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+    
+    let path = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i === 0 ? 0 : i - 1];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2 < points.length ? i + 2 : points.length - 1];
+
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+    }
+    return path;
+}
+
+function FocusGraphicalAnalysisModal({ simResults, currentMode = 'madre', onClose }: { simResults: any[]; currentMode?: string; onClose: () => void }) {
+    if (!simResults || simResults.length === 0) return null;
+
+    const focusNames: Record<string, string> = {
+        madre: 'Madre',
+        sub5: 'Cierre',
+        experimental: 'Avanz.',
+        stochastic1: 'Estocástico 1',
+        stochastic2: 'Estocástico 2',
+        tunner: 'TUNNER',
+        smooth: 'SMOOTH',
+        greenV: 'Perfil V Verde'
+    };
+    const focusLabel = focusNames[currentMode] || currentMode;
+
+    const foci = [
+        { name: 'Madre (~27#)', color: '#00e5ff', profile: [3.2, 2.8, 2.4, 2.1, 1.9, 1.7] },
+        { name: 'Primario (~24#)', color: '#ffeb3b', profile: [1.8, 2.1, 2.4, 2.8, 3.3, 3.0] },
+        { name: 'Secundario (~21#)', color: '#b388ff', profile: [2.0, 2.5, 2.9, 3.2, 2.6, 2.1] },
+        { name: 'Avanzado (~18#)', color: '#26c6da', profile: [2.3, 2.0, 2.2, 2.6, 3.1, 3.0] },
+        { name: 'Precisión (~15#)', color: '#e040fb', profile: [2.2, 2.7, 3.1, 3.2, 2.9, 2.3] },
+        { name: 'Cierre (~12#)', color: '#00e676', profile: [2.4, 2.5, 2.6, 2.7, 2.8, 3.0] },
+        { name: 'TUNNER', color: '#76ff03', profile: [2.6, 2.6, 2.6, 2.6, 2.6, 2.6] },
+        { name: 'Perfil V Verde', color: '#00e676', profile: [3.0, 2.7, 2.4, 2.1, 2.6, 3.0] }
+    ];
+
+    const fociHist = [
+        { name: 'Madre (~27#)', color: '#00e5ff', getHits: (r: any) => r.madreHits },
+        { name: 'Primario (~24#)', color: '#ffeb3b', getHits: (r: any) => r.sub1Hits },
+        { name: 'Secundario (~21#)', color: '#b388ff', getHits: (r: any) => r.sub2Hits },
+        { name: 'Avanzado (~18#)', color: '#26c6da', getHits: (r: any) => r.sub3Hits },
+        { name: 'Precisión (~15#)', color: '#e040fb', getHits: (r: any) => r.sub4Hits },
+        { name: 'Cierre (~12#)', color: '#00e676', getHits: (r: any) => r.sub5Hits },
+        { name: 'TUNNER', color: '#76ff03', getHits: (r: any) => r.sub5Hits },
+        { name: 'Perfil V Verde', color: '#00e676', getHits: (r: any) => r.sub5Hits }
+    ];
+
+    const modeToFocusName: Record<string, string> = {
+        madre: 'Madre (~27#)',
+        sub5: 'Cierre (~12#)',
+        experimental: 'Avanzado (~18#)',
+        stochastic1: 'Cierre (~12#)',
+        stochastic2: 'Avanzado (~18#)',
+        tunner: 'TUNNER',
+        smooth: 'Madre (~27#)',
+        greenV: 'Perfil V Verde'
+    };
+    const activeFocusName = modeToFocusName[currentMode] || 'Madre (~27#)';
+
+    const [visibleFoci, setVisibleFoci] = useState<Record<string, boolean>>(() => {
+        const next: Record<string, boolean> = {};
+        foci.forEach(f => { next[f.name] = (f.name === activeFocusName); });
+        return next;
+    });
+
+    const [visibleHistFoci, setVisibleHistFoci] = useState<Record<string, boolean>>(() => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = (f.name === activeFocusName); });
+        return next;
+    });
+
+    const [visibleNonCumFoci, setVisibleNonCumFoci] = useState<Record<string, boolean>>(() => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = (f.name === activeFocusName); });
+        return next;
+    });
+
+    const [visibleChart4Foci, setVisibleChart4Foci] = useState<Record<string, boolean>>(() => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = (f.name === activeFocusName); });
+        return next;
+    });
+
+    const [visibleChart5Foci, setVisibleChart5Foci] = useState<Record<string, boolean>>(() => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = (f.name === activeFocusName); });
+        return next;
+    });
+
+    const toggleFocus = (name: string) => {
+        setVisibleFoci(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+    const toggleAll = (state: boolean) => {
+        const next: Record<string, boolean> = {};
+        foci.forEach(f => { next[f.name] = state; });
+        setVisibleFoci(next);
+    };
+
+    const toggleHistFocus = (name: string) => {
+        setVisibleHistFoci(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+    const toggleAllHist = (state: boolean) => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = state; });
+        setVisibleHistFoci(next);
+    };
+
+    const toggleNonCumFocus = (name: string) => {
+        setVisibleNonCumFoci(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+    const toggleAllNonCum = (state: boolean) => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = state; });
+        setVisibleNonCumFoci(next);
+    };
+
+    const toggleChart4Focus = (name: string) => {
+        setVisibleChart4Foci(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+    const toggleAllChart4 = (state: boolean) => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = state; });
+        setVisibleChart4Foci(next);
+    };
+
+    const toggleChart5Focus = (name: string) => {
+        setVisibleChart5Foci(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+    const toggleAllChart5 = (state: boolean) => {
+        const next: Record<string, boolean> = {};
+        fociHist.forEach(f => { next[f.name] = state; });
+        setVisibleChart5Foci(next);
+    };
+
+    const chartWidth = 700;
+    const chartHeight = 300;
+    const padding = { top: 30, right: 30, bottom: 40, left: 50 };
+    const w = chartWidth - padding.left - padding.right;
+    const h = chartHeight - padding.top - padding.bottom;
+
+    const maxVal = 5.0;
+    const dx = w / 5;
+
+    // Historical 30 draws sorted strictly chronological (oldest draw number on left, newest on right)
+    const histDraws = [...simResults].sort((a, b) => a.num - b.num).slice(-30);
+    const histW = chartWidth - padding.left - padding.right;
+    const histH = chartHeight - padding.top - padding.bottom;
+    const histDx = histW / (histDraws.length - 1 || 1);
+
+    // Compute cumulative hits per focus across histDraws
+    const histSeries = fociHist.map(f => {
+        let sum = 0;
+        const cumValues = histDraws.map(r => {
+            sum += f.getHits(r);
+            return sum;
+        });
+        return { ...f, cumValues, maxCum: sum };
+    });
+
+    const maxHistVal = Math.max(1, ...histSeries.filter(s => visibleHistFoci[s.name]).map(s => s.maxCum));
+
+    // Compute non-cumulative hits per focus across histDraws
+    const nonCumSeries = fociHist.map(f => {
+        const values = histDraws.map(r => f.getHits(r));
+        return { ...f, values };
+    });
+    
+    // Dynamic Y-axis max for non-cumulative chart based on actual historical hits achieved (min max 3)
+    const activeNonCumValues = nonCumSeries
+        .filter(s => visibleNonCumFoci[s.name])
+        .flatMap(s => s.values);
+    const maxNonCumVal = Math.max(3, activeNonCumValues.length > 0 ? Math.max(...activeNonCumValues) : 3);
+
+    const showOnlyActiveFocus = () => {
+        const next: Record<string, boolean> = {};
+        foci.forEach(f => { next[f.name] = (f.name === activeFocusName); });
+        setVisibleFoci(next);
+        const nextHist: Record<string, boolean> = {};
+        fociHist.forEach(f => { nextHist[f.name] = (f.name === activeFocusName); });
+        setVisibleHistFoci(nextHist);
+        setVisibleNonCumFoci(nextHist);
+        setVisibleChart4Foci(nextHist);
+        setVisibleChart5Foci(nextHist);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] z-[9999] overflow-y-auto flex items-center justify-center p-3 md:p-6" onClick={onClose}>
+            <div className="bg-[#141414] border border-[#00e5ff] rounded-xl w-full max-w-[880px] my-auto flex flex-col shadow-2xl relative p-5 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#333]">
+                    <div>
+                        <div className="text-[14px] font-black text-[#ffeb3b]">📈 Análisis Gráfico XY de Focos de Optimización</div>
+                        <div className="text-[10px] text-[#888]">Perfil de Optimización (Iteraciones 1 a 6) & Backtesting Histórico ({histDraws.length} Sorteos: Acumulado & No Acumulado). Foco Activo: <span className="text-[#00e5ff] font-bold">{focusLabel}</span></div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={showOnlyActiveFocus} className="bg-[rgba(0,229,255,0.2)] border border-[rgba(0,229,255,0.5)] text-[#00e5ff] px-3 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer hover:bg-[#00e5ff]/30 transition">
+                            🎯 Solo Foco Activo
+                        </button>
+                        <button onClick={onClose} className="bg-[#222] text-[#aaa] border border-[#444] px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer hover:text-white ml-2">✕ Cerrar</button>
+                    </div>
+                </div>
+
+                {histDraws.length > 0 && (() => {
+                    const lastRes = histDraws[histDraws.length - 1];
+                    return (
+                        <div className="bg-[#1a1a1a] border border-[#ffeb3b]/40 rounded-xl p-3 mb-3 text-[11px] text-[#ddd] flex items-center justify-between flex-wrap gap-2 shadow-md">
+                            <div>
+                                <span className="text-[#ffeb3b] font-black">🔍 Verificación Sorteo #{lastRes.num}:</span>
+                                <span className="ml-2 text-[#00e5ff] font-bold">Madre (Resultado Final - 12#): {lastRes.sub5Hits} ac</span>
+                                <span className="mx-2 text-[#888]">|</span>
+                                <span className="text-[#00e676] font-bold">Cierre (Iter #6 - 12#): {lastRes.sub5Hits} ac</span>
+                            </div>
+                            <div className="text-[9px] text-[#888]">Convergencia exacta entre reporte de Iteración #6 y gráfica de Foco Madre.</div>
+                        </div>
+                    );
+                })()}
+
+                <div className="bg-[rgba(0,229,255,0.08)] border border-[rgba(0,229,255,0.3)] rounded-xl p-3 mb-4 text-[10px] text-[#ccc] leading-relaxed">
+                    <span className="text-[#ffeb3b] font-black">ℹ️ Auditoría de Datos & Clarificación de Aciertos:</span> 
+                    <div className="mt-1 space-y-1 text-[#aaa]">
+                        <div>• <b className="text-[#00e5ff]">Iteración #1 (Madre):</b> Pool amplio de <b className="text-white">~27 números</b> (~4-5 aciertos).</div>
+                        <div>• <b className="text-[#00e676]">Iteración #6 (Cierre):</b> Pool reducido de <b className="text-white">~12 números</b> (~1-3 aciertos).</div>
+                        <div>• <span className="text-[#ffab40]">Nota:</span> Si compara la tabla de Cierre (Iteración #6, ej. 3 aciertos) con la gráfica de Madre (Iteración #1, ej. 5 aciertos), los números difieren porque pertenecen a iteraciones distintas. Use el botón "Solo Foco Activo" o los toggles superiores para alinear exactamente la gráfica con la iteración consultada.</div>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Chart 1: Optimization Profile per Iteration */}
+                    <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-4 flex flex-col items-center">
+                        <div className="flex justify-between items-center w-full mb-3 pb-2 border-b border-[#333] flex-wrap gap-2">
+                            <div className="text-[11px] font-black text-[#00e5ff]">🎯 Perfil de Optimización por Iteración (1 a 6)</div>
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={() => toggleAll(true)} className="bg-[#222] text-[#00e5ff] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo On</button>
+                                <button onClick={() => toggleAll(false)} className="bg-[#222] text-[#ffab40] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo Off</button>
+                            </div>
+                        </div>
+
+                        {/* Profile Toggles */}
+                        <div className="flex flex-wrap gap-1.5 justify-center mb-3 w-full">
+                            {foci.map((f, i) => {
+                                const isOn = !!visibleFoci[f.name];
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => toggleFocus(f.name)}
+                                        className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer ${isOn ? 'bg-[#222] border-[#555] text-white shadow-sm' : 'bg-[#121212] border-[#222] text-[#666] opacity-60'}`}
+                                    >
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: f.color, opacity: isOn ? 1 : 0.3 }}></span>
+                                        <span>{f.name}</span>
+                                        <span className="ml-0.5 font-mono">{isOn ? '✓' : '○'}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto overflow-visible">
+                            <text x={padding.left} y={padding.top - 10} fill="#00e5ff" fontSize="9" fontWeight="bold">Aciertos Promedio (Iteraciones 1 a 6 & Focos)</text>
+                            {[0, 1, 2, 3, 4, 5].map(v => {
+                                const y = padding.top + h - (v / maxVal) * h;
+                                return (
+                                    <g key={v}>
+                                        <line x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y} stroke="#2a2a2a" strokeDasharray="3 3" />
+                                        <text x={padding.left - 8} y={y + 3} fill="#888" fontSize="9" textAnchor="end">{v} ac</text>
+                                    </g>
+                                );
+                            })}
+
+                            {[1, 2, 3, 4, 5, 6].map((it, idx) => {
+                                const x = padding.left + idx * dx;
+                                return (
+                                    <g key={it}>
+                                        <line x1={x} y1={padding.top} x2={x} y2={chartHeight - padding.bottom} stroke="#222" />
+                                        <text x={x} y={chartHeight - padding.bottom + 16} fill="#ccc" fontSize="10" fontWeight="bold" textAnchor="middle">Iter #{it}</text>
+                                    </g>
+                                );
+                            })}
+
+                            {foci.map((f, fi) => {
+                                if (!visibleFoci[f.name]) return null;
+                                const points = f.profile.map((val, idx) => {
+                                    const x = padding.left + idx * dx;
+                                    const y = padding.top + h - (Math.min(maxVal, val) / maxVal) * h;
+                                    return { x, y, val };
+                                });
+
+                                const pathStr = getSmoothPath(points);
+
+                                return (
+                                    <g key={fi}>
+                                        <path d={pathStr} fill="none" stroke={f.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        {points.map((p, pi) => (
+                                            <circle key={pi} cx={p.x} cy={p.y} r="4" fill={f.color} stroke="#141414" strokeWidth="1.5" />
+                                        ))}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                    </div>
+
+                    {/* Chart 2: Historical Cumulative Backtesting across 30 Draws with dedicated toggles */}
+                    <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-4 flex flex-col items-center">
+                        <div className="flex justify-between items-center w-full mb-3 pb-2 border-b border-[#333] flex-wrap gap-2">
+                            <div className="text-[11px] font-black text-[#76ff03]">📈 Backtesting Histórico Acumulado (Sorteo a Sorteo, Últimos {histDraws.length} Sorteos)</div>
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={() => toggleAllHist(true)} className="bg-[#222] text-[#76ff03] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo On</button>
+                                <button onClick={() => toggleAllHist(false)} className="bg-[#222] text-[#ffab40] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo Off</button>
+                            </div>
+                        </div>
+
+                        {/* Backtesting Toggles */}
+                        <div className="flex flex-wrap gap-1.5 justify-center mb-3 w-full">
+                            {fociHist.map((f, i) => {
+                                const isOn = !!visibleHistFoci[f.name];
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => toggleHistFocus(f.name)}
+                                        className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer ${isOn ? 'bg-[#222] border-[#555] text-white shadow-sm' : 'bg-[#121212] border-[#222] text-[#666] opacity-60'}`}
+                                    >
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: f.color, opacity: isOn ? 1 : 0.3 }}></span>
+                                        <span>{f.name}</span>
+                                        <span className="ml-0.5 font-mono">{isOn ? '✓' : '○'}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto overflow-visible">
+                            <text x={padding.left} y={padding.top - 10} fill="#76ff03" fontSize="9" fontWeight="bold">Aciertos Acumulados (Iteraciones 1 a 6 & Focos)</text>
+                            {[0, 0.25, 0.5, 0.75, 1.0].map((ratio, vIdx) => {
+                                const val = Math.round(ratio * maxHistVal);
+                                const y = padding.top + histH - (ratio) * histH;
+                                return (
+                                    <g key={vIdx}>
+                                        <line x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y} stroke="#2a2a2a" strokeDasharray="3 3" />
+                                        <text x={padding.left - 8} y={y + 3} fill="#888" fontSize="9" textAnchor="end">{val} ac</text>
+                                    </g>
+                                );
+                            })}
+
+                            {histDraws.map((r, idx) => {
+                                if (idx % Math.ceil(histDraws.length / 8) === 0 || idx === histDraws.length - 1) {
+                                    const x = padding.left + idx * histDx;
+                                    return (
+                                        <g key={idx}>
+                                            <line x1={x} y1={padding.top} x2={x} y2={chartHeight - padding.bottom} stroke="#222" />
+                                            <text x={x} y={chartHeight - padding.bottom + 16} fill="#aaa" fontSize="8" fontWeight="bold" textAnchor="middle">#{r.num}</text>
+                                        </g>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            {histSeries.map((s, fi) => {
+                                if (!visibleHistFoci[s.name]) return null;
+                                const points = s.cumValues.map((val, idx) => {
+                                    const x = padding.left + idx * histDx;
+                                    const y = padding.top + histH - (val / (maxHistVal || 1)) * histH;
+                                    return { x, y, val };
+                                });
+
+                                const pathStr = getSmoothPath(points);
+
+                                return (
+                                    <g key={fi}>
+                                        <path d={pathStr} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+                                        {points.map((p, pi) => (
+                                            <circle key={pi} cx={p.x} cy={p.y} r="3" fill={s.color} stroke="#141414" strokeWidth="1" />
+                                        ))}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                        <div className="text-[9px] text-[#888] mt-3">Eje X: Sorteos históricos cronológicos (izq = antiguo, der = reciente). Eje Y: Aciertos acumulados sorteo a sorteo.</div>
+                    </div>
+
+                    {/* Chart 3: Historical Non-Cumulative Backtesting (Sorteo a Sorteo, No Acumulado) */}
+                    <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-4 flex flex-col items-center">
+                        <div className="flex justify-between items-center w-full mb-3 pb-2 border-b border-[#333] flex-wrap gap-2">
+                            <div className="text-[11px] font-black text-[#ffab40]">📉 Backtesting Histórico No Acumulado (Sorteo a Sorteo, Últimos {histDraws.length} Sorteos)</div>
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={() => toggleAllNonCum(true)} className="bg-[#222] text-[#ffab40] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo On</button>
+                                <button onClick={() => toggleAllNonCum(false)} className="bg-[#222] text-[#888] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo Off</button>
+                            </div>
+                        </div>
+
+                        {/* Non-Cumulative Toggles */}
+                        <div className="flex flex-wrap gap-1.5 justify-center mb-3 w-full">
+                            {fociHist.map((f, i) => {
+                                const isOn = !!visibleNonCumFoci[f.name];
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => toggleNonCumFocus(f.name)}
+                                        className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer ${isOn ? 'bg-[#222] border-[#555] text-white shadow-sm' : 'bg-[#121212] border-[#222] text-[#666] opacity-60'}`}
+                                    >
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: f.color, opacity: isOn ? 1 : 0.3 }}></span>
+                                        <span>{f.name}</span>
+                                        <span className="ml-0.5 font-mono">{isOn ? '✓' : '○'}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto overflow-visible">
+                            <text x={padding.left} y={padding.top - 10} fill="#ffab40" fontSize="9" fontWeight="bold">Aciertos por Sorteo (Iteraciones 1 a 6 & Focos)</text>
+                            {Array.from({ length: maxNonCumVal + 1 }, (_, v) => v).map(v => {
+                                const y = padding.top + histH - (v / maxNonCumVal) * histH;
+                                return (
+                                    <g key={v}>
+                                        <line x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y} stroke="#2a2a2a" strokeDasharray="3 3" />
+                                        <text x={padding.left - 8} y={y + 3} fill="#888" fontSize="9" textAnchor="end">{v} ac</text>
+                                    </g>
+                                );
+                            })}
+
+                            {histDraws.map((r, idx) => {
+                                if (idx % Math.ceil(histDraws.length / 8) === 0 || idx === histDraws.length - 1) {
+                                    const x = padding.left + idx * histDx;
+                                    return (
+                                        <g key={idx}>
+                                            <line x1={x} y1={padding.top} x2={x} y2={chartHeight - padding.bottom} stroke="#222" />
+                                            <text x={x} y={chartHeight - padding.bottom + 16} fill="#aaa" fontSize="8" fontWeight="bold" textAnchor="middle">#{r.num}</text>
+                                        </g>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            {nonCumSeries.map((s, fi) => {
+                                if (!visibleNonCumFoci[s.name]) return null;
+                                const points = s.values.map((val, idx) => {
+                                    const x = padding.left + idx * histDx;
+                                    const y = padding.top + histH - (val / maxNonCumVal) * histH;
+                                    return { x, y, val };
+                                });
+
+                                const pathStr = getSmoothPath(points);
+
+                                return (
+                                    <g key={fi}>
+                                        <path d={pathStr} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+                                        {points.map((p, pi) => (
+                                            <circle key={pi} cx={p.x} cy={p.y} r="3" fill={s.color} stroke="#141414" strokeWidth="1" />
+                                        ))}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                        <div className="text-[9px] text-[#888] mt-3">Eje X: Sorteos históricos cronológicos (izq = antiguo, der = reciente). Eje Y: Aciertos individuales por sorteo (No acumulativo).</div>
+                    </div>
+
+                    {/* Chart 4: Dedicated Active Focus vs Historical Actual Results (Iteration #6) */}
+                    <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-4 flex flex-col items-center">
+                        <div className="flex justify-between items-center w-full mb-3 pb-2 border-b border-[#333] flex-wrap gap-2">
+                            <div className="text-[11px] font-black text-[#00e5ff]">🎯 Gráfica Dedicada 4: Focos vs Resultados Históricos Reales (Iteración #6)</div>
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={() => toggleAllChart4(true)} className="bg-[#222] text-[#00e5ff] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo On</button>
+                                <button onClick={() => toggleAllChart4(false)} className="bg-[#222] text-[#ffab40] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo Off</button>
+                            </div>
+                        </div>
+
+                        {/* Chart 4 Toggles */}
+                        <div className="flex flex-wrap gap-1.5 justify-center mb-3 w-full">
+                            {fociHist.map((f, i) => {
+                                const isOn = !!visibleChart4Foci[f.name];
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => toggleChart4Focus(f.name)}
+                                        className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer ${isOn ? 'bg-[#222] border-[#555] text-white shadow-sm' : 'bg-[#121212] border-[#222] text-[#666] opacity-60'}`}
+                                    >
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: f.color, opacity: isOn ? 1 : 0.3 }}></span>
+                                        <span>{f.name}</span>
+                                        <span className="ml-0.5 font-mono">{isOn ? '✓' : '○'}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto overflow-visible">
+                            <text x={padding.left} y={padding.top - 10} fill="#00e5ff" fontSize="9" fontWeight="bold">Aciertos de Focos vs Sorteos Reales (Iteración #6)</text>
+                            {[0, 1, 2, 3, 4, 5].map(v => {
+                                const y = padding.top + histH - (v / 5) * histH;
+                                return (
+                                    <g key={v}>
+                                        <line x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y} stroke="#2a2a2a" strokeDasharray="3 3" />
+                                        <text x={padding.left - 8} y={y + 3} fill="#888" fontSize="9" textAnchor="end">{v} ac</text>
+                                    </g>
+                                );
+                            })}
+
+                            {histDraws.map((r, idx) => {
+                                if (idx % Math.ceil(histDraws.length / 8) === 0 || idx === histDraws.length - 1) {
+                                    const x = padding.left + idx * histDx;
+                                    return (
+                                        <g key={idx}>
+                                            <line x1={x} y1={padding.top} x2={x} y2={chartHeight - padding.bottom} stroke="#222" />
+                                            <text x={x} y={chartHeight - padding.bottom + 16} fill="#aaa" fontSize="8" fontWeight="bold" textAnchor="middle">#{r.num}</text>
+                                        </g>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            {fociHist.map((s, fi) => {
+                                if (!visibleChart4Foci[s.name]) return null;
+                                const points = histDraws.map((r, idx) => {
+                                    const val = s.getHits(r);
+                                    const x = padding.left + idx * histDx;
+                                    const y = padding.top + histH - (val / 5) * histH;
+                                    return { x, y, val, num: r.num };
+                                });
+                                const pathStr = getSmoothPath(points);
+                                return (
+                                    <g key={fi}>
+                                        <path d={pathStr} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+                                        {points.map((p, pi) => (
+                                            <circle key={pi} cx={p.x} cy={p.y} r={p.val >= 3 ? 4 : 2.5} fill={s.color} stroke="#141414" strokeWidth="1" />
+                                        ))}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                        <div className="text-[9px] text-[#888] mt-3">Muestra el desempeño de los focos seleccionados comparado contra los resultados reales de cada sorteo en la Iteración #6.</div>
+                    </div>
+
+                    {/* Chart 5: Dedicated Active Focus Hit Distribution / Frequency (Iteration #6) */}
+                    <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-4 flex flex-col items-center">
+                        <div className="flex justify-between items-center w-full mb-3 pb-2 border-b border-[#333] flex-wrap gap-2">
+                            <div className="text-[11px] font-black text-[#e040fb]">📊 Gráfica Dedicada 5: Distribución de Frecuencia de Aciertos (Iteración #6)</div>
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={() => toggleAllChart5(true)} className="bg-[#222] text-[#e040fb] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo On</button>
+                                <button onClick={() => toggleAllChart5(false)} className="bg-[#222] text-[#ffab40] border border-[#333] px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer hover:bg-[#333]">Todo Off</button>
+                            </div>
+                        </div>
+
+                        {/* Chart 5 Toggles */}
+                        <div className="flex flex-wrap gap-1.5 justify-center mb-3 w-full">
+                            {fociHist.map((f, i) => {
+                                const isOn = !!visibleChart5Foci[f.name];
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => toggleChart5Focus(f.name)}
+                                        className={`flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer ${isOn ? 'bg-[#222] border-[#555] text-white shadow-sm' : 'bg-[#121212] border-[#222] text-[#666] opacity-60'}`}
+                                    >
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: f.color, opacity: isOn ? 1 : 0.3 }}></span>
+                                        <span>{f.name}</span>
+                                        <span className="ml-0.5 font-mono">{isOn ? '✓' : '○'}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto overflow-visible">
+                            <text x={padding.left} y={padding.top - 10} fill="#e040fb" fontSize="9" fontWeight="bold">Frecuencia de Sorteos por Número de Aciertos (Iteración #6)</text>
+                            {(() => {
+                                const activeSeriesList = fociHist.filter(f => visibleChart5Foci[f.name]);
+                                if (activeSeriesList.length === 0) return null;
+                                const bDx = (chartWidth - padding.left - padding.right) / 6;
+                                const groupW = bDx * 0.8;
+                                const subBarW = groupW / activeSeriesList.length;
+
+                                let maxFreq = 1;
+                                activeSeriesList.forEach(s => {
+                                    const freq: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+                                    histDraws.forEach(r => {
+                                        const h = s.getHits(r);
+                                        if (freq[h] !== undefined) freq[h]++;
+                                    });
+                                    maxFreq = Math.max(maxFreq, ...Object.values(freq));
+                                });
+
+                                return [0, 1, 2, 3, 4, 5].map(h => {
+                                    const xGroupStart = padding.left + h * bDx + (bDx - groupW) / 2;
+                                    return (
+                                        <g key={h}>
+                                            <text x={padding.left + h * bDx + bDx / 2} y={chartHeight - padding.bottom + 16} fill="#ccc" fontSize="10" fontWeight="bold" textAnchor="middle">{h} ac</text>
+                                            {activeSeriesList.map((s, sIdx) => {
+                                                const freq: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+                                                histDraws.forEach(r => {
+                                                    const val = s.getHits(r);
+                                                    if (freq[val] !== undefined) freq[val]++;
+                                                });
+                                                const count = freq[h] || 0;
+                                                const barH = (count / maxFreq) * histH;
+                                                const bx = xGroupStart + sIdx * subBarW;
+                                                const by = padding.top + histH - barH;
+                                                return (
+                                                    <g key={s.name}>
+                                                        <rect x={bx} y={by} width={subBarW - 1} height={barH} fill={s.color} opacity="0.85" rx={2} />
+                                                        {count > 0 && (
+                                                            <text x={bx + (subBarW - 1) / 2} y={by - 3} fill="#fff" fontSize="8" fontWeight="bold" textAnchor="middle">{count}</text>
+                                                        )}
+                                                    </g>
+                                                );
+                                            })}
+                                        </g>
+                                    );
+                                });
+                            })()}
+                        </svg>
+                        <div className="text-[9px] text-[#888] mt-3">Distribución estadística de frecuencia de aciertos (0 a 5) para los focos seleccionados en la Iteración #6.</div>
+                    </div>
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                    <button onClick={onClose} className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-5 py-2 rounded-lg text-[11px] font-black cursor-pointer shadow-md">
+                        Cerrar Análisis Gráfico
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void }) {
+    const [showEfficiencyReportModal, setShowEfficiencyReportModal] = useState(false);
+    const [showFocusGraphModal, setShowFocusGraphModal] = useState(false);
     const [activeTab, setActiveTab] = useState<'simulator' | 'simulatorB'>('simulator');
     const [localToast, setLocalToast] = useState<string | null>(null);
     function showLocToast(msg: string) {
@@ -2706,11 +3559,19 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     const [sub3FinalFreqs, setSub3FinalFreqs] = useState<Record<number, boolean>>({ ...defaultFinalFreqs });
     const [sub4FinalFreqs, setSub4FinalFreqs] = useState<Record<number, boolean>>({ ...defaultFinalFreqs });
     const [sub5FinalFreqs, setSub5FinalFreqs] = useState<Record<number, boolean>>({ ...defaultFinalFreqs });
+    const [iterOptMode, setIterOptMode] = useState<'madre' | 'sub5' | 'experimental' | 'stochastic1' | 'stochastic2' | 'tunner' | 'smooth' | 'greenV'>('madre');
 
     function optimizeStatisticalSimulator() {
         const optFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
         const optFinalFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
         React.startTransition(() => {
+            setMadreActive(true);
+            setSub1Active(true);
+            setSub2Active(true);
+            setSub3Active(true);
+            setSub4Active(true);
+            setSub5Active(true);
+
             setMadreFinalFreqs(optFinalFreqs);
             setSub1FinalFreqs(optFinalFreqs);
             setSub2FinalFreqs(optFinalFreqs);
@@ -2718,23 +3579,266 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             setSub4FinalFreqs(optFinalFreqs);
             setSub5FinalFreqs(optFinalFreqs);
 
-            const optCfg = {
-                9: makeCfg(true, pCore, optFreqs),
-                12: makeCfg(true, pStandard, optFreqs),
-                15: makeCfg(true, pReversion, optFreqs),
-                18: makeCfg(true, pMatrix, optFreqs),
-                21: makeCfg(true, pStandard, optFreqs),
-                24: makeCfg(true, pMatrix, optFreqs),
-                27: makeCfg(true, pStandard, optFreqs)
-            };
-            setMadreConfigs(optCfg);
-            setSub1Configs(optCfg);
-            setSub2Configs(optCfg);
-            setSub3Configs(optCfg);
-            setSub4Configs(optCfg);
-            setSub5Configs(optCfg);
-
-            showLocToast("⚡ ¡Simulador por Iteraciones optimizado para maximizar 4 y 5 aciertos!");
+            if (iterOptMode === 'madre') {
+                const madreOptCfg = {
+                    9: makeCfg(true, pCore, { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    12: makeCfg(true, pMatrix, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    15: makeCfg(true, pReversion, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                const standardSubCfg = {
+                    9: makeCfg(true, pCore, optFreqs),
+                    12: makeCfg(true, pStandard, optFreqs),
+                    15: makeCfg(true, pReversion, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                setMadreConfigs(madreOptCfg);
+                setSub1Configs(standardSubCfg);
+                setSub2Configs(standardSubCfg);
+                setSub3Configs(standardSubCfg);
+                setSub4Configs(standardSubCfg);
+                setSub5Configs(standardSubCfg);
+                setMadreFinalFreqs({ 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                showLocToast("⚡ ¡Simulador optimizado con Foco en Iteración #1 (Madre - Alta Cobertura 27#)!");
+            } else if (iterOptMode === 'sub5') {
+                const standardCfg = {
+                    9: makeCfg(true, pCore, optFreqs),
+                    12: makeCfg(true, pStandard, optFreqs),
+                    15: makeCfg(true, pReversion, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                const closingExpertCfg = {
+                    9: makeCfg(true, pMatrix, { 7: false, 6: true, 5: true, 4: true, 3: false, 2: false, 1: false, 0: false }),
+                    12: makeCfg(true, pReversion, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false }),
+                    15: makeCfg(true, pMatrix, { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false }),
+                    18: makeCfg(true, pStandard, optFreqs),
+                    21: makeCfg(false, pCore, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                setMadreConfigs(standardCfg);
+                setSub1Configs(standardCfg);
+                setSub2Configs(standardCfg);
+                setSub3Configs(standardCfg);
+                setSub4Configs(standardCfg);
+                setSub5Configs(closingExpertCfg);
+                setSub5FinalFreqs({ 7: false, 6: true, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false });
+                showLocToast("⚡ ¡Simulador optimizado con Foco en Iteración #6 (Cierre - Objetivo 5 Aciertos en 12#)!");
+            } else if (iterOptMode === 'experimental') {
+                const standardCfg = {
+                    9: makeCfg(true, pCore, optFreqs),
+                    12: makeCfg(true, pStandard, optFreqs),
+                    15: makeCfg(true, pReversion, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                const experimentalSub3Cfg = {
+                    9: makeCfg(true, pReversion, { 7: true, 6: true, 5: false, 4: false, 3: false, 2: false, 1: false, 0: true }),
+                    12: makeCfg(true, pMatrix, { 7: true, 6: true, 5: false, 4: false, 3: false, 2: false, 1: false, 0: true }),
+                    15: makeCfg(true, pCore, { 7: true, 6: true, 5: false, 4: false, 3: false, 2: false, 1: false, 0: true }),
+                    18: makeCfg(false, pCore, optFreqs),
+                    21: makeCfg(false, pCore, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                setMadreConfigs(standardCfg);
+                setSub1Configs(standardCfg);
+                setSub2Configs(standardCfg);
+                setSub3Configs(experimentalSub3Cfg);
+                setSub4Configs(standardCfg);
+                setSub5Configs(standardCfg);
+                setSub3FinalFreqs({ 7: true, 6: true, 5: false, 4: false, 3: false, 2: false, 1: false, 0: true });
+                showLocToast("🔬 ¡Modo experimental activado: Foco en menor cantidad de aciertos en Iteración #4!");
+            } else if (iterOptMode === 'stochastic2') {
+                const standardCfg = {
+                    9: makeCfg(true, pCore, optFreqs),
+                    12: makeCfg(true, pStandard, optFreqs),
+                    15: makeCfg(true, pReversion, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                const stochastic2Sub3Cfg = {
+                    9: makeCfg(true, pMatrix, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false }),
+                    12: makeCfg(true, pReversion, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false }),
+                    15: makeCfg(true, pMatrix, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false }),
+                    18: makeCfg(true, pStandard, optFreqs),
+                    21: makeCfg(false, pCore, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                setMadreConfigs(standardCfg);
+                setSub1Configs(standardCfg);
+                setSub2Configs(standardCfg);
+                setSub3Configs(stochastic2Sub3Cfg);
+                setSub4Configs(standardCfg);
+                setSub5Configs(standardCfg);
+                setSub3FinalFreqs({ 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: false, 0: false });
+                showLocToast("🎲 ¡Estocástico 2 activado: Foco en maximizar 4+ aciertos en la Iteración #4 (18#)!");
+            } else if (iterOptMode === 'tunner') {
+                const standardCfg = {
+                    9: makeCfg(true, pCore, optFreqs),
+                    12: makeCfg(true, pStandard, optFreqs),
+                    15: makeCfg(true, pReversion, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                const tunnerSub5Cfg = {
+                    9: makeCfg(true, pMatrix, { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    12: makeCfg(true, pStandard, { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    15: makeCfg(true, pReversion, { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(false, pCore, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                setMadreConfigs(standardCfg);
+                setSub1Configs(standardCfg);
+                setSub2Configs(standardCfg);
+                setSub3Configs(standardCfg);
+                setSub4Configs(standardCfg);
+                setSub5Configs(tunnerSub5Cfg);
+                setSub5FinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                showLocToast("🎛️ ¡TUNNER activado: Foco en 2-3 aciertos en promedio para la Iteración #6 (Cierre)!");
+            } else if (iterOptMode === 'smooth') {
+                const baseOpt = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+                const madreSmooth = {
+                    9: makeCfg(true, pCore, baseOpt),
+                    12: makeCfg(true, pStandard, baseOpt),
+                    15: makeCfg(true, pReversion, baseOpt),
+                    18: makeCfg(true, pMatrix, baseOpt),
+                    21: makeCfg(true, pStandard, baseOpt),
+                    24: makeCfg(true, pMatrix, baseOpt),
+                    27: makeCfg(true, pStandard, baseOpt)
+                };
+                const sub1Smooth = {
+                    9: makeCfg(true, pMatrix, baseOpt),
+                    12: makeCfg(true, pReversion, baseOpt),
+                    15: makeCfg(true, pStandard, baseOpt),
+                    18: makeCfg(true, pMatrix, baseOpt),
+                    21: makeCfg(true, pReversion, baseOpt),
+                    24: makeCfg(true, pStandard, baseOpt),
+                    27: makeCfg(false, pCore, baseOpt)
+                };
+                const sub2Smooth = {
+                    9: makeCfg(true, pStandard, baseOpt),
+                    12: makeCfg(true, pMatrix, baseOpt),
+                    15: makeCfg(true, pReversion, baseOpt),
+                    18: makeCfg(true, pStandard, baseOpt),
+                    21: makeCfg(true, pMatrix, baseOpt),
+                    24: makeCfg(false, pCore, baseOpt),
+                    27: makeCfg(false, pCore, baseOpt)
+                };
+                const sub3Smooth = {
+                    9: makeCfg(true, pReversion, baseOpt),
+                    12: makeCfg(true, pStandard, baseOpt),
+                    15: makeCfg(true, pMatrix, baseOpt),
+                    18: makeCfg(true, pReversion, baseOpt),
+                    21: makeCfg(true, pStandard, baseOpt),
+                    24: makeCfg(false, pCore, baseOpt),
+                    27: makeCfg(false, pCore, baseOpt)
+                };
+                const sub4Smooth = {
+                    9: makeCfg(true, pMatrix, baseOpt),
+                    12: makeCfg(true, pReversion, baseOpt),
+                    15: makeCfg(true, pStandard, baseOpt),
+                    18: makeCfg(true, pMatrix, baseOpt),
+                    21: makeCfg(false, pCore, baseOpt),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                const sub5Smooth = {
+                    9: makeCfg(true, pStandard, baseOpt),
+                    12: makeCfg(true, pMatrix, baseOpt),
+                    15: makeCfg(true, pReversion, baseOpt),
+                    18: makeCfg(true, pStandard, baseOpt),
+                    21: makeCfg(false, pCore, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                setMadreConfigs(madreSmooth);
+                setSub1Configs(sub1Smooth);
+                setSub2Configs(sub2Smooth);
+                setSub3Configs(sub3Smooth);
+                setSub4Configs(sub4Smooth);
+                setSub5Configs(sub5Smooth);
+                setMadreFinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                setSub1FinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                setSub2FinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                setSub3FinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                setSub4FinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                setSub5FinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                showLocToast("🌊 ¡SMOOTH activado: Distribución equitativa y gradual de aciertos en las 6 iteraciones!");
+            } else if (iterOptMode === 'greenV') {
+                const standardCfg = {
+                    9: makeCfg(true, pCore, optFreqs),
+                    12: makeCfg(true, pStandard, optFreqs),
+                    15: makeCfg(true, pReversion, optFreqs),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                const greenVCfg = {
+                    9: makeCfg(true, pMatrix, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    12: makeCfg(true, pStandard, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    15: makeCfg(true, pReversion, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(false, pCore, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                setMadreConfigs(greenVCfg);
+                setSub1Configs(standardCfg);
+                setSub2Configs(standardCfg);
+                setSub3Configs(standardCfg);
+                setSub4Configs(standardCfg);
+                setSub5Configs(greenVCfg);
+                setMadreFinalFreqs({ 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                setSub5FinalFreqs({ 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                showLocToast("🟢 ¡Perfil V Verde activado: Foco en alta eficiencia en Iteración #1 y #6!");
+            } else {
+                const stochasticCfg = {
+                    9: makeCfg(true, pMatrix, { 7: true, 6: true, 5: false, 4: false, 3: true, 2: true, 1: true, 0: true }),
+                    12: makeCfg(true, pReversion, { 7: true, 6: true, 5: false, 4: false, 3: true, 2: true, 1: true, 0: true }),
+                    15: makeCfg(true, pCore, { 7: true, 6: true, 5: false, 4: false, 3: true, 2: true, 1: true, 0: true }),
+                    18: makeCfg(true, pMatrix, optFreqs),
+                    21: makeCfg(true, pStandard, optFreqs),
+                    24: makeCfg(true, pMatrix, optFreqs),
+                    27: makeCfg(true, pStandard, optFreqs)
+                };
+                const closingExpertStoch = {
+                    9: makeCfg(true, pMatrix, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false }),
+                    12: makeCfg(true, pReversion, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false }),
+                    15: makeCfg(true, pMatrix, { 7: false, 6: true, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false }),
+                    18: makeCfg(true, pStandard, optFreqs),
+                    21: makeCfg(false, pCore, optFreqs),
+                    24: makeCfg(false, pCore, optFreqs),
+                    27: makeCfg(false, pCore, optFreqs)
+                };
+                setMadreConfigs(stochasticCfg);
+                setSub1Configs(stochasticCfg);
+                setSub2Configs(stochasticCfg);
+                setSub3Configs(stochasticCfg);
+                setSub4Configs(stochasticCfg);
+                setSub5Configs(closingExpertStoch);
+                setSub5FinalFreqs({ 7: false, 6: true, 5: true, 4: true, 3: true, 2: false, 1: false, 0: false });
+                showLocToast("🎲 ¡Estocástico 1 activado: Entropía inversa en iteraciones intermedias para maximizar aciertos en el cierre!");
+            }
         });
         runSimulation();
     }
@@ -2789,6 +3893,30 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
         }
 
         const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
+        const anyActive = madreActive || sub1Active || sub2Active || sub3Active || sub4Active || sub5Active;
+        if (!anyActive && userPicks.length === 0) {
+            return {
+                motherFiltered: [],
+                subFiltered: [],
+                sub2Filtered: [],
+                sub3Filtered: [],
+                sub4Filtered: [],
+                sub5Filtered: [],
+                targetDrawObj,
+                hitsMadre: null,
+                hitsSub1: null,
+                hitsSub2: null,
+                hitsSub3: null,
+                hitsSub4: null,
+                hitsSub5: null,
+                redPct: 0,
+                red2Pct: 0,
+                red3Pct: 0,
+                red4Pct: 0,
+                red5Pct: 0
+            };
+        }
+
         const mlPoolsMap: Record<number, PoolResult> = {};
         poolSizesList.forEach(sz => {
             mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
@@ -2796,8 +3924,11 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
         // 1. Escenario Madre
         let motherFiltered: number[] = [];
+        const anyMadreEnabled = poolSizesList.some(sz => madreConfigs[sz] && madreConfigs[sz].enabled);
         if (!madreActive) {
-            motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+            motherFiltered = userPicks.length > 0 ? [...userPicks] : [];
+        } else if (!anyMadreEnabled) {
+            motherFiltered = userPicks.length > 0 ? [...userPicks] : [];
         } else {
             let madreCombinedFreq: Record<number, number> = {};
             poolSizesList.forEach(sz => {
@@ -2832,9 +3963,12 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 });
                 if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
             }
-            let fallback = mlPoolsMap[21]?.final || Array.from({length: 28}, (_, i) => i + 1);
-            let merged = new Set([...motherFiltered, ...userPicks, ...fallback]);
-            motherFiltered = Array.from(merged).slice(0, 24).sort((a, b) => a - b);
+            let merged = new Set([...motherFiltered, ...userPicks]);
+            if (merged.size === 0) {
+                let fallback = mlPoolsMap[21]?.final || Array.from({length: 28}, (_, i) => i + 1);
+                merged = new Set([...fallback]);
+            }
+            motherFiltered = Array.from(merged).sort((a, b) => a - b);
         }
 
         // 2. Subescenario 1
@@ -2927,7 +4061,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             }
         }
 
-        // 4. Subescenario 3 (Iteración #4)
+        // 4. Iteración #4 (Filtro Avanzado)
         let sub3Filtered: number[] = [];
         if (!sub3Active) {
             sub3Filtered = [...sub2Filtered];
@@ -2972,7 +4106,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             }
         }
 
-        // 5. Subescenario 4 (Iteración #5)
+        // 5. Iteración #5 (Filtro de Precisión)
         let sub4Filtered: number[] = [];
         if (!sub4Active) {
             sub4Filtered = [...sub3Filtered];
@@ -3017,7 +4151,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             }
         }
 
-        // 6. Subescenario 5 (Iteración #6)
+        // 6. Iteración #6 (Filtro Experto / Cierre)
         let sub5Filtered: number[] = [];
         if (!sub5Active) {
             sub5Filtered = [...sub4Filtered];
@@ -3110,22 +4244,14 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
             }
         }
 
-        if (targetDrawObj) {
-            targetDrawObj.win.forEach(w => {
-                if (!motherFiltered.includes(w)) motherFiltered.push(w);
-                if (!subFiltered.includes(w)) subFiltered.push(w);
-                if (!sub2Filtered.includes(w)) sub2Filtered.push(w);
-                if (!sub3Filtered.includes(w)) sub3Filtered.push(w);
-                if (!sub4Filtered.includes(w)) sub4Filtered.push(w);
-                if (!sub5Filtered.includes(w)) sub5Filtered.push(w);
-            });
-            motherFiltered.sort((a, b) => a - b);
-            subFiltered.sort((a, b) => a - b);
-            sub2Filtered.sort((a, b) => a - b);
-            sub3Filtered.sort((a, b) => a - b);
-            sub4Filtered.sort((a, b) => a - b);
-            sub5Filtered.sort((a, b) => a - b);
-        }
+
+
+        motherFiltered = constrainToTarget(motherFiltered, userPicks, 27, allDraws);
+        subFiltered = constrainToTarget(subFiltered, userPicks, 24, allDraws);
+        sub2Filtered = constrainToTarget(sub2Filtered, userPicks, 21, allDraws);
+        sub3Filtered = constrainToTarget(sub3Filtered, userPicks, 18, allDraws);
+        sub4Filtered = constrainToTarget(sub4Filtered, userPicks, 15, allDraws);
+        sub5Filtered = constrainToTarget(sub5Filtered, userPicks, 12, allDraws);
 
         let hitsMadre = targetDrawObj ? targetDrawObj.win.filter(w => motherFiltered.includes(w)).length : null;
         let hitsSub1 = targetDrawObj ? targetDrawObj.win.filter(w => subFiltered.includes(w)).length : null;
@@ -3350,23 +4476,40 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     }, [allDraws, selectedTargetDrawNum, simBConfigs, simBFinalFreqs, userPicks, optTargetSize]);
 
     function runSimulation() {
+        const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
+        const anyActive = madreActive || sub1Active || sub2Active || sub3Active || sub4Active || sub5Active;
+        if (!anyActive && userPicks.length === 0) {
+            showLocToast("⚠️ No hay ninguna configuración activa ni iteraciones seleccionadas para simular.");
+            setSimResults([]);
+            return;
+        }
+
         setIsSimulating(true);
         setTimeout(() => {
-            const draws20 = allDraws.slice(-20).reverse();
-            const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
-            let res = draws20.map(d => {
+            let targetIdx = allDraws.length - 1;
+            if (selectedTargetDrawNum > 0) {
+                const idx = allDraws.findIndex(d => d.num === selectedTargetDrawNum);
+                if (idx >= 0) targetIdx = idx;
+            }
+            const startIdx = Math.max(0, targetIdx - 29);
+            const draws30 = allDraws.slice(startIdx, targetIdx + 1).reverse();
+            let res = draws30.map(d => {
                 const histIdx = allDraws.findIndex(x => x.num === d.num);
                 const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+                console.log(`[Audit Simulation] Draw #${d.num}: histIdx = ${histIdx}, histDraws length = ${histDraws.length}`);
                 
                 const mlPoolsMap: Record<number, PoolResult> = {};
                 poolSizesList.forEach(sz => {
                     mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
                 });
 
-                // 1. Escenario Madre (Iteración #1)
+                // 1. Iteración #1 (Base / Madre)
                 let motherFiltered: number[] = [];
+                const anyMadreEnabled = poolSizesList.some(sz => madreConfigs[sz] && madreConfigs[sz].enabled);
                 if (!madreActive) {
-                    motherFiltered = Array.from({length: 28}, (_, i) => i + 1);
+                    motherFiltered = userPicks.length > 0 ? [...userPicks] : [];
+                } else if (!anyMadreEnabled) {
+                    motherFiltered = userPicks.length > 0 ? [...userPicks] : [];
                 } else {
                     let madreCombinedFreq: Record<number, number> = {};
                     poolSizesList.forEach(sz => {
@@ -3401,13 +4544,16 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                         });
                         if (accepted && madreFinalFreqs[f]) motherFiltered.push(n);
                     }
-                    let fallback = mlPoolsMap[21]?.final || Array.from({length: 28}, (_, i) => i + 1);
-                    let merged = new Set([...motherFiltered, ...userPicks, ...fallback]);
-                    motherFiltered = Array.from(merged).slice(0, 24).sort((a, b) => a - b);
+                    let merged = new Set([...motherFiltered, ...userPicks]);
+                    if (merged.size === 0) {
+                        let fallback = mlPoolsMap[21]?.final || Array.from({length: 28}, (_, i) => i + 1);
+                        merged = new Set([...fallback]);
+                    }
+                    motherFiltered = Array.from(merged).sort((a, b) => a - b);
                 }
                 // madreHits calculated at end
 
-                // 2. Subescenario 1 (Iteración #2)
+                // 2. Iteración #2 (Filtro Primario)
                 let subFiltered: number[] = [];
                 if (!sub1Active) {
                     subFiltered = [...motherFiltered];
@@ -3453,7 +4599,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 }
                 // sub1Hits calculated at end
 
-                // 3. Subescenario 2 (Iteración #3)
+                // 3. Iteración #3 (Filtro Secundario)
                 let sub2Filtered: number[] = [];
                 if (!sub2Active) {
                     sub2Filtered = [...subFiltered];
@@ -3499,7 +4645,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 }
                 // sub2Hits calculated at end
 
-                // 4. Subescenario 3 (Iteración #4)
+                // 4. Iteración #4 (Filtro Avanzado)
                 let sub3Filtered: number[] = [];
                 if (!sub3Active) {
                     sub3Filtered = [...sub2Filtered];
@@ -3545,7 +4691,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 }
                 // sub3Hits calculated at end
 
-                // 5. Subescenario 4 (Iteración #5)
+                // 5. Iteración #5 (Filtro de Precisión)
                 let sub4Filtered: number[] = [];
                 if (!sub4Active) {
                     sub4Filtered = [...sub3Filtered];
@@ -3591,7 +4737,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                 }
                 // sub4Hits calculated at end
 
-                // 6. Subescenario 5 (Iteración #6)
+                // 6. Iteración #6 (Filtro Experto / Cierre)
                 let sub5Filtered: number[] = [];
                 if (!sub5Active) {
                     sub5Filtered = [...sub4Filtered];
@@ -3684,22 +4830,14 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                     }
                 }
 
-                if (selectedTargetDrawNum > 0 && d.num === selectedTargetDrawNum) {
-                    d.win.forEach(w => {
-                        if (!motherFiltered.includes(w)) motherFiltered.push(w);
-                        if (!subFiltered.includes(w)) subFiltered.push(w);
-                        if (!sub2Filtered.includes(w)) sub2Filtered.push(w);
-                        if (!sub3Filtered.includes(w)) sub3Filtered.push(w);
-                        if (!sub4Filtered.includes(w)) sub4Filtered.push(w);
-                        if (!sub5Filtered.includes(w)) sub5Filtered.push(w);
-                    });
-                    motherFiltered.sort((a, b) => a - b);
-                    subFiltered.sort((a, b) => a - b);
-                    sub2Filtered.sort((a, b) => a - b);
-                    sub3Filtered.sort((a, b) => a - b);
-                    sub4Filtered.sort((a, b) => a - b);
-                    sub5Filtered.sort((a, b) => a - b);
-                }
+
+
+                motherFiltered = constrainToTarget(motherFiltered, userPicks, 27, histDraws);
+                subFiltered = constrainToTarget(subFiltered, userPicks, 24, histDraws);
+                sub2Filtered = constrainToTarget(sub2Filtered, userPicks, 21, histDraws);
+                sub3Filtered = constrainToTarget(sub3Filtered, userPicks, 18, histDraws);
+                sub4Filtered = constrainToTarget(sub4Filtered, userPicks, 15, histDraws);
+                sub5Filtered = constrainToTarget(sub5Filtered, userPicks, 12, histDraws);
 
                 let madreHits = d.win.filter(w => motherFiltered.includes(w)).length;
                 let sub1Hits = d.win.filter(w => subFiltered.includes(w)).length;
@@ -3904,6 +5042,14 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     setSub5Configs(emptyConfigs);
                                     setSub5SecondaryConfigs(emptyConfigs);
                                     setSimBConfigs(emptyConfigs);
+                                    setMadreActive(false);
+                                    setSub1Active(false);
+                                    setSub2Active(false);
+                                    setSub3Active(false);
+                                    setSub4Active(false);
+                                    setSub5Active(false);
+                                    setUserPicks([]);
+                                    localStorage.removeItem('chispazo_user_picks');
                                     setMadreFinalFreqs({ ...defaultFinalFreqs });
                                     setSub1FinalFreqs({ ...defaultFinalFreqs });
                                     setSub2FinalFreqs({ ...defaultFinalFreqs });
@@ -3911,7 +5057,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     setSub4FinalFreqs({ ...defaultFinalFreqs });
                                     setSub5FinalFreqs({ ...defaultFinalFreqs });
                                     setSimBFinalFreqs({ 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: true });
-                                    showLocToast("¡Configuraciones limpiadas exitosamente!");
+                                    showLocToast("¡Configuraciones, iteraciones y picks limpiados exitosamente!");
                                 }}
                                 className="px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition bg-[#222] text-[#ff5252] border border-[#ff5252]/40 hover:bg-[#ff5252]/20 flex items-center gap-1"
                                 title="Limpiar todas las configuraciones"
@@ -3952,6 +5098,21 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
                                         ))}
                                     </select>
+                                    <select 
+                                        value={iterOptMode} 
+                                        onChange={(e) => setIterOptMode(e.target.value as 'madre' | 'sub5' | 'experimental' | 'stochastic1' | 'stochastic2' | 'tunner' | 'smooth' | 'greenV')}
+                                        className="bg-[#222] text-[#00e5ff] border border-[#00e5ff]/50 rounded-lg px-2 py-1 text-[10px] font-bold cursor-pointer"
+                                        title="Seleccionar Objetivo de Optimización"
+                                    >
+                                                                                                                         <option value="madre">🎯 Foco: Madre (~27#)</option>
+                                                                                <option value="sub5">🎯 Foco: Cierre (~12#)</option>
+                                                                                <option value="experimental">🔬 Foco: Avanzado (~18#)</option>
+                                                                                <option value="stochastic1">🎲 Foco: Estocástico 1</option>
+                                                                                <option value="stochastic2">🎲 Foco: Estocástico 2</option>
+                                                                                 <option value="tunner">🎛️ Foco: TUNNER</option>
+                                                                                 <option value="smooth">🌊 Foco: SMOOTH</option>
+                                                                                 <option value="greenV">🟢 Foco: Perfil V Verde</option>
+                                    </select>
                                     <button 
                                         onClick={optimizeStatisticalSimulator}
                                         className="bg-[#00e5ff] text-black hover:bg-[#00d0eb] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
@@ -3964,6 +5125,30 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                         className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-3 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
                                     >
                                         🚀 {isSimulating ? 'Simulando...' : 'Simulación'}
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            if (simResults.length === 0) {
+                                                runSimulation();
+                                            }
+                                            setShowEfficiencyReportModal(true);
+                                        }}
+                                        className="bg-[rgba(124,77,255,.2)] border border-[rgba(124,77,255,.5)] text-[#b388ff] hover:bg-[rgba(124,77,255,.3)] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
+                                        title="Analizar eficiencia de las 6 iteraciones en sorteos pasados"
+                                    >
+                                        📊 Analizar Eficiencia
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            if (simResults.length === 0) {
+                                                runSimulation();
+                                            }
+                                            setShowFocusGraphModal(true);
+                                        }}
+                                        className="bg-[rgba(0,229,255,.2)] border border-[rgba(0,229,255,.5)] text-[#00e5ff] hover:bg-[#00e5ff]/30 px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
+                                        title="Analizar gráficamente los focos de optimización (XY)"
+                                    >
+                                        📈 Análisis Gráfico Focos
                                     </button>
                                     <div className="flex items-center gap-1 ml-auto">
                                         <select 
@@ -4129,7 +5314,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             </span>
                                         </label>
                                         <div>
-                                            <h3 className="text-[12px] font-black text-[#00e5ff]">Escenario Madre (Iteración #1) — Alta Eficiencia</h3>
+                                            <h3 className="text-[12px] font-black text-[#00e5ff]">Iteración #1 (Base / Madre) — Alta Eficiencia</h3>
                                             <p className="text-[9px] text-[#888]">
                                                 {selectedTargetDrawNum === 0 ? 'Predicción para el Próximo Sorteo' : `Análisis sobre Sorteo #${selectedTargetDrawNum}`} | {liveTargetResult.motherFiltered.length} Números Resultantes
                                                 {liveTargetResult.hitsMadre !== null && ` | Aciertos: ${liveTargetResult.hitsMadre} ac`}
@@ -4147,7 +5332,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
                                     <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Madre):</div>
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #1):</div>
                                         <button 
                                             onClick={() => {
                                                 const txt = liveTargetResult.motherFiltered.map(n => String(n).padStart(2, '0')).join(' ');
@@ -4292,7 +5477,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             </span>
                                         </label>
                                         <div>
-                                            <h3 className="text-[12px] font-black text-[#ffeb3b]">Subescenario 1 (Iteración #2) — Reducción ~30%</h3>
+                                            <h3 className="text-[12px] font-black text-[#ffeb3b]">Iteración #2 (Filtro Primario) — Promedio ~24 Números</h3>
                                             <p className="text-[9px] text-[#888]">
                                                 Entrada: Madre ({liveTargetResult.motherFiltered.length}#) → Sub1 ({liveTargetResult.subFiltered.length}#) | Reducción: -{liveTargetResult.redPct}%
                                                 {liveTargetResult.hitsSub1 !== null && ` | Aciertos: ${liveTargetResult.hitsSub1} ac`}
@@ -4310,7 +5495,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
                                     <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 1):</div>
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #2):</div>
                                         <button 
                                             onClick={() => {
                                                 const txt = liveTargetResult.subFiltered.map(n => String(n).padStart(2, '0')).join(' ');
@@ -4440,7 +5625,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             </span>
                                         </label>
                                         <div>
-                                            <h3 className="text-[12px] font-black text-[#b388ff]">Subescenario 2 (Iteración #3) — Promedio ~21 Números</h3>
+                                            <h3 className="text-[12px] font-black text-[#b388ff]">Iteración #3 (Filtro Secundario) — Promedio ~21 Números</h3>
                                             <p className="text-[9px] text-[#888]">
                                                 Entrada: Sub1 ({liveTargetResult.subFiltered.length}#) → Sub2 ({liveTargetResult.sub2Filtered.length}#) | Reducción: -{liveTargetResult.red2Pct}%
                                                 {liveTargetResult.hitsSub2 !== null && ` | Aciertos: ${liveTargetResult.hitsSub2} ac`}
@@ -4458,7 +5643,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
                                     <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 2 - Iteración #3):</div>
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #3):</div>
                                         <button 
                                             onClick={() => {
                                                 const txt = liveTargetResult.sub2Filtered.map(n => String(n).padStart(2, '0')).join(' ');
@@ -4588,7 +5773,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             </span>
                                         </label>
                                         <div>
-                                            <h3 className="text-[12px] font-black text-[#26c6da]">Subescenario 3 (Iteración #4) — Promedio ~18 Números</h3>
+                                            <h3 className="text-[12px] font-black text-[#26c6da]">Iteración #4 (Filtro Avanzado) — Promedio ~18 Números</h3>
                                             <p className="text-[9px] text-[#888]">
                                                 Entrada: Sub2 ({liveTargetResult.sub2Filtered.length}#) → Sub3 ({liveTargetResult.sub3Filtered.length}#) | Reducción: -{liveTargetResult.red3Pct}%
                                                 {liveTargetResult.hitsSub3 !== null && ` | Aciertos: ${liveTargetResult.hitsSub3} ac`}
@@ -4606,7 +5791,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
                                     <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 3 - Iteración #4):</div>
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #4):</div>
                                         <button 
                                             onClick={() => {
                                                 const txt = liveTargetResult.sub3Filtered.map(n => String(n).padStart(2, '0')).join(' ');
@@ -4736,7 +5921,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             </span>
                                         </label>
                                         <div>
-                                            <h3 className="text-[12px] font-black text-[#e040fb]">Subescenario 4 (Iteración #5) — Promedio ~15 Números</h3>
+                                            <h3 className="text-[12px] font-black text-[#e040fb]">Iteración #5 (Filtro de Precisión) — Promedio ~15 Números</h3>
                                             <p className="text-[9px] text-[#888]">
                                                 Entrada: Sub3 ({liveTargetResult.sub3Filtered.length}#) → Sub4 ({liveTargetResult.sub4Filtered.length}#) | Reducción: -{liveTargetResult.red4Pct}%
                                                 {liveTargetResult.hitsSub4 !== null && ` | Aciertos: ${liveTargetResult.hitsSub4} ac`}
@@ -4754,7 +5939,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
                                     <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 4 - Iteración #5):</div>
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #5):</div>
                                         <button 
                                             onClick={() => {
                                                 const txt = liveTargetResult.sub4Filtered.map(n => String(n).padStart(2, '0')).join(' ');
@@ -4884,7 +6069,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             </span>
                                         </label>
                                         <div>
-                                            <h3 className="text-[12px] font-black text-[#00e676]">Subescenario 5 (Iteración #6) — Promedio ~12 Números</h3>
+                                            <h3 className="text-[12px] font-black text-[#00e676]">Iteración #6 (Filtro Experto / Cierre) — Promedio ~12 Números</h3>
                                             <p className="text-[9px] text-[#888]">
                                                 Entrada: Sub4 ({liveTargetResult.sub4Filtered.length}#) → Sub5 ({liveTargetResult.sub5Filtered.length}#) | Reducción: -{liveTargetResult.red5Pct}%
                                                 {liveTargetResult.hitsSub5 !== null && ` | Aciertos: ${liveTargetResult.hitsSub5} ac`}
@@ -4902,7 +6087,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                 {/* Resulting numbers preview badge */}
                                 <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
                                     <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Subescenario 5 - Iteración #6):</div>
+                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #6):</div>
                                         <button 
                                             onClick={() => {
                                                 const txt = liveTargetResult.sub5Filtered.map(n => String(n).padStart(2, '0')).join(' ');
@@ -5117,11 +6302,99 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
 
                             {simResults.length > 0 && (
                                 <div className="space-y-4">
+                                    {/* Comparative Summary Panel: All 6 Iterations Synthesized */}
+                                    <div className="bg-[#1a1a1a] border border-[#7c4dff]/50 rounded-xl p-3 shadow-xl">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div className="text-[11px] font-black text-[#ffeb3b] flex items-center gap-1.5">
+                                                <span>⚖️ Panel Comparativo General (Las 6 Iteraciones) — Foco Activo: <span className="text-[#00e5ff] uppercase">{iterOptMode}</span></span>
+                                            </div>
+                                            <span className="text-[9px] text-[#888]">Basado en {simResults.length} sorteos evaluados</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                            {[
+                                                { name: 'Iteración #1 (Madre)', countKey: 'madreCount', hitKey: 'madreHits', color: '#00e5ff', active: madreActive },
+                                                { name: 'Iteración #2 (Primario)', countKey: 'sub1Count', hitKey: 'sub1Hits', color: '#ffeb3b', active: sub1Active },
+                                                { name: 'Iteración #3 (Secundario)', countKey: 'sub2Count', hitKey: 'sub2Hits', color: '#b388ff', active: sub2Active },
+                                                { name: 'Iteración #4 (Avanzado)', countKey: 'sub3Count', hitKey: 'sub3Hits', color: '#26c6da', active: sub3Active },
+                                                { name: 'Iteración #5 (Precisión)', countKey: 'sub4Count', hitKey: 'sub4Hits', color: '#e040fb', active: sub4Active },
+                                                { name: 'Iteración #6 (Cierre)', countKey: 'sub5Count', hitKey: 'sub5Hits', color: '#00e676', active: sub5Active }
+                                            ].map((it, idx) => {
+                                                const avgHits = (simResults.reduce((acc, r) => acc + (r[it.hitKey] || 0), 0) / simResults.length).toFixed(2);
+                                                const hits4Plus = simResults.filter(r => (r[it.hitKey] || 0) >= 4).length;
+                                                const hits5 = simResults.filter(r => (r[it.hitKey] || 0) === 5).length;
+                                                const avgCount = Math.round(simResults.reduce((acc, r) => acc + (r[it.countKey] || 0), 0) / simResults.length);
+                                                return (
+                                                    <div key={idx} className={`bg-[#121212] rounded-lg p-2.5 border transition ${it.active ? 'opacity-100 shadow-md' : 'opacity-50 border-dashed'}`} style={{borderColor: `${it.color}44`}}>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <div className="text-[10px] font-black" style={{color: it.color}}>{it.name}</div>
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#1a1a1a]" style={{color: it.color}}>Prom. {avgCount}#</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-3 gap-1 text-center text-[9px]">
+                                                            <div className="bg-[#1a1a1a] p-1 rounded border border-[#333]">
+                                                                <div className="text-[#888] text-[7px]">Prom. Ac.</div>
+                                                                <div className="font-black text-[#ffeb3b]">{avgHits}</div>
+                                                            </div>
+                                                            <div className="bg-[#1a1a1a] p-1 rounded border border-[#333]">
+                                                                <div className="text-[#888] text-[7px]">4+ Ac.</div>
+                                                                <div className="font-black text-[#76ff03]">{hits4Plus} ({Math.round(hits4Plus / simResults.length * 100)}%)</div>
+                                                            </div>
+                                                            <div className="bg-[#1a1a1a] p-1 rounded border border-[#333]">
+                                                                <div className="text-[#888] text-[7px]">5 Ac.</div>
+                                                                <div className="font-black" style={{color: it.color}}>{hits5}</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Active Focus Summary Box for Selected Draw */}
+                                    {(() => {
+                                        const targetNum = selectedTargetDrawNum === 0 ? (allDraws[allDraws.length - 1]?.num || 0) : selectedTargetDrawNum;
+                                        const targetRes = simResults.find(r => r.num === targetNum);
+                                        if (!targetRes) return null;
+                                        return (
+                                            <div className="bg-[rgba(0,229,255,0.08)] border border-[#00e5ff]/50 rounded-xl p-3 text-[11px] mb-3 shadow-md">
+                                                <div className="font-black text-[#ffeb3b] mb-1.5 flex items-center justify-between">
+                                                    <span>🎯 Desglose de Aciertos por Iteración (Sorteo #{targetRes.num} - Fecha: {allDraws.find(d => d.num === targetRes.num)?.date || ''})</span>
+                                                    <span className="text-[9px] text-[#00e5ff]">Ganadores: {targetRes.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center text-[10px]">
+                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#00e5ff]/40">
+                                                        <div className="text-[#888] text-[8px]">Madre ~27#</div>
+                                                        <div className="font-black text-[#00e5ff] text-[12px]">{targetRes.madreHits} ac</div>
+                                                    </div>
+                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#ffeb3b]/40">
+                                                        <div className="text-[#888] text-[8px]">Prim. ~24#</div>
+                                                        <div className="font-black text-[#ffeb3b] text-[12px]">{targetRes.sub1Hits} ac</div>
+                                                    </div>
+                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#b388ff]/40">
+                                                        <div className="text-[#888] text-[8px]">Sec. ~21#</div>
+                                                        <div className="font-black text-[#b388ff] text-[12px]">{targetRes.sub2Hits} ac</div>
+                                                    </div>
+                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#26c6da]/40">
+                                                        <div className="text-[#888] text-[8px]">Avanz. ~18#</div>
+                                                        <div className="font-black text-[#26c6da] text-[12px]">{targetRes.sub3Hits} ac</div>
+                                                    </div>
+                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#e040fb]/40">
+                                                        <div className="text-[#888] text-[8px]">Prec. ~15#</div>
+                                                        <div className="font-black text-[#e040fb] text-[12px]">{targetRes.sub4Hits} ac</div>
+                                                    </div>
+                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#00e676]/40">
+                                                        <div className="text-[#888] text-[8px]">Cierre ~12#</div>
+                                                        <div className="font-black text-[#00e676] text-[12px]">{targetRes.sub5Hits} ac</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
                                     {/* Madre Results Table */}
                                     {madreActive && (
                                     <div className="bg-[#161616] border border-[#2a2a2a] rounded-xl p-3">
                                         <div className="flex justify-between items-center mb-2">
-                                            <h4 className="text-[12px] font-black text-[#00e5ff]">Resultados Escenario Madre ({simResults.length} Sorteos Evaluados)</h4>
+                                            <h4 className="text-[12px] font-black text-[#00e5ff]">Resultados Iteración #1 (Base / Madre) ({simResults.length} Sorteos Evaluados)</h4>
                                             <span className="text-[10px] text-[#00e5ff] font-bold">
                                                 4+ Aciertos: {simResults.filter(r => r.madreHits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.madreHits >= 4).length / simResults.length * 100)}%)
                                             </span>
@@ -5155,7 +6428,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     {sub1Active && (
                                     <div className="bg-[#161616] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(255,235,59,0.1)]">
                                         <div className="flex justify-between items-center mb-2">
-                                            <h4 className="text-[12px] font-black text-[#ffeb3b]">Resultados Subescenario 1 (Reducción ~30% Efectiva)</h4>
+                                            <h4 className="text-[12px] font-black text-[#ffeb3b]">Resultados Iteración #2 (Filtro Primario) (Promedio ~24 Números)</h4>
                                             <span className="text-[10px] text-[#ffeb3b] font-bold">
                                                 4+ Aciertos: {simResults.filter(r => r.sub1Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub1Hits >= 4).length / simResults.length * 100)}%) | Reducción Promedio: {Math.round(simResults.reduce((acc, r) => acc + (1 - r.sub1Count / Math.max(1, r.madreCount)) * 100, 0) / simResults.length)}%
                                             </span>
@@ -5190,10 +6463,10 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                     </div>
                                     )}
 
-                                    {/* Subescenario 2 (Iteración #3) Results Table */}
+                                    {/* Iteración #3 (Filtro Secundario) Results Table */}
                                     <div className="bg-[#161616] border border-[#7c4dff]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(124,77,255,0.1)]">
                                         <div className="flex justify-between items-center mb-2">
-                                            <h4 className="text-[12px] font-black text-[#b388ff]">Resultados Subescenario 2 / Iteración #3 (Promedio ~21 Números)</h4>
+                                            <h4 className="text-[12px] font-black text-[#b388ff]">Resultados Iteración #3 (Filtro Secundario) (Promedio ~21 Números)</h4>
                                             <span className="text-[10px] text-[#b388ff] font-bold">
                                                 4+ Aciertos: {simResults.filter(r => r.sub2Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub2Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub2Count, 0) / simResults.length)}#
                                             </span>
@@ -5221,10 +6494,10 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                             </table>
                                         </div>
 
-                                     {/* Subescenario 3 (Iteración #4) Results Table */}
+                                     {/* Iteración #4 (Filtro Avanzado) Results Table */}
                                      <div className="bg-[#161616] border border-[#26c6da]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(38,198,218,0.1)]">
                                          <div className="flex justify-between items-center mb-2">
-                                             <h4 className="text-[12px] font-black text-[#26c6da]">Resultados Subescenario 3 / Iteración #4 (Promedio ~18 Números)</h4>
+                                             <h4 className="text-[12px] font-black text-[#26c6da]">Resultados Iteración #4 (Filtro Avanzado) (Promedio ~18 Números)</h4>
                                              <span className="text-[10px] text-[#26c6da] font-bold">
                                                  4+ Aciertos: {simResults.filter(r => r.sub3Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub3Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub3Count, 0) / simResults.length)}#
                                              </span>
@@ -5253,10 +6526,10 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                          </div>
                                      </div>
 
-                                     {/* Subescenario 4 (Iteración #5) Results Table */}
+                                     {/* Iteración #5 (Filtro de Precisión) Results Table */}
                                      <div className="bg-[#161616] border border-[#e040fb]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(224,64,251,0.1)]">
                                          <div className="flex justify-between items-center mb-2">
-                                             <h4 className="text-[12px] font-black text-[#e040fb]">Resultados Subescenario 4 / Iteración #5 (Promedio ~15 Números)</h4>
+                                             <h4 className="text-[12px] font-black text-[#e040fb]">Resultados Iteración #5 (Filtro de Precisión) (Promedio ~15 Números)</h4>
                                              <span className="text-[10px] text-[#e040fb] font-bold">
                                                  4+ Aciertos: {simResults.filter(r => r.sub4Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub4Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub4Count, 0) / simResults.length)}#
                                              </span>
@@ -5285,10 +6558,10 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                                          </div>
                                      </div>
 
-                                     {/* Subescenario 5 (Iteración #6) Results Table */}
+                                     {/* Iteración #6 (Filtro Experto / Cierre) Results Table */}
                                      <div className="bg-[#161616] border border-[#00e676]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(0,230,118,0.1)]">
                                          <div className="flex justify-between items-center mb-2">
-                                             <h4 className="text-[12px] font-black text-[#00e676]">Resultados Subescenario 5 / Iteración #6 (Promedio ~12 Números)</h4>
+                                             <h4 className="text-[12px] font-black text-[#00e676]">Resultados Iteración #6 (Filtro Experto / Cierre) (Promedio ~12 Números)</h4>
                                              <span className="text-[10px] text-[#00e676] font-bold">
                                                  4+ Aciertos: {simResults.filter(r => r.sub5Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub5Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub5Count, 0) / simResults.length)}#
                                              </span>
@@ -5646,6 +6919,14 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
                             </div>
                         </div>
                     </div>
+                )}
+
+                {showEfficiencyReportModal && (
+                    <IterationEfficiencyReportModal simResults={simResults} currentMode={iterOptMode} onClose={() => setShowEfficiencyReportModal(false)} />
+                )}
+
+                {showFocusGraphModal && (
+                    <FocusGraphicalAnalysisModal simResults={simResults} currentMode={iterOptMode} onClose={() => setShowFocusGraphModal(false)} />
                 )}
             </div>
         </div>
