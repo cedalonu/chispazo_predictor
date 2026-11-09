@@ -1,16 +1,18 @@
-# Implementation Plan - Increasing Thesis Hit Rate via Advanced ML & Optimization
+# Implementation Plan - Strict Temporal Audit (Cut-off at t-1)
+
+## Objective
+Implement a rigorous temporal audit in the scientific thesis and historical backtesting loop to guarantee that predictions for any draw $t$ use strictly data prior to draw $t$ ($t-1$ cut-off), ensuring zero look-ahead bias ("para contestar un examen no se deben conocer las respuestas").
 
 ## Proposed Changes
 
-### 1. Advanced Predictive & Optimization Enhancements (`/src/App.tsx`)
-- **Markov Chain Transitions**: Implement second-order Markov chain transition probability weighting $P(X_{t+1} | X_t, X_{t-1})$ for consecutive draws.
-- **Genetic Algorithm Weight Evolution**: Introduce an evolutionary weight optimization loop that evolves scoring weights for frequency, gap, and multi-pool intersection.
-- **Dynamic Heuristic Thresholds**: Refine sum range [60-90] and parity controls dynamically based on recent volatility.
-- **Ensemble ML Scoring**: Combine random forest heuristic scoring with gradient boosting heuristics in `getNumberScore`.
+### 1. Temporal Cut-off Enforcement in Historical Loops (`src/App.tsx`)
+- Update `getAssistantExpertResponse` historical backtesting (`last30` and `last20` iteration loops) to explicitly slice data strictly up to index `histIdx` (data prior to draw $d.num$).
+- Remove any score weighting based on `isRealWinner` in historical simulation loops so that historical backtesting operates purely with blind, out-of-sample temporal prediction ($t-1$ cutoff).
+- Add an explicit **"Auditoría de Temporalidad (Cut-off t-1)"** section to the thesis document, verifying that for every historical draw evaluated, index data strictly excludes the target draw.
 
-### 2. Thesis Document Integration (`/src/App.tsx`)
-- Update `getAssistantExpertResponse` (TESIS 10) to detail these advanced optimization vectors, their backtesting impact, and mathematical formulation in the scientific thesis text.
+### 2. Thesis Document Update (`getAssistantExpertResponse`)
+- Add Section **7. AUDITORÍA DE RIGOR TEMPORAL Y CERO SESGO DE FUTURO (CUT-OFF t-1)** detailing the chronological index verification, out-of-sample validation, and cryptographic cut-off timestamp verification.
 
 ## Verification Plan
-- Run `compile_applet` and `lint_applet` to ensure type safety and correct build.
-- Verify TESIS 10 renders correctly with the updated optimization metrics.
+- Run `compile_applet` and `lint_applet` to ensure zero compilation or type errors.
+- Verify in the thesis document that temporal cut-offaudit logs are correctly displayed.
