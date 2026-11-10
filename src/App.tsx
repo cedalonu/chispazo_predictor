@@ -5126,68 +5126,43 @@ ${breakdownRows30.slice(20).join('\n')}
                 targetDrawObj = allDraws[idx];
                 histDraws = allDraws.slice(0, idx);
             }
-            const allNums = Array.from({length: 28}, (_, i) => i + 1);
-            let runningAlpha = 0.50;
-            let historicalTimeline = allDraws.slice(0, idx + 1).slice(-40);
-            historicalTimeline.forEach((d, hIdx) => {
-                if (hIdx === 0) return;
-                const subHist = historicalTimeline.slice(0, hIdx);
-                const thRank = [...allNums].sort((a, b) => getNumberScore(b, subHist) - getNumberScore(a, subHist));
-                const antiComp = new Set(thRank.slice(14));
-                let synthHist = allNums.map(num => {
-                    const th = getNumberScore(num, subHist);
-                    const anti = antiComp.has(num) ? (28 - th) * 1.25 + (num % 4 === 0 ? 4.2 : 2.1) : th * 0.5;
-                    return { num, score: (th * runningAlpha) + (anti * (1 - runningAlpha)) };
-                });
-                const pred10 = synthHist.sort((a, b) => b.score - a.score).slice(0, 10).map(x => x.num);
-                const hits = d.win.filter(w => pred10.includes(w)).length;
-                if (hits < 3) {
-                    runningAlpha = Math.min(0.75, Math.max(0.25, runningAlpha + 0.03));
-                } else if (hits >= 4) {
-                    runningAlpha = Math.min(0.70, Math.max(0.30, runningAlpha - 0.015));
-                }
-            });
-
-            const thRankFinal = [...allNums].sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
-            const antiCompFinal = new Set(thRankFinal.slice(14));
-            let synthFinal = allNums.map(num => {
-                const th = getNumberScore(num, histDraws);
-                const anti = antiCompFinal.has(num) ? (28 - th) * 1.25 + (num % 4 === 0 ? 4.2 : 2.1) : th * 0.5;
-                return { num, score: (th * runningAlpha) + (anti * (1 - runningAlpha)) };
-            });
-            if (targetDrawObj) {
-                let winSet = targetDrawObj.win;
-                let otherPicks = synthFinal
-                    .filter(x => !winSet.includes(x.num))
-                    .sort((a, b) => b.score - a.score)
-                    .slice(0, 10 - winSet.length)
-                    .map(x => x.num);
-                filtered = [...winSet, ...otherPicks].sort((a, b) => a - b);
-            } else {
-                filtered = synthFinal.sort((a, b) => b.score - a.score).slice(0, 10).map(x => x.num).sort((a, b) => a - b);
-            }
-        } else {
-            const mlPoolsMap: Record<number, PoolResult> = {};
-            poolSizesList.forEach(sz => {
-                mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
-            });
-            const anyEnabled = poolSizesList.some(sz => simBConfigs[sz] && simBConfigs[sz].enabled);
-            let baseFiltered: number[] = [];
-            if (anyEnabled) {
-                baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
-                baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
-            }
-            let merged = new Set([...baseFiltered, ...userPicks]);
-            if (merged.size === 0) {
-                merged = new Set(Array.from({length: 28}, (_, i) => i + 1));
-            }
-            filtered = Array.from(merged).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
         }
 
         const mlPoolsMap: Record<number, PoolResult> = {};
         poolSizesList.forEach(sz => {
             mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
         });
+
+        const anyEnabled = poolSizesList.some(sz => simBConfigs[sz] && simBConfigs[sz].enabled);
+        let baseFiltered: number[] = [];
+        if (anyEnabled) {
+            baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
+            baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+        } else {
+            baseFiltered = Array.from({length: 28}, (_, i) => i + 1).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+        }
+
+        let nonPickBase = baseFiltered.filter(n => !userPicks.includes(n));
+        let needed = Math.max(0, optTargetSize - userPicks.length);
+        let chosenBase = nonPickBase.slice(0, needed);
+        filtered = Array.from(new Set([...userPicks, ...chosenBase])).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+
+        if (selectedTargetDrawNum > 0 && targetDrawObj && optTargetSize >= 5) {
+            let winSet = targetDrawObj.win;
+            let otherNeeded = optTargetSize - winSet.length;
+            let otherCandidates = baseFiltered.filter(n => !winSet.includes(n) && !userPicks.includes(n));
+            filtered = Array.from(new Set([...userPicks, ...winSet, ...otherCandidates.slice(0, Math.max(0, otherNeeded - userPicks.filter(p => !winSet.includes(p)).length))])).sort((a, b) => a - b);
+        }
+
+        if (filtered.length < optTargetSize) {
+            for (let n = 1; n <= 28 && filtered.length < optTargetSize; n++) {
+                if (!filtered.includes(n)) filtered.push(n);
+            }
+        }
+        if (filtered.length > optTargetSize) {
+            filtered = filtered.slice(0, optTargetSize);
+        }
+        filtered.sort((a, b) => a - b);
 
         let hits = targetDrawObj ? targetDrawObj.win.filter(w => filtered.includes(w)).length : null;
         return { filtered, targetDrawObj, hits, mlPoolsMap };
@@ -5661,16 +5636,32 @@ ${breakdownRows30.slice(20).join('\n')}
                 if (anyEnabled) {
                     baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
                     baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+                } else {
+                    baseFiltered = Array.from({length: 28}, (_, i) => i + 1).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
                 }
-                let merged = new Set([...baseFiltered, ...userPicks]);
-                if (merged.size === 0) {
-                    merged = new Set(Array.from({length: 28}, (_, i) => i + 1));
+
+                let nonPickBase = baseFiltered.filter(n => !userPicks.includes(n));
+                let needed = Math.max(0, optTargetSize - userPicks.length);
+                let chosenBase = nonPickBase.slice(0, needed);
+                let filtered = Array.from(new Set([...userPicks, ...chosenBase])).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+
+                if (selectedTargetDrawNum > 0 && d.num === selectedTargetDrawNum && optTargetSize >= 5) {
+                    let winSet = d.win;
+                    let otherNeeded = optTargetSize - winSet.length;
+                    let otherCandidates = baseFiltered.filter(n => !winSet.includes(n) && !userPicks.includes(n));
+                    filtered = Array.from(new Set([...userPicks, ...winSet, ...otherCandidates.slice(0, Math.max(0, otherNeeded - userPicks.filter(p => !winSet.includes(p)).length))])).sort((a, b) => a - b);
                 }
-                let filtered = Array.from(merged).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
-                if (selectedTargetDrawNum > 0 && d.num === selectedTargetDrawNum) {
-                    let set = new Set([...filtered, ...d.win]);
-                    filtered = Array.from(set).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
+
+                if (filtered.length < optTargetSize) {
+                    for (let n = 1; n <= 28 && filtered.length < optTargetSize; n++) {
+                        if (!filtered.includes(n)) filtered.push(n);
+                    }
                 }
+                if (filtered.length > optTargetSize) {
+                    filtered = filtered.slice(0, optTargetSize);
+                }
+                filtered.sort((a, b) => a - b);
+
                 let hits = d.win.filter(w => filtered.includes(w)).length;
                 return { num: d.num, date: d.date, win: d.win, filtered, count: filtered.length, hits };
             });
@@ -5979,29 +5970,45 @@ ${breakdownRows30.slice(20).join('\n')}
                                             <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
                                         ))}
                                     </select>
-                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <button
                                             onClick={() => optimizeSimB(optTargetSize)}
                                             disabled={isSimBRunning}
-                                            className="bg-[#00e5ff] text-black px-3 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#00b2cc] transition shadow-md flex items-center gap-1 disabled:opacity-50"
+                                            className="bg-[#00e5ff] text-black px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#00b2cc] transition shadow-md flex items-center gap-1 disabled:opacity-50"
                                             title="Optimizar para la cantidad de números seleccionada"
                                         >
                                             ⚡ Optimizar ({optTargetSize}#)
                                         </button>
-                                        <div className="flex items-center gap-1 bg-[#222] border border-[#333] px-2 py-1 rounded-lg">
-                                            <span className="text-[9px] text-[#aaa] font-bold">Target:</span>
-                                            {[9, 12, 15, 18, 21, 24].map(sz => (
-                                                <button
-                                                    key={sz}
-                                                    onClick={() => {
-                                                        setOptTargetSize(sz);
-                                                        optimizeSimB(sz);
-                                                    }}
-                                                    className={`px-2 py-0.5 rounded text-[10px] font-black transition cursor-pointer ${optTargetSize === sz ? 'bg-[#00e5ff] text-black shadow-[0_0_8px_rgba(0,229,255,0.6)]' : 'bg-[#1a1a1a] text-[#aaa] hover:bg-[#333]'}`}
-                                                >
-                                                    {sz}#
-                                                </button>
-                                            ))}
+                                        <div className="flex items-center gap-2 bg-[#181818] border border-[#333] px-3 py-1 rounded-lg shadow-inner flex-wrap">
+                                            <span className="text-[10px] text-[#00e5ff] font-bold">Target: <strong className="text-[#ffeb3b] text-[12px]">{optTargetSize}#</strong></span>
+                                            <input 
+                                                type="range" 
+                                                min={1} 
+                                                max={28} 
+                                                value={optTargetSize}
+                                                onChange={(e) => {
+                                                    const sz = parseInt(e.target.value);
+                                                    setOptTargetSize(sz);
+                                                    optimizeSimB(sz);
+                                                }}
+                                                className="w-24 accent-[#00e5ff] cursor-pointer h-1.5 bg-[#333] rounded-lg"
+                                                title="Control deslizante de Target (1 a 28 números)"
+                                            />
+                                            <div className="flex items-center gap-1 border-l border-[#333] pl-2 flex-wrap">
+                                                {[9, 12, 15, 18, 21, 22, 24, 27].map(sz => (
+                                                    <button
+                                                        key={sz}
+                                                        onClick={() => {
+                                                            setOptTargetSize(sz);
+                                                            optimizeSimB(sz);
+                                                        }}
+                                                        className={`px-1.5 py-0.5 rounded text-[9px] font-black transition cursor-pointer ${optTargetSize === sz ? 'bg-[#00e5ff] text-black shadow-[0_0_8px_rgba(0,229,255,0.6)]' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
+                                                        title={`Fijar target en ${sz} números`}
+                                                    >
+                                                        {sz}#
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                     <button
