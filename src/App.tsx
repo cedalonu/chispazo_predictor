@@ -3484,7 +3484,7 @@ function ScoreMethodologyModal({ num, allDraws, selectedTargetDrawNum, onClose }
 function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void }) {
     const [showEfficiencyReportModal, setShowEfficiencyReportModal] = useState(false);
     const [showFocusGraphModal, setShowFocusGraphModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'simulator' | 'simulatorB' | 'thesis'>('simulator');
+    const [activeTab, setActiveTab] = useState<'simulator' | 'simulatorB' | 'thesis'>('simulatorB');
     const [thesisSubTab, setThesisSubTab] = useState<'document' | 'optimize' | 'adendum'>('document');
     const [selectedScoreModalNum, setSelectedScoreModalNum] = useState<number | null>(null);
     const [isOptimizingThesis, setIsOptimizingThesis] = useState(false);
@@ -3507,6 +3507,21 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     });
     const [thesisOptCurrentAvg, setThesisOptCurrentAvg] = useState<number>(thesisBaselineAvg);
     const [thesisOptBestAvg, setThesisOptBestAvg] = useState<number>(thesisBaselineAvg);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const [showDeletePromptId, setShowDeletePromptId] = useState<string | null>(null);
+    const [showLoadMenuSimB, setShowLoadMenuSimB] = useState(false);
+    const [showLoadMenuIter, setShowLoadMenuIter] = useState(false);
+
+    function deleteCustomRecipe(id: string) {
+        const updated = customRecipes.filter(r => r.id !== id);
+        setCustomRecipes(updated);
+        try {
+            localStorage.setItem('chispazo_custom_recipes', JSON.stringify(updated));
+        } catch(e) {}
+        showLocToast("¡Configuración eliminada exitosamente con la palabra clave 'keep'!");
+        setPendingDeleteId(null);
+    }
+
     const optIntervalRef = useRef<any>(null);
 
     function startThesisOptimization() {
@@ -4016,6 +4031,8 @@ ${breakdownRows30.slice(20).join('\n')}
             finalFreqs: activeTab === 'simulatorB' ? simBFinalFreqs : {
                 madreFinalFreqs, sub1FinalFreqs, sub2FinalFreqs, sub3FinalFreqs, sub4FinalFreqs, sub5FinalFreqs
             },
+            userPicks: activeTab === 'simulatorB' ? userPicks : [],
+            targetSize: activeTab === 'simulatorB' ? optTargetSize : 21,
             timestamp: new Date().toLocaleDateString()
         };
         const updated = [...customRecipes, newRec];
@@ -4025,7 +4042,7 @@ ${breakdownRows30.slice(20).join('\n')}
         } catch(e) {}
         setShowSaveRecipeModal(false);
         setRecipeKeyword('');
-        showLocToast(`¡Receta "${newRec.name}" guardada con palabra clave "keep"!`);
+        showLocToast(`🍳 ¡Receta "${newRec.name}" guardada con palabra clave "keep"!`);
     }
 
     function handleLoadIterativeRecipe(recId: string) {
@@ -4065,7 +4082,7 @@ ${breakdownRows30.slice(20).join('\n')}
             const recConfig = getRecipeConfig(recipeId);
             const newSimConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
             [9, 12, 15, 18, 21, 24, 27].forEach(sz => {
-                const conf = recConfig.configs[sz] || { pools: { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false }, freqs: { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false } };
+                const conf = recConfig.configs[sz] || { pools: { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false }, freqs: { 8: false, 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false } };
                 newSimConfigs[sz] = {
                     enabled: recConfig.configs[sz] !== undefined,
                     pools: conf.pools,
@@ -4075,7 +4092,7 @@ ${breakdownRows30.slice(20).join('\n')}
             React.startTransition(() => {
                 setSimBConfigs(newSimConfigs);
                 if (recConfig.finalFreqs) {
-                    let finalFreqRec: Record<number, boolean> = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+                    let finalFreqRec: Record<number, boolean> = { 8: false, 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
                     if (Array.isArray(recConfig.finalFreqs)) {
                         recConfig.finalFreqs.forEach((f: number) => { finalFreqRec[f] = true; });
                     } else if (typeof recConfig.finalFreqs === 'object') {
@@ -4097,6 +4114,13 @@ ${breakdownRows30.slice(20).join('\n')}
         React.startTransition(() => {
             if (rec.configs) setSimBConfigs(rec.configs);
             if (rec.finalFreqs) setSimBFinalFreqs(rec.finalFreqs);
+            if (rec.userPicks) {
+                setUserPicks(rec.userPicks);
+                try { localStorage.setItem('chispazo_user_picks', JSON.stringify(rec.userPicks)); } catch(e){}
+            }
+            if (rec.targetSize) {
+                setOptTargetSize(rec.targetSize);
+            }
             showLocToast(`🍳 ¡Receta "${rec.name}" cargada en Simulador B!`);
         });
         setTimeout(() => runSimB(), 50);
@@ -5046,13 +5070,13 @@ ${breakdownRows30.slice(20).join('\n')}
         return optConfigs;
     });
     const [simBFinalFreqs, setSimBFinalFreqs] = useState<Record<number, boolean>>({
-        7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false
+        8: false, 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false
     });
 
     const [simBResults, setSimBResults] = useState<any[]>([]);
     const [isSimBRunning, setIsSimBRunning] = useState(false);
 
-    function calculateMultipoolConsensus(configsMap: any, finalFreqsMap: any, mlPoolsMap: Record<number, PoolResult>, poolSizesList: number[]): number[] {
+    function calculateMultipoolConsensus(configsMap: any, finalFreqsMap: any, mlPoolsMap: Record<number, PoolResult>, poolSizesList: number[], userPicks: number[] = []): number[] {
         let poolSizeFilteredSets: number[][] = [];
         poolSizesList.forEach(sz => {
             const rawCfg = configsMap[sz] || {};
@@ -5103,6 +5127,13 @@ ${breakdownRows30.slice(20).join('\n')}
             }
         });
 
+        // Treat userPicks as 8th pool source
+        if (userPicks && userPicks.length > 0) {
+            userPicks.forEach(n => {
+                masterFreqMap[n] = (masterFreqMap[n] || 0) + 1;
+            });
+        }
+
         const safeFinalFreqs = finalFreqsMap || {};
         let baseFiltered: number[] = [];
         for (let n = 1; n <= 28; n++) {
@@ -5136,7 +5167,7 @@ ${breakdownRows30.slice(20).join('\n')}
         const anyEnabled = poolSizesList.some(sz => simBConfigs[sz] && simBConfigs[sz].enabled);
         let baseFiltered: number[] = [];
         if (anyEnabled) {
-            baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
+            baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList, userPicks);
             baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
         } else {
             baseFiltered = Array.from({length: 28}, (_, i) => i + 1).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
@@ -5619,7 +5650,7 @@ ${breakdownRows30.slice(20).join('\n')}
             }
             const countDraws = selectedTargetDrawNum === -30 ? 30 : selectedTargetDrawNum === -20 ? 20 : 30;
             const startIdx = Math.max(0, targetIdx - countDraws + 1);
-            const draws30 = allDraws.slice(startIdx, targetIdx + 1).reverse();
+            const draws30 = allDraws.slice(startIdx, targetIdx + 1); // chronological: sorteo menor to mayor
             const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
             let res = draws30.map(d => {
                 const histIdx = allDraws.findIndex(x => x.num === d.num);
@@ -5634,7 +5665,7 @@ ${breakdownRows30.slice(20).join('\n')}
 
                 let baseFiltered: number[] = [];
                 if (anyEnabled) {
-                    baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList);
+                    baseFiltered = calculateMultipoolConsensus(simBConfigs, simBFinalFreqs, mlPoolsMap, poolSizesList, userPicks);
                     baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
                 } else {
                     baseFiltered = Array.from({length: 28}, (_, i) => i + 1).sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
@@ -5674,8 +5705,8 @@ ${breakdownRows30.slice(20).join('\n')}
 
 
     function optimizeSimB(targetSz: number = optTargetSize) {
-        const optFreqs = { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
-        const optFinalFreqs = { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+        const optFreqs = { 8: false, 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
+        const optFinalFreqs = { 8: true, 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false };
         
         let targetIdx = allDraws.length - 1;
         if (selectedTargetDrawNum > 0) {
@@ -5684,7 +5715,7 @@ ${breakdownRows30.slice(20).join('\n')}
         }
         const countDraws = selectedTargetDrawNum === -30 ? 30 : selectedTargetDrawNum === -20 ? 20 : 30;
         const startIdx = Math.max(0, targetIdx - countDraws + 1);
-        const draws30 = allDraws.slice(startIdx, targetIdx + 1).reverse();
+        const draws30 = allDraws.slice(startIdx, targetIdx + 1); // chronological
         const poolSizesList = [9, 12, 15, 18, 21, 24, 27];
 
         const candidateProfiles: {
@@ -5703,7 +5734,7 @@ ${breakdownRows30.slice(20).join('\n')}
                     24: makeCfg(targetSz >= 21, pCore, optFreqs),
                     27: makeCfg(targetSz >= 24, pMatrix, optFreqs)
                 },
-                finalFreqs: { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                finalFreqs: { 8: true, 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
             },
             {
                 name: `Perfil Óptimo Reversión Pro (${targetSz}#)`,
@@ -5716,7 +5747,7 @@ ${breakdownRows30.slice(20).join('\n')}
                     24: makeCfg(targetSz >= 18, pStandard, optFreqs),
                     27: makeCfg(targetSz >= 21, pMatrix, optFreqs)
                 },
-                finalFreqs: { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                finalFreqs: { 8: true, 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
             }
         ];
 
@@ -5733,7 +5764,7 @@ ${breakdownRows30.slice(20).join('\n')}
                     mlPoolsMap[sz] = calculateMLPools(histDraws, sz);
                 });
                 
-                let baseFiltered = calculateMultipoolConsensus(prof.configs, prof.finalFreqs, mlPoolsMap, poolSizesList);
+                let baseFiltered = calculateMultipoolConsensus(prof.configs, prof.finalFreqs, mlPoolsMap, poolSizesList, userPicks);
                 baseFiltered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
                 let nonPickBase = baseFiltered.filter(n => !userPicks.includes(n));
                 let needed = Math.max(0, targetSz - userPicks.length);
@@ -5791,7 +5822,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                         emptyConfigs[sz] = {
                                             enabled: false,
                                             pools: { final: false, p2: false, p3: false, p4: false, p5: false, p6: false, p7: false },
-                                            freqs: { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
+                                            freqs: { 8: false, 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
                                         };
                                     });
                                     setMadreConfigs(emptyConfigs);
@@ -5816,7 +5847,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                     setSub3FinalFreqs({ ...defaultFinalFreqs });
                                     setSub4FinalFreqs({ ...defaultFinalFreqs });
                                     setSub5FinalFreqs({ ...defaultFinalFreqs });
-                                    setSimBFinalFreqs({ 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false });
+                                    setSimBFinalFreqs({ 8: false, 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false });
                                     showLocToast("¡Configuraciones, iteraciones y picks limpiados exitosamente!");
                                 }}
                                 className="px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition bg-[#222] text-[#ff5252] border border-[#ff5252]/40 hover:bg-[#ff5252]/20 flex items-center gap-1"
@@ -5853,7 +5884,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                 <div className="text-[8px] text-[#888]">Estudio formal basado en escaneo de Simulador B e Iteraciones.</div>
                             </div>
                         ) : activeTab === 'simulator' ? (
-                            <>
+                            <div className="flex items-center justify-between flex-wrap gap-2 w-full">
                                 <div>
                                     <div className="text-[10px] font-black text-[#ffeb3b]">Simulador por Iteraciones - Selector y Ejecución</div>
                                     <div className="text-[8px] text-[#888]">Configura iteraciones, pool sizes y frecuencias.</div>
@@ -5944,9 +5975,9 @@ ${breakdownRows30.slice(20).join('\n')}
                                         </button>
                                     </div>
                                 </div>
-                            </>
+                            </div>
                         ) : (
-                            <>
+                            <div className="flex items-center justify-between flex-wrap gap-2 w-full">
                                 <div>
                                     <div className="text-[10px] font-black text-[#ffeb3b]">Simulador B - Selector y Ejecución</div>
                                     <div className="text-[8px] text-[#888]">Configura pool sizes, pools y frecuencias.</div>
@@ -5979,8 +6010,8 @@ ${breakdownRows30.slice(20).join('\n')}
                                         >
                                             ⚡ Optimizar ({optTargetSize}#)
                                         </button>
-                                        <div className="flex items-center gap-2 bg-[#181818] border border-[#333] px-3 py-1 rounded-lg shadow-inner flex-wrap">
-                                            <span className="text-[10px] text-[#00e5ff] font-bold">Target: <strong className="text-[#ffeb3b] text-[12px]">{optTargetSize}#</strong></span>
+                                        <div className="flex items-center gap-2.5 bg-[#181818] border border-[#333] px-3.5 py-1.5 rounded-lg shadow-inner">
+                                            <span className="text-[10px] text-[#00e5ff] font-bold">Target: <span className="text-[12px] font-extrabold text-[#ffeb3b] w-[32px] text-center inline-block">{optTargetSize}#</span></span>
                                             <input 
                                                 type="range" 
                                                 min={1} 
@@ -5991,24 +6022,47 @@ ${breakdownRows30.slice(20).join('\n')}
                                                     setOptTargetSize(sz);
                                                     optimizeSimB(sz);
                                                 }}
-                                                className="w-24 accent-[#00e5ff] cursor-pointer h-1.5 bg-[#333] rounded-lg"
+                                                className="w-36 accent-[#00e5ff] cursor-pointer h-1.5 bg-[#333] rounded-lg"
                                                 title="Control deslizante de Target (1 a 28 números)"
-                                            />
-                                            <div className="flex items-center gap-1 border-l border-[#333] pl-2 flex-wrap">
-                                                {[9, 12, 15, 18, 21, 22, 24, 27].map(sz => (
-                                                    <button
-                                                        key={sz}
-                                                        onClick={() => {
-                                                            setOptTargetSize(sz);
-                                                            optimizeSimB(sz);
-                                                        }}
-                                                        className={`px-1.5 py-0.5 rounded text-[9px] font-black transition cursor-pointer ${optTargetSize === sz ? 'bg-[#00e5ff] text-black shadow-[0_0_8px_rgba(0,229,255,0.6)]' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
-                                                        title={`Fijar target en ${sz} números`}
-                                                    >
-                                                        {sz}#
-                                                    </button>
-                                                ))}
-                                            </div>
+                                             />
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => {
+                                                         const newSz = Math.max(1, optTargetSize - 1);
+                                                         setOptTargetSize(newSz);
+                                                         optimizeSimB(newSz);
+                                                     }}
+                                                     className="w-5 h-5 bg-[#222] hover:bg-[#333] text-[#00e5ff] border border-[#444] rounded flex items-center justify-center text-xs font-black cursor-pointer transition"
+                                                     title="Reducir Target (-1)"
+                                                 >
+                                                     -
+                                                 </button>
+                                                 <input 
+                                                     type="range" 
+                                                     min={1} 
+                                                     max={28} 
+                                                     value={optTargetSize}
+                                                     onChange={(e) => {
+                                                         const sz = parseInt(e.target.value);
+                                                         setOptTargetSize(sz);
+                                                         optimizeSimB(sz);
+                                                     }}
+                                                     className="w-24 accent-[#00e5ff] cursor-pointer h-1.5 bg-[#333] rounded-lg"
+                                                     title="Control deslizante de Target (1 a 28 números)"
+                                                 />
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => {
+                                                         const newSz = Math.min(28, optTargetSize + 1);
+                                                         setOptTargetSize(newSz);
+                                                         optimizeSimB(newSz);
+                                                     }}
+                                                     className="w-5 h-5 bg-[#222] hover:bg-[#333] text-[#00e5ff] border border-[#444] rounded flex items-center justify-center text-xs font-black cursor-pointer transition"
+                                                     title="Aumentar Target (+1)"
+                                                 >
+                                                     +
+                                                 </button>
+                                             </div>
                                         </div>
                                     </div>
                                     <button
@@ -6019,26 +6073,106 @@ ${breakdownRows30.slice(20).join('\n')}
                                         {isSimBRunning ? 'Simulando...' : '🚀 Correr Simulación B'}
                                     </button>
                                     <div className="flex items-center gap-1 ml-auto">
-                                        <select 
-                                            onChange={(e) => handleLoadSimBRecipe(e.target.value)}
-                                            className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2 py-1 text-[10px] font-bold cursor-pointer"
-                                            defaultValue=""
-                                            title="Cargar Receta"
-                                        >
-                                            <option value="" disabled>📂 Cargar...</option>
-                                            <optgroup label="🌟 5 Recetas Maestras (Multipool)">
-                                                <option value="master_1">🍳 Receta 1: Alfa Compacta</option>
-                                                <option value="master_2">🍳 Receta 2: Beta Consenso Estricto</option>
-                                                <option value="master_3">🍳 Receta 3: Gamma Balanceada</option>
-                                                <option value="master_4">🍳 Receta 4: Delta Núcleo Reducido</option>
-                                                <option value="master_5">🍳 Receta 5: Omega Maestra Definitiva</option>
-                                            </optgroup>
-                                            <optgroup label="💾 Recetas Guardadas">
-                                                {customRecipes.filter(r => !r.simulatorType || r.simulatorType === 'simulatorB').map(r => (
-                                                    <option key={r.id} value={r.id}>{r.name} ({r.timestamp})</option>
-                                                ))}
-                                            </optgroup>
-                                        </select>
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => { setShowLoadMenuSimB(!showLoadMenuSimB); setShowLoadMenuIter(false); }}
+                                                className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2.5 py-1 text-[10px] font-bold cursor-pointer hover:bg-[#333] transition flex items-center gap-1"
+                                                title="Cargar Receta"
+                                            >
+                                                📂 Cargar... ▾
+                                            </button>
+                                            {showLoadMenuSimB && (
+                                                <div className="absolute right-0 top-full mt-1 w-68 bg-[#181818] border border-[#333] rounded-xl shadow-2xl z-50 p-2 space-y-2 max-h-[300px] overflow-y-auto">
+                                                    <div className="text-[9px] font-black text-[#ffeb3b] border-b border-[#333] pb-1">🌟 5 Recetas Maestras (Multipool)</div>
+                                                    <div className="space-y-1">
+                                                        {[
+                                                            { id: 'master_1', name: '🍳 Receta 1: Alfa Compacta' },
+                                                            { id: 'master_2', name: '🍳 Receta 2: Beta Consenso Estricto' },
+                                                            { id: 'master_3', name: '🍳 Receta 3: Gamma Balanceada' },
+                                                            { id: 'master_4', name: '🍳 Receta 4: Delta Núcleo Reducido' },
+                                                            { id: 'master_5', name: '🍳 Receta 5: Omega Maestra Definitiva' },
+                                                        ].map(m => (
+                                                            <div
+                                                                key={m.id}
+                                                                onClick={() => {
+                                                                    handleLoadSimBRecipe(m.id);
+                                                                    setShowLoadMenuSimB(false);
+                                                                }}
+                                                                className="text-[10px] text-[#ccc] hover:text-white hover:bg-[#262626] px-2 py-1 rounded cursor-pointer transition"
+                                                            >
+                                                                {m.name}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="text-[9px] font-black text-[#00e5ff] border-b border-[#333] pt-2 pb-1">💾 Configuraciones Guardadas (Clic der. para opciones)</div>
+                                                    <div className="space-y-1">
+                                                        {customRecipes.filter(r => !r.simulatorType || r.simulatorType === 'simulatorB').length === 0 ? (
+                                                            <div className="text-[9px] text-[#666] italic px-2 py-1">No hay configuraciones guardadas</div>
+                                                        ) : (
+                                                            customRecipes.filter(r => !r.simulatorType || r.simulatorType === 'simulatorB').map(r => (
+                                                                <div
+                                                                    key={r.id}
+                                                                    onContextMenu={(e) => {
+                                                                        e.preventDefault();
+                                                                        setPendingDeleteId(pendingDeleteId === r.id ? null : r.id);
+                                                                    }}
+                                                                    className={`flex flex-col text-[10px] text-[#aaa] hover:text-white hover:bg-[#262626] px-2 py-1.5 rounded transition group select-none ${pendingDeleteId === r.id ? 'bg-[#222] border border-[#ff5252]/40' : ''}`}
+                                                                >
+                                                                    <div className="flex items-center justify-between w-full">
+                                                                        <span 
+                                                                            onClick={() => {
+                                                                                handleLoadSimBRecipe(r.id);
+                                                                                setShowLoadMenuSimB(false);
+                                                                            }}
+                                                                            className="flex-1 cursor-pointer truncate font-bold text-[#fff]"
+                                                                        >
+                                                                            {r.name} ({r.timestamp})
+                                                                        </span>
+                                                                        <span className="text-[8px] text-[#777] group-hover:text-[#aaa]">{pendingDeleteId === r.id ? 'ingrese keep' : 'clic der. para eliminar'}</span>
+                                                                    </div>
+                                                                    {pendingDeleteId === r.id && (
+                                                                        <div className="flex items-center gap-1.5 mt-1.5 pt-1 border-t border-[#333]" onClick={e => e.stopPropagation()}>
+                                                                            <input 
+                                                                                type="text" 
+                                                                                placeholder="Escribe 'keep'" 
+                                                                                id={`del-input-${r.id}`}
+                                                                                className="bg-[#111] text-white text-[9px] px-2 py-1 rounded border border-[#ff5252] flex-1 outline-none"
+                                                                                autoFocus
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === 'Enter') {
+                                                                                        const inputEl = document.getElementById(`del-input-${r.id}`) as HTMLInputElement;
+                                                                                        if (inputEl && inputEl.value.trim().toLowerCase() === 'keep') {
+                                                                                            deleteCustomRecipe(r.id);
+                                                                                        } else {
+                                                                                            showLocToast("Palabra clave incorrecta ('keep').");
+                                                                                            setPendingDeleteId(null);
+                                                                                        }
+                                                                                    }
+                                                                                }}
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    const inputEl = document.getElementById(`del-input-${r.id}`) as HTMLInputElement;
+                                                                                    if (inputEl && inputEl.value.trim().toLowerCase() === 'keep') {
+                                                                                        deleteCustomRecipe(r.id);
+                                                                                    } else {
+                                                                                        showLocToast("Palabra clave incorrecta ('keep').");
+                                                                                        setPendingDeleteId(null);
+                                                                                    }
+                                                                                }}
+                                                                                className="bg-[#ff5252] text-white px-2.5 py-1 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#d32f2f]"
+                                                                            >
+                                                                                Confirmar Borrado
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                         <button
                                             onClick={() => setShowSaveRecipeModal(true)}
                                             className="bg-[#2e7d32] text-white px-2 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md"
@@ -6048,7 +6182,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                         </button>
                                     </div>
                                 </div>
-                            </>
+
                         )}
                     </div>
                 </div>
@@ -7755,7 +7889,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                 <div className="text-[11px] font-black text-[#ffeb3b] mb-1">🎯 Selector de Frecuencias Finales (Entre Pool Sizes / Global):</div>
                                 <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias globales aplicadas al conjunto combinado de los pool sizes activos en el Simulador B.</div>
                                 <div className="flex gap-2 flex-wrap">
-                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                    {[8, 7, 6, 5, 4, 3, 2, 1, 0].map(f => {
                                         const fActive = simBFinalFreqs[f];
                                         return (
                                             <label key={f} className={`flex items-center gap-1.5 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
