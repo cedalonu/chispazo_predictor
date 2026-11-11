@@ -1113,8 +1113,6 @@ export default function App() {
                                         <div className="flex gap-1.5 flex-wrap mt-1">
                                             {p.wheelings.length > 0 ? p.wheelings.map((w: any) => {
                                                 let label = uv(w.k) + ' comb';
-                                                if (p.id === 'final' && w.k === 12) label += ' (⭐ Eficiente)';
-                                                if (p.id === 'p2' && w.k === 24) label += ' (⭐ Recomendado)';
                                                 return (
                                                     <button key={w.k} onClick={() => openWheelingModal(p.id, w.k)} className="wheel-btn rounded-full px-2.5 py-1 text-[11px] font-extrabold cursor-pointer border transition hover:opacity-85" style={{ borderColor: `${p.border}88`, background: `${p.border}22`, color: p.accent }}>
                                                         {label}
