@@ -2537,9 +2537,10 @@ const GEMINI_GROUPS: number[][][] = [
     [[8,14,17,22,27],[2,4,6,8,14,15,17,22,27,28],[2,3,4,6,8,13,14,15,17,22,24,25,27,28],[1,2,3,4,6,8,9,10,11,12,13,14,15,16,17,20,22,23,24,25,27,28],[7,8,9,13,14,15,16,17,18,21,22,23,26,27,28],[1,2,3,4,5,6,7,8,9,13,14,15,16,17,18,21,22,23,26,27,28],[1,2,3,4,5,6,7,8,9,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
     [[12,17,24,25,27],[3,6,12,13,14,17,18,24,25,27],[3,4,5,6,12,13,14,17,18,19,22,24,25,27],[2,3,4,5,6,8,11,12,13,14,15,17,18,19,20,21,22,23,24,25,26,27],[11,12,13,16,17,18,23,24,25,26,27,28],[2,3,4,5,6,7,11,12,13,14,15,16,17,18,19,23,24,25,26,27,28],[2,3,4,5,6,7,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
     [[8,10,17,22,24],[8,10,12,14,17,22,23,24,25,27],[8,9,10,12,13,14,17,18,21,22,23,24,25,27],[1,3,4,6,8,9,10,11,12,13,14,15,17,18,19,21,22,23,24,25,27,28],[7,8,9,10,11,16,17,18,21,22,23,24,25],[7,8,9,10,11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28],[7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
+    [[6,14,17,24,27],[1,6,8,14,15,17,18,24,25,27],[1,3,6,8,14,15,17,18,20,22,23,24,25,27],[1,2,3,4,5,6,8,10,11,12,13,14,15,17,18,20,21,22,23,24,25,27],[5,6,7,13,14,15,16,17,18,23,24,25,26,27,28],[1,2,5,6,7,8,9,13,14,15,16,17,18,19,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
 ];
 // Tabla Comparativa (últimos 30 sorteos 12337–12366): aciertos por sorteo de cada método.
-const COMPARATIVA_DRAWS: number[] = [12337,12338,12339,12340,12341,12342,12343,12344,12345,12346,12347,12348,12349,12350,12351,12352,12353,12354,12355,12356,12357,12358,12359,12360,12361,12362,12363,12364,12365,12366];
+const COMPARATIVA_DRAWS: number[] = [12337,12338,12339,12340,12341,12342,12343,12344,12345,12346,12347,12348,12349,12350,12351,12352,12353,12354,12355,12356,12357,12358,12359,12360,12361,12362,12363,12364,12365,12366,12367];
 const COMPARATIVA_RECIPE_HITS: number[][] = [
     [2,3,1,1,2,1,1,1,1,2,2,2,3,1,2,1,0,3,3,2,2,2,1,1,4,1,3,1,1,0],
     [4,2,3,3,3,2,1,1,1,0,5,1,2,2,1,1,1,2,2,2,2,2,1,0,2,3,2,0,0,2],
@@ -2742,8 +2743,8 @@ function getComparativaRows(): ComparativaRow[] {
     const g = (idx: number, label: string, avgNums: number) => rows.push({ label, hits: GEMINI_REF_ROWS.map(r => r[idx]), avgNums, family: 'gemini' });
     g(2, 'Gemini 5', 5); g(4, 'Gemini 10', 10); g(6, 'Gemini 14', 14); g(8, 'Gemini 22', 22);
     g(3, 'Gemini 5\u2032', COMPARATIVA_GEMINI_PM1_AVG[5]); g(5, 'Gemini 10\u2032', COMPARATIVA_GEMINI_PM1_AVG[10]); g(7, 'Gemini 14\u2032', COMPARATIVA_GEMINI_PM1_AVG[14]); g(9, 'Gemini 22\u2032', COMPARATIVA_GEMINI_PM1_AVG[22]);
-    for (let i = 0; i < COMPARATIVA_DRAWS.length; i++) rows.push({ label: `Opt. 10 #${COMPARATIVA_DRAWS[i]}`, hits: COMPARATIVA_OPT_MATRIX[i], avgNums: COMPARATIVA_OPT_NUMS[i].length, family: 'opt10', optIdx: i, optNums: COMPARATIVA_OPT_NUMS[i] });
-    for (let i = 0; i < COMPARATIVA_DRAWS.length; i++) rows.push({ label: `Opt. 14 #${COMPARATIVA_DRAWS[i]}`, hits: COMPARATIVA_OPT14_MATRIX[i], avgNums: COMPARATIVA_OPT14_NUMS[i].length, family: 'opt14', optIdx: i, optNums: COMPARATIVA_OPT14_NUMS[i] });
+    for (let i = 0; i < COMPARATIVA_DRAWS.length - 1; i++) rows.push({ label: `Opt. 10 #${COMPARATIVA_DRAWS[i]}`, hits: COMPARATIVA_OPT_MATRIX[i], avgNums: COMPARATIVA_OPT_NUMS[i].length, family: 'opt10', optIdx: i, optNums: COMPARATIVA_OPT_NUMS[i] });
+    for (let i = 0; i < COMPARATIVA_DRAWS.length - 1; i++) rows.push({ label: `Opt. 14 #${COMPARATIVA_DRAWS[i]}`, hits: COMPARATIVA_OPT14_MATRIX[i], avgNums: COMPARATIVA_OPT14_NUMS[i].length, family: 'opt14', optIdx: i, optNums: COMPARATIVA_OPT14_NUMS[i] });
     for (const pool of COMPARATIVA_POOLS) for (const sz of COMPARATIVA_POOL_SIZES) rows.push({ label: `pool${pool}#${sz}`, hits: COMPARATIVA_POOL_HITS[`${pool}#${sz}`], avgNums: sz, family: 'pools' });
     return rows;
 }
@@ -8456,7 +8457,7 @@ ${breakdownRows30.slice(20).join('\n')}
                             <div className="bg-[#181818] border border-[#00e5ff]/40 rounded-xl p-3 shadow-md">
                                 <div className="flex justify-between items-center flex-wrap gap-2">
                                     <div>
-                                        <div className="text-[11px] font-black text-[#ffeb3b]">📊 Aciertos por sorteo — últimos 30 sorteos (#12337 a #12366)</div>
+                                        <div className="text-[11px] font-black text-[#ffeb3b]">📊 Aciertos por sorteo — últimos 30 sorteos (#12337 a #12366) + próximo #12367</div>
                                         <div className="text-[9px] text-[#888]">Cada celda muestra cuántos números de esa fila acertaron en ese sorteo. Recetas usan los pools guardados en la tabla de resultados; Gemini es el backtest de referencia (Python). Las filas Opt. 10 y Opt. 14 son las optimizaciones de 10 y 14 números de cada sorteo, evaluadas en los 30 sorteos: la celda con borde celeste es su propio sorteo (en muestra: Opt. 10 promedia 4.60, Opt. 14 da 5 en los 30) y el resto es fuera de muestra (Opt. 10 promedia ~1.76 y Opt. 14 ~2.48, o sea azar en ambos). Pasa el cursor sobre una fila Opt. para ver sus números.</div>
                                     </div>
                                     <div className="flex items-center gap-1 flex-wrap">
@@ -8480,7 +8481,11 @@ ${breakdownRows30.slice(20).join('\n')}
                                             <tr>
                                                 <th className="sticky left-0 bg-[#181818] text-left text-[10px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333] min-w-[110px]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'label', 'asc'))} className="cursor-pointer hover:underline" title="Clic para ordenar por nombre">Método {comparativaSortArrow(comparativaSort, 'label')}</button></th>
                                                 {COMPARATIVA_DRAWS.map((d, di) => (
-                                                    <th key={d} className="text-[9px] font-bold text-[#aaa] px-1 py-1 border border-[#333] min-w-[26px]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, `draw:${di}`, 'desc'))} className="cursor-pointer hover:underline" title={`Clic para ordenar por aciertos en el sorteo #${d}`}>#{d} {comparativaSortArrow(comparativaSort, `draw:${di}`)}</button></th>
+                                                    di === COMPARATIVA_DRAWS.length - 1 ? (
+                                                        <th key={d} className="text-[9px] font-bold text-[#00e5ff] px-1 py-1 border border-[#333] min-w-[26px]"><button onClick={() => setComparativaPopout(di)} className="cursor-pointer hover:underline" title={`Próximo sorteo #${d} (aún sin realizarse, no se puede ordenar por aciertos). Clic para ver las frecuencias del top 14 desplegado.`}>#{d} ⏳</button></th>
+                                                    ) : (
+                                                        <th key={d} className="text-[9px] font-bold text-[#aaa] px-1 py-1 border border-[#333] min-w-[26px]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, `draw:${di}`, 'desc'))} className="cursor-pointer hover:underline" title={`Clic para ordenar por aciertos en el sorteo #${d}`}>#{d} {comparativaSortArrow(comparativaSort, `draw:${di}`)}</button></th>
+                                                    )
                                                 ))}
                                                 <th className="text-[9px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'avg', 'desc'))} className="cursor-pointer hover:underline" title="Clic para ordenar por promedio de aciertos">Prom. {comparativaSortArrow(comparativaSort, 'avg')}</button></th>
                                                 <th className="text-[9px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'n2', 'desc'))} className="cursor-pointer hover:underline" title="Clic para ordenar por sorteos con 2 o más aciertos">≥2 {comparativaSortArrow(comparativaSort, 'n2')}</button></th>
@@ -8501,7 +8506,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                                     if (k === 'avg') return avgOf(r);
                                                     if (k === 'n2') return n2Of(r);
                                                     if (k === 'eff') return effOf(r);
-                                                    if (k.startsWith('draw:')) return r.hits[parseInt(k.slice(5), 10)];
+                                                    if (k.startsWith('draw:')) { const v = r.hits[parseInt(k.slice(5), 10)]; return v === undefined ? -1 : v; }
                                                     return 0;
                                                 };
                                                 const sorted = comparativaSort ? [...rows].sort((a, b) => {
@@ -8521,6 +8526,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                                             const cls = h >= 4 ? 'bg-[#1b5e20] text-[#69f0ae] font-black' : h >= 2 ? 'bg-[#5d4037] text-[#ffeb3b] font-bold' : 'bg-[#1a1a1a] text-[#777]';
                                                             return <td key={i} className={`text-[10px] px-1 py-1 border ${isDiag ? 'border-[#00e5ff] ring-1 ring-[#00e5ff]' : 'border-[#333]'} ${cls}`} title={isDiag ? 'Su propio sorteo (en muestra)' : undefined}>{h}</td>;
                                                         })}
+                                                        <td className="text-[10px] px-1 py-1 border border-[#333] bg-[#1a1a1a] text-[#555]" title="Próximo sorteo #12367 — aún sin realizarse">—</td>
                                                         <td className="text-[10px] font-black text-[#00e5ff] px-2 py-1 border border-[#333]">{avg.toFixed(2)}</td>
                                                         <td className="text-[10px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]">{n2}/30</td>
                                                         <td className="text-[10px] font-black text-[#00e5ff] px-2 py-1 border border-[#333]" title={`Prom. aciertos ${avg.toFixed(2)} / prom. números ${row.avgNums.toFixed(1)}`}>{effVal.toFixed(3)}</td>
@@ -8531,17 +8537,38 @@ ${breakdownRows30.slice(20).join('\n')}
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="text-[9px] text-[#888] mt-2">Leyenda: <span className="text-[#69f0ae] font-bold">verde fuerte = 4–5 aciertos</span> · <span className="text-[#ffeb3b] font-bold">amarillo = 2–3 aciertos (más de un acierto)</span> · gris = 0–1 acierto · <span className="text-[#00e5ff] font-bold">borde celeste = el propio sorteo de esa optimización</span>. Eficiencia = promedio de aciertos por sorteo entre promedio de números resultantes (el azar es 5/28 = 0.179; más alto es mejor por número jugado). Clic en cualquier encabezado de columna para ordenar las filas por esa columna (segundo clic invierte el orden). Clic en la casilla 🔍 arriba de un sorteo para ver sus ganadores y las frecuencias del top 14 (el encabezado del sorteo sigue ordenando la columna). Los botones de arriba filtran por familia: Recetas, Gemini, Opt. 10, Opt. 14 o Pools. Las filas poolX#N son el pool X con tamaño N, evaluado en cada sorteo con los pools guardados.</div>
+                                <div className="text-[9px] text-[#888] mt-2">Leyenda: <span className="text-[#69f0ae] font-bold">verde fuerte = 4–5 aciertos</span> · <span className="text-[#ffeb3b] font-bold">amarillo = 2–3 aciertos (más de un acierto)</span> · gris = 0–1 acierto · <span className="text-[#00e5ff] font-bold">borde celeste = el propio sorteo de esa optimización</span>. Eficiencia = promedio de aciertos por sorteo entre promedio de números resultantes (el azar es 5/28 = 0.179; más alto es mejor por número jugado). Clic en cualquier encabezado de columna para ordenar las filas por esa columna (segundo clic invierte el orden). Clic en la casilla 🔍 arriba de un sorteo para ver sus ganadores y las frecuencias del top 14 (el encabezado del sorteo sigue ordenando la columna). La última columna (#12367, ⏳) es el próximo sorteo: aún sin aciertos ni orden por aciertos; su popout muestra las frecuencias del top 14 desplegado para ese sorteo. Los botones de arriba filtran por familia: Recetas, Gemini, Opt. 10, Opt. 14 o Pools. Las filas poolX#N son el pool X con tamaño N, evaluado en cada sorteo con los pools guardados.</div>
                             </div>
                             {comparativaPopout !== null && (() => {
                                 const drawIdx = comparativaPopout;
                                 const drawNum = COMPARATIVA_DRAWS[drawIdx];
+                                const isNext = drawIdx === COMPARATIVA_DRAWS.length - 1;
                                 const draw = allDraws.find(d => d.num === drawNum);
                                 const winners: number[] = draw ? [...draw.win].sort((a, b) => a - b) : [];
                                 const allRows = getComparativaRows();
                                 const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
                                 const effOf = (r: ComparativaRow) => (r.hits.reduce((a, b) => a + b, 0) / r.hits.length) / r.avgNums;
-                                const top14 = [...rows].sort((a, b) => b.hits[drawIdx] - a.hits[drawIdx] || effOf(b) - effOf(a) || a.label.localeCompare(b.label)).slice(0, 14);
+                                const top14 = isNext ? (() => {
+                                    const avgOf2 = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
+                                    const effOf2 = (r: ComparativaRow) => avgOf2(r) / r.avgNums;
+                                    const n2Of2 = (r: ComparativaRow) => r.hits.filter(h => h >= 2).length;
+                                    const sortVal2 = (r: ComparativaRow): number | string => {
+                                        if (!comparativaSort) return 0;
+                                        const k = comparativaSort.key;
+                                        if (k === 'label') return r.label;
+                                        if (k === 'avg') return avgOf2(r);
+                                        if (k === 'n2') return n2Of2(r);
+                                        if (k === 'eff') return effOf2(r);
+                                        if (k.startsWith('draw:')) { const v = r.hits[parseInt(k.slice(5), 10)]; return v === undefined ? -1 : v; }
+                                        return 0;
+                                    };
+                                    const sorted2 = comparativaSort ? [...rows].sort((a, b) => {
+                                        const va = sortVal2(a), vb = sortVal2(b);
+                                        const cmp = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb) : (va as number) - (vb as number);
+                                        return comparativaSort!.dir === 'desc' ? -cmp : cmp;
+                                    }) : rows;
+                                    return sorted2.slice(0, 14);
+                                })() : [...rows].sort((a, b) => b.hits[drawIdx] - a.hits[drawIdx] || effOf(b) - effOf(a) || a.label.localeCompare(b.label)).slice(0, 14);
                                 const freq = comparativaTop14Freq(top14, drawIdx, allDraws);
                                 const ranked = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => freq[b - 1] - freq[a - 1] || a - b);
                                 const top5Hits = ranked.slice(0, 5).filter(n => winners.includes(n)).length;
@@ -8551,24 +8578,33 @@ ${breakdownRows30.slice(20).join('\n')}
                                         <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[560px] max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                                             <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
                                                 <div>
-                                                    <div className="text-[12px] font-black text-[#ffeb3b]">Sorteo #{drawNum} — Top 14 y frecuencias</div>
-                                                    <div className="text-[9px] text-[#888]">Top 14 por aciertos en este sorteo (filtro actual: {comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Fecha: {draw?.date ?? ''}</div>
+                                                    <div className="text-[12px] font-black text-[#ffeb3b]">{isNext ? `Sorteo #${drawNum} — Próximo sorteo y frecuencias` : `Sorteo #${drawNum} — Top 14 y frecuencias`}</div>
+                                                    <div className="text-[9px] text-[#888]">{isNext ? `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Aún sin realizarse` : `Top 14 por aciertos en este sorteo (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Fecha: ${draw?.date ?? ''}`}</div>
                                                 </div>
                                                 <button onClick={() => setComparativaPopout(null)} className="bg-[#2a2a2a] border border-[#555] text-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-[#333]">×</button>
                                             </div>
                                             <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                                                <div className="bg-[#ffeb3b] text-black rounded-xl p-2.5 text-center">
-                                                    <div className="text-[9px] font-black tracking-wide">● NÚMEROS GANADORES REALES</div>
-                                                    <div className="text-[18px] font-black tracking-wider my-0.5">{winners.map(n => String(n).padStart(2, '0')).join(' ')}</div>
-                                                </div>
-                                                <div className="text-[10px] text-[#aaa]">Top 5 por frecuencia: <b className="text-[#ffeb3b]">{top5Hits} de 5</b> son ganadores (azar: 0.89) · Top 10 por frecuencia: <b className="text-[#ffeb3b]">{top10Hits} de 10</b> son ganadores (azar: 1.79)</div>
+                                                {isNext ? (
+                                                    <div className="bg-[#00e5ff] text-black rounded-xl p-2.5 text-center">
+                                                        <div className="text-[9px] font-black tracking-wide">⏳ PRÓXIMO SORTEO #12367 — AÚN SIN REALIZARSE</div>
+                                                        <div className="text-[11px] font-bold my-0.5">Sin ganadores todavía. Abajo, las frecuencias del top 14 desplegado para este sorteo.</div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="bg-[#ffeb3b] text-black rounded-xl p-2.5 text-center">
+                                                            <div className="text-[9px] font-black tracking-wide">● NÚMEROS GANADORES REALES</div>
+                                                            <div className="text-[18px] font-black tracking-wider my-0.5">{winners.map(n => String(n).padStart(2, '0')).join(' ')}</div>
+                                                        </div>
+                                                        <div className="text-[10px] text-[#aaa]">Top 5 por frecuencia: <b className="text-[#ffeb3b]">{top5Hits} de 5</b> son ganadores (azar: 0.89) · Top 10 por frecuencia: <b className="text-[#ffeb3b]">{top10Hits} de 10</b> son ganadores (azar: 1.79)</div>
+                                                    </>
+                                                )}
                                                 <div>
                                                     <div className="text-[10px] font-black text-[#ffeb3b] mb-1">28 números ordenados por frecuencia en el top 14 (de mayor a menor)</div>
                                                     <div className="flex flex-wrap gap-1">
                                                         {ranked.map(n => {
                                                             const isWin = winners.includes(n);
                                                             const c = freq[n - 1];
-                                                            return <span key={n} className={`inline-block min-w-[44px] text-center text-[10px] font-black px-1.5 py-1 rounded ${isWin ? 'bg-[#ffeb3b] text-black ring-2 ring-white' : c >= 10 ? 'bg-[#1b5e20] text-[#69f0ae]' : c >= 7 ? 'bg-[#5d4037] text-[#ffeb3b]' : 'bg-[#222] text-[#aaa]'}`} title={`Número ${n}: en ${c} de las 14 filas${isWin ? ' · GANADOR' : ''}`}>{String(n).padStart(2, '0')}:{c}</span>;
+                                                            return <span key={n} className={`relative inline-flex flex-col items-center justify-center min-w-[54px] min-h-[42px] rounded px-2 py-1 ${isWin ? 'bg-[#ffeb3b] text-black ring-2 ring-white' : c >= 10 ? 'bg-[#1b5e20] text-[#69f0ae]' : c >= 7 ? 'bg-[#5d4037] text-[#ffeb3b]' : 'bg-[#222] text-[#aaa]'}`} title={`Número ${n}: en ${c} de las 14 filas${isWin ? ' · GANADOR' : ''}`}><span className="text-[18px] font-black leading-none">{String(n).padStart(2, '0')}</span><span className="absolute bottom-[3px] right-[4px] text-[8px] font-bold leading-none opacity-80">{c}</span></span>;
                                                         })}
                                                     </div>
                                                     <div className="text-[9px] text-[#888] mt-1">Resaltados en amarillo = números ganadores de este sorteo. Así se puede ver qué tan efectiva es la inercia del top 14 en este sorteo.</div>
