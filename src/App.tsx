@@ -8524,7 +8524,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                                             const cls = h >= 4 ? 'bg-[#1b5e20] text-[#69f0ae] font-black' : h >= 2 ? 'bg-[#5d4037] text-[#ffeb3b] font-bold' : 'bg-[#1a1a1a] text-[#777]';
                                                             return <td key={i} className={`text-[10px] px-1 py-1 border ${isDiag ? 'border-[#00e5ff] ring-1 ring-[#00e5ff]' : 'border-[#333]'} ${cls}`} title={isDiag ? 'Su propio sorteo (en muestra)' : undefined}>{h}</td>;
                                                         })}
-                                                        <td className="text-[10px] px-1 py-1 border border-[#333] bg-[#1a1a1a] text-[#555]" title="Próximo sorteo #12367 — aún sin realizarse">—</td>
+                                                        <td className="text-[10px] px-1 py-1 border border-[#333] bg-[#1a1a1a] text-[#555]" title={`Próximo sorteo #${COMPARATIVA_DRAWS[COMPARATIVA_DRAWS.length - 1]} — aún sin realizarse`}>—</td>
                                                         <td className="text-[10px] font-black text-[#00e5ff] px-2 py-1 border border-[#333]">{avg.toFixed(2)}</td>
                                                         <td className="text-[10px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]">{n2}/30</td>
                                                         <td className="text-[10px] font-black text-[#00e5ff] px-2 py-1 border border-[#333]" title={`Prom. aciertos ${avg.toFixed(2)} / prom. números ${row.avgNums.toFixed(1)}`}>{effVal.toFixed(3)}</td>
@@ -8546,7 +8546,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                 const allRows = getComparativaRows();
                                 const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
                                 const effOf = (r: ComparativaRow) => (r.hits.reduce((a, b) => a + b, 0) / r.hits.length) / r.avgNums;
-                                const top14 = isNext ? (() => {
+                                const top14 = (() => {
                                     const avgOf2 = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
                                     const effOf2 = (r: ComparativaRow) => avgOf2(r) / r.avgNums;
                                     const n2Of2 = (r: ComparativaRow) => r.hits.filter(h => h >= 2).length;
@@ -8566,7 +8566,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                         return comparativaSort!.dir === 'desc' ? -cmp : cmp;
                                     }) : rows;
                                     return sorted2.slice(0, 14);
-                                })() : [...rows].sort((a, b) => b.hits[drawIdx] - a.hits[drawIdx] || effOf(b) - effOf(a) || a.label.localeCompare(b.label)).slice(0, 14);
+                                })();
                                 const freq = comparativaTop14Freq(top14, drawIdx, allDraws);
                                 const ranked = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => freq[b - 1] - freq[a - 1] || a - b);
                                 const top5Hits = ranked.slice(0, 5).filter(n => winners.includes(n)).length;
@@ -8577,14 +8577,14 @@ ${breakdownRows30.slice(20).join('\n')}
                                             <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
                                                 <div>
                                                     <div className="text-[12px] font-black text-[#ffeb3b]">{isNext ? `Sorteo #${drawNum} — Próximo sorteo y frecuencias` : `Sorteo #${drawNum} — Top 14 y frecuencias`}</div>
-                                                    <div className="text-[9px] text-[#888]">{isNext ? `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Aún sin realizarse` : `Top 14 por aciertos en este sorteo (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Fecha: ${draw?.date ?? ''}`}</div>
+                                                    <div className="text-[9px] text-[#888]">{isNext ? `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Aún sin realizarse` : `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Fecha: ${draw?.date ?? ''}`}</div>
                                                 </div>
                                                 <button onClick={() => setComparativaPopout(null)} className="bg-[#2a2a2a] border border-[#555] text-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-[#333]">×</button>
                                             </div>
                                             <div className="flex-1 overflow-y-auto p-3 space-y-3">
                                                 {isNext ? (
                                                     <div className="bg-[#00e5ff] text-black rounded-xl p-2.5 text-center">
-                                                        <div className="text-[9px] font-black tracking-wide">⏳ PRÓXIMO SORTEO #12367 — AÚN SIN REALIZARSE</div>
+                                                        <div className="text-[9px] font-black tracking-wide">⏳ PRÓXIMO SORTEO #{drawNum} — AÚN SIN REALIZARSE</div>
                                                         <div className="text-[11px] font-bold my-0.5">Sin ganadores todavía. Abajo, las frecuencias del top 14 desplegado para este sorteo.</div>
                                                     </div>
                                                 ) : (
