@@ -8695,7 +8695,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                 <div className="text-[11px] font-black text-[#ffeb3b]">Configuración de Pool Sizes, Pools y Frecuencias (Simulador C (Libre)) — Vista Vertical:</div>
                                 <div className="space-y-3">
                                     {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                        const rawCfg = (simCConfigs && simCConfigs[sz]) || {};
+                                        const rawCfg: any = (simCConfigs && simCConfigs[sz]) || {};
                                         const cfg = {
                                             enabled: !!rawCfg.enabled,
                                             pools: rawCfg.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
