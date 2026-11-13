@@ -80,8 +80,101 @@ function EfficiencyReportModal({ simResults, onClose }: { simResults: any[]; onC
     );
 }
 
+function ComparativaPopoutModal({
+    comparativaPopout,
+    setComparativaPopout,
+    comparativaDraws,
+    allDraws,
+    getComparativaRows,
+    comparativaFilter,
+    comparativaSort,
+    comparativaTop14Freq
+}: {
+    comparativaPopout: number | null;
+    setComparativaPopout: (val: number | null) => void;
+    comparativaDraws: number[];
+    allDraws: Draw[];
+    getComparativaRows: (draws: number[]) => ComparativaRow[];
+    comparativaFilter: string;
+    comparativaSort: ComparativaSort;
+    comparativaTop14Freq: (topRows: ComparativaRow[], drawIdx: number, allDraws: Draw[], draws: number[]) => number[];
+}) {
+    if (comparativaPopout === null) return null;
+    const drawNum = comparativaPopout;
+    const drawIdx = comparativaDraws.indexOf(drawNum) !== -1 ? comparativaDraws.indexOf(drawNum) : Math.max(0, comparativaDraws.length - 1);
+    const isNext = drawIdx === comparativaDraws.length - 1 || !allDraws.some(d => d.num === drawNum);
+    const draw = allDraws.find(d => d.num === drawNum);
+    const winners: number[] = draw ? [...draw.win].sort((a, b) => a - b) : [];
+    const allRows = getComparativaRows(comparativaDraws);
+    const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
+    const avgOf2 = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
+    const sortVal2 = (r: ComparativaRow): number | string => {
+        if (!comparativaSort) return 0;
+        const k = comparativaSort.key;
+        if (k === 'label') return r.label;
+        if (k === 'avg') return avgOf2(r);
+        if (k === 'n2') return r.hits.filter(h => h >= 2).length;
+        if (k === 'eff') return avgOf2(r) / r.avgNums;
+        if (k.startsWith('draw:')) { const v = r.hits[parseInt(k.slice(5), 10)]; return v === undefined ? -1 : v; }
+        return 0;
+    };
+    const sorted2 = comparativaSort ? [...rows].sort((a, b) => {
+        const va = sortVal2(a), vb = sortVal2(b);
+        const cmp = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb) : (va as number) - (vb as number);
+        return comparativaSort!.dir === 'desc' ? -cmp : cmp;
+    }) : rows;
+    const top14 = sorted2.slice(0, 14);
+    const freq = comparativaTop14Freq(top14, drawIdx, allDraws, comparativaDraws);
+    const ranked = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => freq[b - 1] - freq[a - 1] || a - b);
+    const top5Hits = ranked.slice(0, 5).filter(n => winners.includes(n)).length;
+    const top10Hits = ranked.slice(0, 10).filter(n => winners.includes(n)).length;
 
-import React, { useState, useEffect, useRef } from 'react';
+    return (
+        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={() => setComparativaPopout(null)}>
+            <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[560px] max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
+                    <div>
+                        <div className="text-[12px] font-black text-[#ffeb3b]">{isNext ? `Sorteo #${drawNum} — Próximo sorteo y frecuencias` : `Sorteo #${drawNum} — Top 14 y frecuencias`}</div>
+                        <div className="text-[9px] text-[#888]">{isNext ? `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Aún sin realizarse` : `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Fecha: ${draw?.date ?? ''}`}</div>
+                    </div>
+                    <button onClick={() => setComparativaPopout(null)} className="bg-[#2a2a2a] border border-[#555] text-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-[#333]">×</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    {isNext ? (
+                        <div className="bg-[#00e5ff] text-black rounded-xl p-2.5 text-center">
+                            <div className="text-[9px] font-black tracking-wide">⏳ PRÓXIMO SORTEO #{drawNum} — AÚN SIN REALIZARSE</div>
+                            <div className="text-[11px] font-bold my-0.5">Sin ganadores todavía. Abajo, las frecuencias del top 14 desplegado para este sorteo.</div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="bg-[#ffeb3b] text-black rounded-xl p-2.5 text-center">
+                                <div className="text-[9px] font-black tracking-wide">● NÚMEROS GANADORES REALES</div>
+                                <div className="text-[18px] font-black tracking-wider my-0.5">{winners.map(n => String(n).padStart(2, '0')).join(' ')}</div>
+                            </div>
+                            <div className="text-[10px] text-[#aaa]">Top 5 por frecuencia: <b className="text-[#ffeb3b]">{top5Hits} de 5</b> son ganadores (azar: 0.89) · Top 10 por frecuencia: <b className="text-[#ffeb3b]">{top10Hits} de 10</b> son ganadores (azar: 1.79)</div>
+                        </>
+                    )}
+                    <div>
+                        <div className="text-[10px] font-black text-[#ffeb3b] mb-1">28 números ordenados por frecuencia en el top 14 (de mayor a menor)</div>
+                        <div className="flex flex-wrap gap-1">
+                            {ranked.map(n => {
+                                const isWin = winners.includes(n);
+                                const c = freq[n - 1];
+                                return <span key={n} className={`relative inline-flex flex-col items-center justify-center min-w-[54px] min-h-[42px] rounded px-2 py-1 ${isWin ? 'bg-[#ffeb3b] text-black ring-2 ring-white' : c >= 10 ? 'bg-[#1b5e20] text-[#69f0ae]' : c >= 7 ? 'bg-[#5d4037] text-[#ffeb3b]' : 'bg-[#222] text-[#aaa]'}`} title={`Número ${n}: en ${c} de las 14 filas${isWin ? ' · GANADOR' : ''}`}><span className="text-[18px] font-black leading-none">{String(n).padStart(2, '0')}</span><span className="absolute bottom-[3px] right-[4px] text-[8px] font-bold leading-none opacity-80">{c}</span></span>;
+                            })}
+                        </div>
+                        <div className="text-[9px] text-[#888] mt-1">Resaltados en amarillo = números ganadores de este sorteo. Así se puede ver qué tan efectiva es la inercia del top 14 en este sorteo.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import { GoogleGenAI } from '@google/genai';
 import { RandomForestClassifier } from 'ml-random-forest';
@@ -266,47 +359,50 @@ function isValidCombo(combo: number[], poolSlice: number[] | null = null, poolId
 }
 
 function Ef(e: number[], n: number): number[][] {
-    let t = e.length, r = new Set<string>(), l: number[][] = [];
-    if (t < 7) return [];
-    let u = t - 6;
-    for (let i = 0; i < n; i++) {
-        let o = 0, a = false;
-        while (o < n * 4 && !a) {
-            let c = i + o * n, m = c * 2 % 6, g = (c * 3 + 1) % 6;
-            if (g === m) g = (g + 1) % 6;
-            let y = 6 + c * 5 % u, k = 6 + (c * 7 + 2) % u;
-            if (k === y) k = 6 + (k - 6 + 1) % u;
-            let w = 6 + (c * 11 + 5) % u, counter = 0;
-            while ((w === y || w === k) && counter < u + 5) {
-                w = 6 + (w - 6 + 1) % u;
-                counter++;
-            }
-            let combo = [e[m], e[g], e[y], e[k], e[w]].sort((d, S) => d - S);
-            if (new Set(combo).size < 5) { o++; continue; }
-            let f = combo.join(",");
-            if (!r.has(f)) { r.add(f); l.push(combo); a = true; } else { o++; }
+    let t = e.length;
+    if (t < 5) return [];
+    let r = new Set<string>();
+    let l: number[][] = [];
+    let seed = 12345;
+    let maxAttempts = n * 30;
+    let attempts = 0;
+    while (l.length < n && attempts < maxAttempts) {
+        let combo: number[] = [];
+        while (combo.length < 5) {
+            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+            let idx = seed % t;
+            let val = e[idx];
+            if (!combo.includes(val)) combo.push(val);
         }
-        if (!a) {
-            let c = 0;
-            while (c < 100 && !a) {
-                let m = i * 13 + c * 17 + 3, g = m * 2 % 6, y = (m * 3 + 1) % 6;
-                if (y === g) y = (y + 2) % 6;
-                let k = 6 + (m * 5 + c) % u, w = 6 + (m * 7 + 2 + c * 2) % u;
-                if (w === k) w = 6 + (w - 6 + 1) % u;
-                let lastIdx = 6 + (m * 11 + 5 + c * 3) % u, counter2 = 0;
-                while ((lastIdx === k || lastIdx === w) && counter2 < u + 5) {
-                    lastIdx = 6 + (lastIdx - 6 + 1) % u;
-                    counter2++;
+        combo.sort((a, b) => a - b);
+        let f = combo.join(',');
+        if (!r.has(f)) {
+            r.add(f);
+            l.push(combo);
+        }
+        attempts++;
+    }
+    if (l.length < n) {
+        for (let i = 0; i < t - 4 && l.length < n; i++) {
+            for (let j = i + 1; j < t - 3 && l.length < n; j++) {
+                for (let k = j + 1; k < t - 2 && l.length < n; k++) {
+                    for (let m = k + 1; m < t - 1 && l.length < n; m++) {
+                        for (let p = m + 1; p < t && l.length < n; p++) {
+                            let combo = [e[i], e[j], e[k], e[m], e[p]].sort((a, b) => a - b);
+                            let f = combo.join(',');
+                            if (!r.has(f)) {
+                                r.add(f);
+                                l.push(combo);
+                            }
+                        }
+                    }
                 }
-                let h = [e[g], e[y], e[k], e[w], e[lastIdx]].sort((d, S) => d - S);
-                let f = h.join(",");
-                if (!r.has(f) && new Set(h).size === 5) { r.add(f); l.push(h); a = true; }
-                c++;
             }
         }
     }
     return l.sort((i, o) => { for (let a = 0; a < 5; a++) if (i[a] !== o[a]) return i[a] - o[a]; return 0; }).slice(0, n);
 }
+
 
 function rv(e: number[], n: number[] | null, t: number, poolId = ''): number[][] {
     let baseCombos = generateWheelingWithFilters(e, t, poolId);
@@ -690,6 +786,7 @@ function hitClass(c: number): string {
 export default function App() {
     const [loading, setLoading] = useState(true);
     const [allDraws, setAllDraws] = useState<Draw[]>([]);
+    const COMPARATIVA_DRAWS = useMemo(() => getComparativaDraws(allDraws), [allDraws]);
     const [sorteos, setSorteos] = useState<Draw[]>([]);
     const [pools, setPools] = useState<any[]>([]);
     const [nextNum, setNextNum] = useState(0);
@@ -2105,15 +2202,8 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
         ['final', 'p2', 'p3', 'p4', 'p5', 'p6'],
         ['final', 'p2', 'p4', 'p5', 'p6'],
         ['final', 'p2', 'p3', 'p4'],
-        ['final', 'p2', 'p4']
-    ];
-
-    const candidateFreqSets: Record<number, boolean>[] = [
-        { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false },
-        { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false },
-        { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: true, 0: false },
-        { 7: false, 6: true, 5: false, 4: true, 3: false, 2: false, 1: true, 0: false },
-        { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+        ['final', 'p2', 'p4'],
+        ['final', 'p2']
     ];
 
     let bestConfig: { pools: Record<string, boolean>; freqs: Record<number, boolean> } = {
@@ -2128,14 +2218,21 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
         let poolsMap: Record<string, boolean> = { final: false, p2: false, p3: false, p4: false, p5: false, p6: false, p7: false };
         allPoolIds.forEach(id => { poolsMap[id] = pCombo.includes(id); });
 
-        candidateFreqSets.forEach((fSet: Record<number, boolean>) => {
-            let activeObjs = poolList.filter(p => poolsMap[p.id]);
-            let freqMap: Record<number, number> = {};
-            activeObjs.forEach(p => {
-                p.nums.forEach(n => {
-                    freqMap[n] = (freqMap[n] || 0) + 1;
-                });
+        let activeObjs = poolList.filter(p => poolsMap[p.id]);
+        let freqMap: Record<number, number> = {};
+        activeObjs.forEach(p => {
+            p.nums.forEach(n => {
+                freqMap[n] = (freqMap[n] || 0) + 1;
             });
+        });
+
+        for (let mask = 1; mask < 256; mask++) {
+            let fSet: Record<number, boolean> = { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false };
+            for (let f = 0; f <= 7; f++) {
+                if ((mask & (1 << f)) !== 0) {
+                    fSet[f] = true;
+                }
+            }
 
             let filtered: number[] = [];
             for (let n = 1; n <= 28; n++) {
@@ -2147,22 +2244,18 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
             let count = filtered.length;
 
             if (count > 0 && count <= 28) {
-                if (hits === win.length) {
-                    if (count < minCountForBestHits) {
-                        minCountForBestHits = count;
-                        bestHits = hits;
-                        bestConfig = { pools: poolsMap, freqs: fSet };
-                    }
-                } else if (hits > bestHits && bestHits < win.length) {
+                if (hits > bestHits) {
                     bestHits = hits;
+                    minCountForBestHits = count;
+                    bestConfig = { pools: poolsMap, freqs: fSet };
+                } else if (hits === bestHits && count < minCountForBestHits) {
                     minCountForBestHits = count;
                     bestConfig = { pools: poolsMap, freqs: fSet };
                 }
             }
-        });
+        }
     });
 
-    // Guarantee all 5 winning numbers are captured
     let activeObjs = poolList.filter(p => bestConfig.pools[p.id]);
     let freqMap: Record<number, number> = {};
     activeObjs.forEach(p => {
@@ -2176,7 +2269,6 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
         let f = freqMap[n] || 0;
         if (bestConfig.freqs[f]) currentFiltered.push(n);
     }
-
     let currentHits = win.filter(w => currentFiltered.includes(w)).length;
     if (currentHits < win.length) {
         let dynamicFreqs: Record<number, boolean> = { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false };
@@ -2185,7 +2277,8 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
             if (f >= 0 && f <= 7) dynamicFreqs[f] = true;
         });
         dynamicFreqs[4] = true;
-        dynamicFreqs[1] = true;
+        dynamicFreqs[3] = true;
+        dynamicFreqs[2] = true;
         bestConfig.freqs = dynamicFreqs;
     }
 
@@ -2537,8 +2630,7 @@ const GEMINI_GROUPS: number[][][] = [
     [[6,14,17,24,27],[1,6,14,15,17,18,22,24,25,27],[1,3,6,8,14,15,17,18,20,22,23,24,25,27],[1,2,3,5,6,7,8,10,12,13,14,15,16,17,18,20,21,22,23,24,25,27],[5,6,7,13,14,15,16,17,18,23,24,25,26,27,28],[1,2,5,6,7,13,14,15,16,17,18,19,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
     [[6,15,17,22,26],[2,5,6,14,15,17,22,25,26,27],[2,3,5,6,14,15,17,18,20,22,24,25,26,27],[2,3,4,5,6,8,9,10,11,13,14,15,16,17,18,20,22,23,24,25,26,27],[5,6,7,14,15,16,17,18,21,22,23,25,26,27],[1,2,3,4,5,6,7,13,14,15,16,17,18,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
 ];
-// Tabla Comparativa (últimos 30 sorteos 12338–12367): aciertos por sorteo de cada método.
-const COMPARATIVA_DRAWS: number[] = [12338,12339,12340,12341,12342,12343,12344,12345,12346,12347,12348,12349,12350,12351,12352,12353,12354,12355,12356,12357,12358,12359,12360,12361,12362,12363,12364,12365,12366,12367,12368];
+// Tabla Comparativa (últimos 30 sorteos): aciertos por sorteo de cada método.
 const COMPARATIVA_RECIPE_HITS: number[][] = [
     [3,1,1,2,1,1,1,1,2,2,2,3,1,2,1,0,3,3,2,2,2,1,1,4,1,3,1,1,0,0],
     [2,3,3,3,2,1,1,1,0,5,1,2,2,1,1,1,2,2,2,2,2,1,0,2,3,2,0,0,2,0],
@@ -2735,15 +2827,23 @@ const COMPARATIVA_RECIPE_AVG_NUMS: number[] = [10.00,10.00,12.00,8.00,11.00,20.5
 const COMPARATIVA_GEMINI_PM1_AVG: Record<number, number> = { 5: 13.2, 10: 20.6, 14: 24.1, 22: 27.7 };
 type ComparativaFamily = 'recetas' | 'gemini' | 'opt10' | 'opt14' | 'pools';
 type ComparativaRow = { label: string; hits: number[]; avgNums: number; family: ComparativaFamily; optIdx?: number; optNums?: number[] };
-function getComparativaRows(): ComparativaRow[] {
+function getComparativaDraws(allDraws: Draw[]): number[] {
+    if (!allDraws || allDraws.length === 0) {
+        return [12338,12339,12340,12341,12342,12343,12344,12345,12346,12347,12348,12349,12350,12351,12352,12353,12354,12355,12356,12357,12358,12359,12360,12361,12362,12363,12364,12365,12366,12367,12368];
+    }
+    const last30 = allDraws.slice(-30);
+    const lastNum = last30[last30.length - 1]?.num || 12367;
+    return [...last30.map(d => d.num), lastNum + 1];
+}
+function getComparativaRows(draws: number[]): ComparativaRow[] {
     const rows: ComparativaRow[] = [];
     for (let r = 0; r < 6; r++) rows.push({ label: `Receta ${r + 1}`, hits: COMPARATIVA_RECIPE_HITS[r], avgNums: COMPARATIVA_RECIPE_AVG_NUMS[r], family: 'recetas' });
     const g = (idx: number, label: string, avgNums: number) => rows.push({ label, hits: GEMINI_REF_ROWS.map(r => r[idx]), avgNums, family: 'gemini' });
     g(2, 'Gemini 5', 5); g(4, 'Gemini 10', 10); g(6, 'Gemini 14', 14); g(8, 'Gemini 22', 22);
     g(3, 'Gemini 5\u2032', COMPARATIVA_GEMINI_PM1_AVG[5]); g(5, 'Gemini 10\u2032', COMPARATIVA_GEMINI_PM1_AVG[10]); g(7, 'Gemini 14\u2032', COMPARATIVA_GEMINI_PM1_AVG[14]); g(9, 'Gemini 22\u2032', COMPARATIVA_GEMINI_PM1_AVG[22]);
-    for (let i = 0; i < COMPARATIVA_DRAWS.length - 1; i++) rows.push({ label: `Opt. 10 #${COMPARATIVA_DRAWS[i]}`, hits: COMPARATIVA_OPT_MATRIX[i], avgNums: COMPARATIVA_OPT_NUMS[i].length, family: 'opt10', optIdx: i, optNums: COMPARATIVA_OPT_NUMS[i] });
-    for (let i = 0; i < COMPARATIVA_DRAWS.length - 1; i++) rows.push({ label: `Opt. 14 #${COMPARATIVA_DRAWS[i]}`, hits: COMPARATIVA_OPT14_MATRIX[i], avgNums: COMPARATIVA_OPT14_NUMS[i].length, family: 'opt14', optIdx: i, optNums: COMPARATIVA_OPT14_NUMS[i] });
-    for (const pool of COMPARATIVA_POOLS) for (const sz of COMPARATIVA_POOL_SIZES) rows.push({ label: `pool${pool}#${sz}`, hits: COMPARATIVA_POOL_HITS[`${pool}#${sz}`], avgNums: sz, family: 'pools' });
+    for (let i = 0; i < draws.length - 1; i++) rows.push({ label: `Opt. 10 #${draws[i]}`, hits: COMPARATIVA_OPT_MATRIX[i] || [], avgNums: COMPARATIVA_OPT_NUMS[i]?.length || 10, family: 'opt10', optIdx: i, optNums: COMPARATIVA_OPT_NUMS[i] });
+    for (let i = 0; i < draws.length - 1; i++) rows.push({ label: `Opt. 14 #${draws[i]}`, hits: COMPARATIVA_OPT14_MATRIX[i] || [], avgNums: COMPARATIVA_OPT14_NUMS[i]?.length || 14, family: 'opt14', optIdx: i, optNums: COMPARATIVA_OPT14_NUMS[i] });
+    for (const pool of COMPARATIVA_POOLS) for (const sz of COMPARATIVA_POOL_SIZES) rows.push({ label: `pool${pool}#${sz}`, hits: COMPARATIVA_POOL_HITS[`${pool}#${sz}`] || [], avgNums: sz, family: 'pools' });
     return rows;
 }
 type ComparativaSort = { key: string; dir: 'asc' | 'desc' } | null;
@@ -2784,8 +2884,8 @@ function comparativaRecipeSet(allDraws: Draw[], recipeId: number, drawNum: numbe
     if (finalResultNums.length > rec.targetSize) finalResultNums = finalResultNums.slice(0, rec.targetSize);
     return finalResultNums;
 }
-function getComparativaRowSet(row: ComparativaRow, drawIdx: number, allDraws: Draw[]): number[] {
-    const drawNum = COMPARATIVA_DRAWS[drawIdx];
+function getComparativaRowSet(row: ComparativaRow, drawIdx: number, allDraws: Draw[], draws: number[]): number[] {
+    const drawNum = draws[drawIdx];
     if (row.family === 'opt10' || row.family === 'opt14') return row.optNums ? [...row.optNums] : [];
     if (row.family === 'gemini') {
         const mm = row.label.match(/Gemini (\d+)(\u2032)?/);
@@ -2808,10 +2908,10 @@ function getComparativaRowSet(row: ComparativaRow, drawIdx: number, allDraws: Dr
     return [];
 }
 // Frecuencia de cada número (1..28) en los conjuntos del top 14 dado, para un sorteo.
-function comparativaTop14Freq(topRows: ComparativaRow[], drawIdx: number, allDraws: Draw[]): number[] {
+function comparativaTop14Freq(topRows: ComparativaRow[], drawIdx: number, allDraws: Draw[], draws: number[]): number[] {
     const freq = new Array(28).fill(0);
     for (const r of topRows) {
-        for (const n of getComparativaRowSet(r, drawIdx, allDraws)) {
+        for (const n of getComparativaRowSet(r, drawIdx, allDraws, draws)) {
             if (n >= 1 && n <= 28) freq[n - 1]++;
         }
     }
@@ -4049,6 +4149,7 @@ function ScoreMethodologyModal({ num, allDraws, selectedTargetDrawNum, onClose }
 }
 
 function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void }) {
+    const COMPARATIVA_DRAWS = useMemo(() => getComparativaDraws(allDraws), [allDraws]);
     const [showEfficiencyReportModal, setShowEfficiencyReportModal] = useState(false);
     const [showFocusGraphModal, setShowFocusGraphModal] = useState(false);
     const [activeTab, setActiveTab] = useState<'simulator' | 'simulatorC' | 'thesis' | 'gemini' | 'comparativa'>('simulatorC');
@@ -4570,6 +4671,10 @@ ${breakdownRows30.slice(20).join('\n')}
     const [newRecipeName, setNewRecipeName] = useState('Receta Personalizada');
     const [recipeKeyword, setRecipeKeyword] = useState('');
 
+    const [showManageSavedModal, setShowManageSavedModal] = useState(false);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [deleteKeywordInput, setDeleteKeywordInput] = useState('');
+
     function handleSaveCustomRecipe() {
         if (recipeKeyword !== 'keep') {
             showLocToast('Error: La palabra clave debe ser exactamente "keep"');
@@ -4585,8 +4690,8 @@ ${breakdownRows30.slice(20).join('\n')}
             finalFreqs: activeTab === 'simulatorC' ? simCFinalFreqs : {
                 madreFinalFreqs, sub1FinalFreqs, sub2FinalFreqs, sub3FinalFreqs, sub4FinalFreqs, sub5FinalFreqs
             },
-            userPicks: activeTab === 'simulatorC' ? userPicks : [],
-            targetSize: activeTab === 'simulatorC' ? null : 21,
+            userPicks: userPicks,
+            targetSize: simCTargetSize,
             timestamp: new Date().toLocaleDateString()
         };
         const updated = [...customRecipes, newRec];
@@ -4597,6 +4702,21 @@ ${breakdownRows30.slice(20).join('\n')}
         setShowSaveRecipeModal(false);
         setRecipeKeyword('');
         showLocToast(`🍳 ¡Receta "${newRec.name}" guardada con palabra clave "keep"!`);
+    }
+
+    function confirmDeleteCustomRecipe(id: string) {
+        if (deleteKeywordInput !== 'keep') {
+            showLocToast('Error: La palabra clave debe ser exactamente "keep" para eliminar');
+            return;
+        }
+        const updated = customRecipes.filter(r => r.id !== id);
+        setCustomRecipes(updated);
+        try {
+            localStorage.setItem('chispazo_custom_recipes', JSON.stringify(updated));
+        } catch(e) {}
+        showLocToast("¡Configuración eliminada exitosamente con la palabra clave 'keep'!");
+        setDeleteTargetId(null);
+        setDeleteKeywordInput('');
     }
 
     function handleLoadIterativeRecipe(recId: string) {
@@ -4683,8 +4803,11 @@ ${breakdownRows30.slice(20).join('\n')}
                 setUserPicks(rec.userPicks);
                 try { localStorage.setItem('chispazo_user_picks', JSON.stringify(rec.userPicks)); } catch(e){}
             }
-            // Sin target: rec.targetSize se ignora a propósito.
-            setSimCTargetSize(null);
+            if (rec.targetSize !== undefined) {
+                setSimCTargetSize(rec.targetSize);
+            } else {
+                setSimCTargetSize(null);
+            }
             showLocToast(`🍳 ¡Receta "${rec.name}" cargada en Simulador C!`);
         });
     }
@@ -6424,7 +6547,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                 📜 TESIS 14
                             </button>
                             <button 
-                                onClick={() => { setActiveTab('gemini'); if (!geminiRanking && !geminiTraining) runGemini(); }} 
+                                onClick={() => setActiveTab('gemini')} 
                                 className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition flex items-center gap-1 ${activeTab === 'gemini' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
                             >
                                 🤖 Gemini
@@ -6598,6 +6721,14 @@ ${breakdownRows30.slice(20).join('\n')}
                                     >
                                         {isSimCRunning ? 'Simulando...' : '🚀 Correr Simulación C'}
                                     </button>
+                                    <div className="flex items-center gap-1.5 bg-[#222] border border-[#333] rounded-lg px-2 py-1">
+                                        <span className="text-[10px] text-[#ffeb3b] font-bold">Target: {simCTargetSize !== null ? `${simCTargetSize} #` : 'Completo'}</span>
+                                        <button onClick={() => setSimCTargetSize(prev => prev === null ? 10 : Math.max(5, prev - 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">-</button>
+                                        <button onClick={() => setSimCTargetSize(prev => prev === null ? 11 : Math.min(28, prev + 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">+</button>
+                                        {simCTargetSize !== null && (
+                                            <button onClick={() => setSimCTargetSize(null)} className="text-[9px] text-[#ff5252] ml-1 hover:underline">Reset</button>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-1 ml-auto">
                                         <select
                                             onChange={(e) => handleLoadSimCRecipe(e.target.value)}
@@ -8455,7 +8586,7 @@ ${breakdownRows30.slice(20).join('\n')}
                             <div className="bg-[#181818] border border-[#00e5ff]/40 rounded-xl p-3 shadow-md">
                                 <div className="flex justify-between items-center flex-wrap gap-2">
                                     <div>
-                                        <div className="text-[11px] font-black text-[#ffeb3b]">📊 Aciertos por sorteo — últimos 30 sorteos (#12338 a #12367) + próximo #12368</div>
+                                        <div className="text-[11px] font-black text-[#ffeb3b]">📊 Aciertos por sorteo — últimos 30 sorteos (#{COMPARATIVA_DRAWS[0]} a #{COMPARATIVA_DRAWS[COMPARATIVA_DRAWS.length - 2]}) + próximo #{COMPARATIVA_DRAWS[COMPARATIVA_DRAWS.length - 1]}</div>
                                         <div className="text-[9px] text-[#888]">Cada celda muestra cuántos números de esa fila acertaron en ese sorteo. Recetas usan los pools guardados en la tabla de resultados; Gemini es el backtest de referencia (Python). Las filas Opt. 10 y Opt. 14 son las optimizaciones de 10 y 14 números de cada sorteo, evaluadas en los 30 sorteos: la celda con borde celeste es su propio sorteo (en muestra: Opt. 10 promedia 4.60, Opt. 14 da 5 en los 30) y el resto es fuera de muestra (Opt. 10 promedia ~1.76 y Opt. 14 ~2.48, o sea azar en ambos). Pasa el cursor sobre una fila Opt. para ver sus números.</div>
                                     </div>
                                     <div className="flex items-center gap-1 flex-wrap">
@@ -8470,7 +8601,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                             <tr>
                                                 <td className="sticky left-0 bg-[#181818] text-left text-[10px] font-black text-[#888] px-2 py-1 border border-[#333] min-w-[110px]">🔍 Popout</td>
                                                 {COMPARATIVA_DRAWS.map((d, di) => (
-                                                    <td key={d} className="text-[14px] px-1 py-1 border border-[#333] min-w-[26px] text-center bg-[#1e1e1e]"><button onClick={() => setComparativaPopout(di)} className="cursor-pointer hover:bg-[#333] rounded w-full text-center leading-none" title={`Ver ganadores y frecuencias del top 14 del sorteo #${d}`}>🔍</button></td>
+                                                    <td key={d} className="text-[14px] px-1 py-1 border border-[#333] min-w-[26px] text-center bg-[#1e1e1e]"><button onClick={() => setComparativaPopout(d)} className="cursor-pointer hover:bg-[#333] rounded w-full text-center leading-none" title={`Ver ganadores y frecuencias del top 14 del sorteo #${d}`}>🔍</button></td>
                                                 ))}
                                                 <td className="border border-[#333]"></td>
                                                 <td className="border border-[#333]"></td>
@@ -8480,7 +8611,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                                 <th className="sticky left-0 bg-[#181818] text-left text-[10px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333] min-w-[110px]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'label', 'asc'))} className="cursor-pointer hover:underline" title="Clic para ordenar por nombre">Método {comparativaSortArrow(comparativaSort, 'label')}</button></th>
                                                 {COMPARATIVA_DRAWS.map((d, di) => (
                                                     di === COMPARATIVA_DRAWS.length - 1 ? (
-                                                        <th key={d} className="text-[9px] font-bold text-[#00e5ff] px-1 py-1 border border-[#333] min-w-[26px]"><button onClick={() => setComparativaPopout(di)} className="cursor-pointer hover:underline" title={`Próximo sorteo #${d} (aún sin realizarse, no se puede ordenar por aciertos). Clic para ver las frecuencias del top 14 desplegado.`}>#{d} ⏳</button></th>
+                                                        <th key={d} className="text-[9px] font-bold text-[#00e5ff] px-1 py-1 border border-[#333] min-w-[26px]"><button onClick={() => setComparativaPopout(d)} className="cursor-pointer hover:underline" title={`Próximo sorteo #${d} (aún sin realizarse, no se puede ordenar por aciertos). Clic para ver las frecuencias del top 14 desplegado.`}>#{d} ⏳</button></th>
                                                     ) : (
                                                         <th key={d} className="text-[9px] font-bold text-[#aaa] px-1 py-1 border border-[#333] min-w-[26px]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, `draw:${di}`, 'desc'))} className="cursor-pointer hover:underline" title={`Clic para ordenar por aciertos en el sorteo #${d}`}>#{d} {comparativaSortArrow(comparativaSort, `draw:${di}`)}</button></th>
                                                     )
@@ -8492,7 +8623,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                         </thead>
                                         <tbody>
                                             {(() => {
-                                                const allRows = getComparativaRows();
+                                                const allRows = getComparativaRows(COMPARATIVA_DRAWS);
                                                 const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
                                                 const avgOf = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
                                                 const effOf = (r: ComparativaRow) => avgOf(r) / r.avgNums;
@@ -8537,81 +8668,16 @@ ${breakdownRows30.slice(20).join('\n')}
                                 </div>
                                 <div className="text-[9px] text-[#888] mt-2">Leyenda: <span className="text-[#69f0ae] font-bold">verde fuerte = 4–5 aciertos</span> · <span className="text-[#ffeb3b] font-bold">amarillo = 2–3 aciertos (más de un acierto)</span> · gris = 0–1 acierto · <span className="text-[#00e5ff] font-bold">borde celeste = el propio sorteo de esa optimización</span>. Eficiencia = promedio de aciertos por sorteo entre promedio de números resultantes (el azar es 5/28 = 0.179; más alto es mejor por número jugado). Clic en cualquier encabezado de columna para ordenar las filas por esa columna (segundo clic invierte el orden). Clic en la casilla 🔍 arriba de un sorteo para ver sus ganadores y las frecuencias del top 14 (el encabezado del sorteo sigue ordenando la columna). La última columna (#12367, ⏳) es el próximo sorteo: aún sin aciertos ni orden por aciertos; su popout muestra las frecuencias del top 14 desplegado para ese sorteo. Los botones de arriba filtran por familia: Recetas, Gemini, Opt. 10, Opt. 14 o Pools. Las filas poolX#N son el pool X con tamaño N, evaluado en cada sorteo con los pools guardados.</div>
                             </div>
-                            {comparativaPopout !== null && (() => {
-                                const drawIdx = comparativaPopout;
-                                const drawNum = COMPARATIVA_DRAWS[drawIdx];
-                                const isNext = drawIdx === COMPARATIVA_DRAWS.length - 1;
-                                const draw = allDraws.find(d => d.num === drawNum);
-                                const winners: number[] = draw ? [...draw.win].sort((a, b) => a - b) : [];
-                                const allRows = getComparativaRows();
-                                const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
-                                const effOf = (r: ComparativaRow) => (r.hits.reduce((a, b) => a + b, 0) / r.hits.length) / r.avgNums;
-                                const top14 = (() => {
-                                    const avgOf2 = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
-                                    const effOf2 = (r: ComparativaRow) => avgOf2(r) / r.avgNums;
-                                    const n2Of2 = (r: ComparativaRow) => r.hits.filter(h => h >= 2).length;
-                                    const sortVal2 = (r: ComparativaRow): number | string => {
-                                        if (!comparativaSort) return 0;
-                                        const k = comparativaSort.key;
-                                        if (k === 'label') return r.label;
-                                        if (k === 'avg') return avgOf2(r);
-                                        if (k === 'n2') return n2Of2(r);
-                                        if (k === 'eff') return effOf2(r);
-                                        if (k.startsWith('draw:')) { const v = r.hits[parseInt(k.slice(5), 10)]; return v === undefined ? -1 : v; }
-                                        return 0;
-                                    };
-                                    const sorted2 = comparativaSort ? [...rows].sort((a, b) => {
-                                        const va = sortVal2(a), vb = sortVal2(b);
-                                        const cmp = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb) : (va as number) - (vb as number);
-                                        return comparativaSort!.dir === 'desc' ? -cmp : cmp;
-                                    }) : rows;
-                                    return sorted2.slice(0, 14);
-                                })();
-                                const freq = comparativaTop14Freq(top14, drawIdx, allDraws);
-                                const ranked = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => freq[b - 1] - freq[a - 1] || a - b);
-                                const top5Hits = ranked.slice(0, 5).filter(n => winners.includes(n)).length;
-                                const top10Hits = ranked.slice(0, 10).filter(n => winners.includes(n)).length;
-                                return (
-                                    <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={() => setComparativaPopout(null)}>
-                                        <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[560px] max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                                            <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
-                                                <div>
-                                                    <div className="text-[12px] font-black text-[#ffeb3b]">{isNext ? `Sorteo #${drawNum} — Próximo sorteo y frecuencias` : `Sorteo #${drawNum} — Top 14 y frecuencias`}</div>
-                                                    <div className="text-[9px] text-[#888]">{isNext ? `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Aún sin realizarse` : `Top 14 desplegado en la tabla (filtro actual: ${comparativaFilter === 'all' ? 'Todas' : comparativaFilter}) · Fecha: ${draw?.date ?? ''}`}</div>
-                                                </div>
-                                                <button onClick={() => setComparativaPopout(null)} className="bg-[#2a2a2a] border border-[#555] text-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-[#333]">×</button>
-                                            </div>
-                                            <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                                                {isNext ? (
-                                                    <div className="bg-[#00e5ff] text-black rounded-xl p-2.5 text-center">
-                                                        <div className="text-[9px] font-black tracking-wide">⏳ PRÓXIMO SORTEO #{drawNum} — AÚN SIN REALIZARSE</div>
-                                                        <div className="text-[11px] font-bold my-0.5">Sin ganadores todavía. Abajo, las frecuencias del top 14 desplegado para este sorteo.</div>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="bg-[#ffeb3b] text-black rounded-xl p-2.5 text-center">
-                                                            <div className="text-[9px] font-black tracking-wide">● NÚMEROS GANADORES REALES</div>
-                                                            <div className="text-[18px] font-black tracking-wider my-0.5">{winners.map(n => String(n).padStart(2, '0')).join(' ')}</div>
-                                                        </div>
-                                                        <div className="text-[10px] text-[#aaa]">Top 5 por frecuencia: <b className="text-[#ffeb3b]">{top5Hits} de 5</b> son ganadores (azar: 0.89) · Top 10 por frecuencia: <b className="text-[#ffeb3b]">{top10Hits} de 10</b> son ganadores (azar: 1.79)</div>
-                                                    </>
-                                                )}
-                                                <div>
-                                                    <div className="text-[10px] font-black text-[#ffeb3b] mb-1">28 números ordenados por frecuencia en el top 14 (de mayor a menor)</div>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {ranked.map(n => {
-                                                            const isWin = winners.includes(n);
-                                                            const c = freq[n - 1];
-                                                            return <span key={n} className={`relative inline-flex flex-col items-center justify-center min-w-[54px] min-h-[42px] rounded px-2 py-1 ${isWin ? 'bg-[#ffeb3b] text-black ring-2 ring-white' : c >= 10 ? 'bg-[#1b5e20] text-[#69f0ae]' : c >= 7 ? 'bg-[#5d4037] text-[#ffeb3b]' : 'bg-[#222] text-[#aaa]'}`} title={`Número ${n}: en ${c} de las 14 filas${isWin ? ' · GANADOR' : ''}`}><span className="text-[18px] font-black leading-none">{String(n).padStart(2, '0')}</span><span className="absolute bottom-[3px] right-[4px] text-[8px] font-bold leading-none opacity-80">{c}</span></span>;
-                                                        })}
-                                                    </div>
-                                                    <div className="text-[9px] text-[#888] mt-1">Resaltados en amarillo = números ganadores de este sorteo. Así se puede ver qué tan efectiva es la inercia del top 14 en este sorteo.</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
+                            <ComparativaPopoutModal 
+                                comparativaPopout={comparativaPopout} 
+                                setComparativaPopout={setComparativaPopout} 
+                                comparativaDraws={COMPARATIVA_DRAWS} 
+                                allDraws={allDraws} 
+                                getComparativaRows={getComparativaRows} 
+                                comparativaFilter={comparativaFilter} 
+                                comparativaSort={comparativaSort} 
+                                comparativaTop14Freq={comparativaTop14Freq} 
+                            />
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -8729,7 +8795,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                 <div className="text-[11px] font-black text-[#ffeb3b]">Configuración de Pool Sizes, Pools y Frecuencias (Simulador C (Libre)) — Vista Vertical:</div>
                                 <div className="space-y-3">
                                     {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                        const rawCfg = (simCConfigs && simCConfigs[sz]) || {};
+                                        const rawCfg: any = simCConfigs[sz] || {};
                                         const cfg = {
                                             enabled: !!rawCfg.enabled,
                                             pools: rawCfg.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
@@ -8942,6 +9008,68 @@ ${breakdownRows30.slice(20).join('\n')}
                             <div className="flex justify-end gap-2 pt-2">
                                 <button onClick={() => setShowSaveRecipeModal(false)} className="bg-[#222] border border-[#444] text-[#aaa] px-3 py-1.5 rounded-lg text-[10px] cursor-pointer">Cancelar</button>
                                 <button onClick={handleSaveCustomRecipe} className="bg-[#2e7d32] text-white px-4 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer hover:bg-[#1b5e20]">Guardar</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Manage Saved Configs Modal with Keyword 'keep' */}
+                {showManageSavedModal && (
+                    <div className="absolute inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4">
+                        <div className="bg-[#1a1a1a] border border-[#ff9800] rounded-xl p-4 w-full max-w-[480px] space-y-3 shadow-2xl">
+                            <div className="flex justify-between items-center border-b border-[#333] pb-2">
+                                <b className="text-[13px] text-[#ff9800]">⚙️ Gestionar Configuraciones Guardadas</b>
+                                <button onClick={() => setShowManageSavedModal(false)} className="text-[#888] hover:text-white text-[14px]">×</button>
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto space-y-2">
+                                {customRecipes.length === 0 ? (
+                                    <div className="text-[11px] text-[#888] text-center py-4">No hay configuraciones guardadas.</div>
+                                ) : (
+                                    customRecipes.map(r => (
+                                        <div key={r.id} className="bg-[#121212] border border-[#333] rounded-lg p-2.5 flex items-center justify-between">
+                                            <div>
+                                                <div className="text-[11px] font-bold text-[#ffeb3b]">{r.name}</div>
+                                                <div className="text-[9px] text-[#888]">Guardada: {r.timestamp || 'Fecha desconocida'} · Tipo: {r.simulatorType || 'simulatorC'}</div>
+                                            </div>
+                                            <div>
+                                                {deleteTargetId === r.id ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Ingresa 'keep'"
+                                                            value={deleteKeywordInput}
+                                                            onChange={e => setDeleteKeywordInput(e.target.value)}
+                                                            className="bg-[#222] border border-[#ff5252] text-white rounded px-2 py-1 text-[10px] w-[90px]"
+                                                        />
+                                                        <button
+                                                            onClick={() => confirmDeleteCustomRecipe(r.id)}
+                                                            className="bg-[#ff5252] text-white px-2 py-1 rounded text-[10px] font-bold cursor-pointer hover:bg-[#d32f2f]"
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setDeleteTargetId(null); setDeleteKeywordInput(''); }}
+                                                            className="bg-[#333] text-[#aaa] px-2 py-1 rounded text-[10px]"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => { setDeleteTargetId(r.id); setDeleteKeywordInput(''); }}
+                                                        className="bg-[#222] border border-[#ff5252]/50 text-[#ff5252] px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer hover:bg-[#ff5252]/20"
+                                                        title="Eliminar con la palabra clave 'keep'"
+                                                    >
+                                                        🗑️ Eliminar
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <div className="flex justify-end pt-2 border-t border-[#333]">
+                                <button onClick={() => setShowManageSavedModal(false)} className="bg-[#222] border border-[#444] text-[#aaa] px-3 py-1.5 rounded-lg text-[10px] cursor-pointer">Cerrar</button>
                             </div>
                         </div>
                     </div>
