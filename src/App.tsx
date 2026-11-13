@@ -361,42 +361,40 @@ function isValidCombo(combo: number[], poolSlice: number[] | null = null, poolId
 function Ef(e: number[], n: number): number[][] {
     let t = e.length;
     if (t < 5) return [];
-    let r = new Set<string>();
     let l: number[][] = [];
-    let seed = 12345;
-    let maxAttempts = n * 30;
-    let attempts = 0;
-    while (l.length < n && attempts < maxAttempts) {
-        let combo: number[] = [];
-        while (combo.length < 5) {
-            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-            let idx = seed % t;
-            let val = e[idx];
-            if (!combo.includes(val)) combo.push(val);
+    let seen = new Set<string>();
+
+    for (let i = 0; i < n; i++) {
+        let step1 = (i * 7 + 1) % t;
+        let step2 = (i * 13 + 3) % t;
+        let step3 = (i * 19 + 5) % t;
+        let step4 = (i * 23 + 7) % t;
+        let step5 = (i * 31 + 11) % t;
+        
+        let indices = [step1, (step1 + step2) % t, (step1 + step3) % t, (step1 + step4) % t, (step1 + step5) % t];
+        let uniqueIdx = Array.from(new Set(indices));
+        let cursor = 0;
+        while (uniqueIdx.length < 5 && cursor < t) {
+            if (!uniqueIdx.includes(cursor)) uniqueIdx.push(cursor);
+            cursor++;
         }
-        combo.sort((a, b) => a - b);
-        let f = combo.join(',');
-        if (!r.has(f)) {
-            r.add(f);
+        uniqueIdx = uniqueIdx.slice(0, 5);
+        let combo = uniqueIdx.map(idx => e[idx]).sort((a, b) => a - b);
+        let key = combo.join(',');
+        if (!seen.has(key)) {
+            seen.add(key);
             l.push(combo);
-        }
-        attempts++;
-    }
-    if (l.length < n) {
-        for (let i = 0; i < t - 4 && l.length < n; i++) {
-            for (let j = i + 1; j < t - 3 && l.length < n; j++) {
-                for (let k = j + 1; k < t - 2 && l.length < n; k++) {
-                    for (let m = k + 1; m < t - 1 && l.length < n; m++) {
-                        for (let p = m + 1; p < t && l.length < n; p++) {
-                            let combo = [e[i], e[j], e[k], e[m], e[p]].sort((a, b) => a - b);
-                            let f = combo.join(',');
-                            if (!r.has(f)) {
-                                r.add(f);
-                                l.push(combo);
-                            }
-                        }
-                    }
-                }
+        } else {
+            let altCombo = [e[i % t], e[(i + 3) % t], e[(i + 7) % t], e[(i + 11) % t], e[(i + 17) % t]].sort((a, b) => a - b);
+            let altKey = altCombo.join(',');
+            if (!seen.has(altKey)) {
+                seen.add(altKey);
+                l.push(altCombo);
+            } else {
+                let sliceCombo = e.slice(0, 5).sort((a, b) => a - b);
+                sliceCombo[0] = e[(i * 3) % t];
+                sliceCombo = sliceCombo.sort((a, b) => a - b);
+                l.push(sliceCombo);
             }
         }
     }
@@ -404,10 +402,14 @@ function Ef(e: number[], n: number): number[][] {
 }
 
 
+const wheelingCache = new Map<string, number[][]>();
+
 function rv(e: number[], n: number[] | null, t: number, poolId = ''): number[][] {
+    const key = `rv_${e.join(',')}_${n ? n.join(',') : 'none'}_${t}_${poolId}`;
+    if (wheelingCache.has(key)) return wheelingCache.get(key)!;
     let baseCombos = generateWheelingWithFilters(e, t, poolId);
     if (n && n.length > 0) {
-        return baseCombos.sort((c1, c2) => {
+        baseCombos = baseCombos.sort((c1, c2) => {
             let h1 = c1.filter(k => n.includes(k)).length;
             let h2 = c2.filter(k => n.includes(k)).length;
             if (h2 !== h1) return h2 - h1;
@@ -416,6 +418,11 @@ function rv(e: number[], n: number[] | null, t: number, poolId = ''): number[][]
             }
             return 0;
         });
+    }
+    wheelingCache.set(key, baseCombos);
+    if (wheelingCache.size > 500) {
+        const firstKey = wheelingCache.keys().next().value;
+        if (firstKey !== undefined) wheelingCache.delete(firstKey);
     }
     return baseCombos;
 }
@@ -542,7 +549,15 @@ function evolveWheelingGenetic(nums: number[], targetCount: number, poolId = '')
 }
 
 function generateWheelingWithFilters(nums: number[], targetCount: number, poolId = ''): number[][] {
-    return evolveWheelingGenetic(nums, targetCount, poolId);
+    const key = `${nums.join(',')}_${targetCount}_${poolId}`;
+    if (wheelingCache.has(key)) return wheelingCache.get(key)!;
+    const res = Ef(nums, targetCount);
+    wheelingCache.set(key, res);
+    if (wheelingCache.size > 500) {
+        const firstKey = wheelingCache.keys().next().value;
+        if (firstKey !== undefined) wheelingCache.delete(firstKey);
+    }
+    return res;
 }
 
 interface Draw {
@@ -2206,6 +2221,13 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
         ['final', 'p2']
     ];
 
+    const fastFreqSets = [
+        { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false },
+        { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false },
+        { 7: false, 6: false, 5: false, 4: true, 3: true, 2: true, 1: true, 0: false },
+        { 7: true, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+    ];
+
     let bestConfig: { pools: Record<string, boolean>; freqs: Record<number, boolean> } = {
         pools: { final: true, p2: true, p3: true, p4: true, p5: true, p6: true, p7: false },
         freqs: { 7: false, 6: true, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
@@ -2226,14 +2248,7 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
             });
         });
 
-        for (let mask = 1; mask < 256; mask++) {
-            let fSet: Record<number, boolean> = { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false };
-            for (let f = 0; f <= 7; f++) {
-                if ((mask & (1 << f)) !== 0) {
-                    fSet[f] = true;
-                }
-            }
-
+        fastFreqSets.forEach(fSet => {
             let filtered: number[] = [];
             for (let n = 1; n <= 28; n++) {
                 let f = freqMap[n] || 0;
@@ -2244,43 +2259,14 @@ function getOptimalCheckboxes(poolList: { id: string; nums: number[] }[], win: n
             let count = filtered.length;
 
             if (count > 0 && count <= 28) {
-                if (hits > bestHits) {
+                if (hits > bestHits || (hits === bestHits && count < minCountForBestHits)) {
                     bestHits = hits;
-                    minCountForBestHits = count;
-                    bestConfig = { pools: poolsMap, freqs: fSet };
-                } else if (hits === bestHits && count < minCountForBestHits) {
                     minCountForBestHits = count;
                     bestConfig = { pools: poolsMap, freqs: fSet };
                 }
             }
-        }
-    });
-
-    let activeObjs = poolList.filter(p => bestConfig.pools[p.id]);
-    let freqMap: Record<number, number> = {};
-    activeObjs.forEach(p => {
-        p.nums.forEach(n => {
-            freqMap[n] = (freqMap[n] || 0) + 1;
         });
     });
-
-    let currentFiltered: number[] = [];
-    for (let n = 1; n <= 28; n++) {
-        let f = freqMap[n] || 0;
-        if (bestConfig.freqs[f]) currentFiltered.push(n);
-    }
-    let currentHits = win.filter(w => currentFiltered.includes(w)).length;
-    if (currentHits < win.length) {
-        let dynamicFreqs: Record<number, boolean> = { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false };
-        win.forEach(w => {
-            let f = freqMap[w] || 0;
-            if (f >= 0 && f <= 7) dynamicFreqs[f] = true;
-        });
-        dynamicFreqs[4] = true;
-        dynamicFreqs[3] = true;
-        dynamicFreqs[2] = true;
-        bestConfig.freqs = dynamicFreqs;
-    }
 
     return bestConfig;
 }
@@ -8527,7 +8513,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {GEMINI_REF_ROWS.slice(-geminiWindow).map(r => (
+                                            {GEMINI_REF_ROWS.slice(-geminiWindow).reverse().map(r => (
                                                 <tr key={r[0]} className="text-center text-[#ddd]">
                                                     <td className="p-1 border border-[#333] font-bold">#{r[0]}</td>
                                                     <td className="p-1 border border-[#333]">{r[1].map((n: number) => String(n).padStart(2, '0')).join(', ')}</td>
