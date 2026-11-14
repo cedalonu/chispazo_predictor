@@ -3117,19 +3117,21 @@ function evaluateRecipeOnDraw(draw: Draw, allDraws: Draw[], recipeId: number) {
 }
 
 function ContourModal({ poolId, poolLabel, poolNums, poolBorder, poolAccent, allDraws, onClose }: { poolId: string; poolLabel: string; poolNums: number[]; poolBorder: string; poolAccent: string; allDraws: Draw[]; onClose: () => void }) {
-    const last20 = allDraws.slice(-20);
+    const last20 = useMemo(() => allDraws.slice(-20), [allDraws]);
     const cols = 7;
     const rows = Math.ceil(poolNums.length / cols);
 
-    const dataPoints = poolNums.map((n, idx) => {
-        const x = idx % cols;
-        const y = Math.floor(idx / cols);
-        const z = last20.filter(d => d.win.includes(n)).length;
-        return { n, x, y, z };
-    });
+    const dataPoints = useMemo(() => {
+        return poolNums.map((n, idx) => {
+            const x = idx % cols;
+            const y = Math.floor(idx / cols);
+            const z = last20.filter(d => d.win.includes(n)).length;
+            return { n, x, y, z };
+        });
+    }, [poolNums, last20, cols, rows]);
 
-    const maxZ = Math.max(...dataPoints.map(d => d.z), 1);
-    const minZ = Math.min(...dataPoints.map(d => d.z), 0);
+    const maxZ = useMemo(() => Math.max(...dataPoints.map(d => d.z), 1), [dataPoints]);
+    const minZ = useMemo(() => Math.min(...dataPoints.map(d => d.z), 0), [dataPoints]);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
@@ -3155,44 +3157,51 @@ function ContourModal({ poolId, poolLabel, poolNums, poolBorder, poolAccent, all
         const cellW = graphW / Math.max(1, cols);
         const cellH = graphH / Math.max(1, rows);
 
-        // High resolution interpolation for superior definition
-        const resX = 140;
-        const resY = 140;
-        const dx = graphW / resX;
-        const dy = graphH / resY;
+        // Pre-rendered offscreen buffer for optimal performance (zero lag)
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = graphW;
+        offCanvas.height = graphH;
+        const offCtx = offCanvas.getContext('2d');
 
-        const getColor = (ratio: number) => {
-            if (ratio >= 0.85) return '#ff1744'; // Red-pink (High Z)
-            if (ratio >= 0.70) return '#ff9800'; // Orange
-            if (ratio >= 0.50) return '#ffeb3b'; // Yellow
-            if (ratio >= 0.30) return '#76ff03'; // Green
-            if (ratio >= 0.15) return '#00e5ff'; // Cyan
-            return '#00b0ff'; // Blue (Low Z)
-        };
+        if (offCtx) {
+            const resX = 120;
+            const resY = 120;
+            const dx = graphW / resX;
+            const dy = graphH / resY;
 
-        for (let ix = 0; ix <= resX; ix++) {
-            for (let iy = 0; iy <= resY; iy++) {
-                const px = padLeft + ix * dx;
-                const py = padTop + iy * dy;
-                let totalWeight = 0;
-                let weightedZ = 0;
-                dataPoints.forEach(pt => {
-                    const cx = padLeft + (pt.x + 0.5) * cellW;
-                    const cy = padTop + (pt.y + 0.5) * cellH;
-                    const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
-                    const weight = 1 / (dist ** 3 + 8);
-                    totalWeight += weight;
-                    weightedZ += pt.z * weight;
-                });
-                const smoothedZ = totalWeight > 0 ? weightedZ / totalWeight : 0;
-                const ratio = Math.min(1, Math.max(0, smoothedZ / maxZ));
+            const getColor = (ratio: number) => {
+                if (ratio >= 0.85) return '#ff1744';
+                if (ratio >= 0.70) return '#ff9800';
+                if (ratio >= 0.50) return '#ffeb3b';
+                if (ratio >= 0.30) return '#76ff03';
+                if (ratio >= 0.15) return '#00e5ff';
+                return '#00b0ff';
+            };
 
-                ctx.fillStyle = getColor(ratio);
-                ctx.globalAlpha = 0.75;
-                ctx.fillRect(px, py, dx + 0.8, dy + 0.8);
+            for (let ix = 0; ix <= resX; ix++) {
+                for (let iy = 0; iy <= resY; iy++) {
+                    const px = ix * dx;
+                    const py = iy * dy;
+                    let totalWeight = 0;
+                    let weightedZ = 0;
+                    dataPoints.forEach(pt => {
+                        const cx = (pt.x + 0.5) * cellW;
+                        const cy = (pt.y + 0.5) * cellH;
+                        const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+                        const weight = 1 / (dist ** 3 + 8);
+                        totalWeight += weight;
+                        weightedZ += pt.z * weight;
+                    });
+                    const smoothedZ = totalWeight > 0 ? weightedZ / totalWeight : 0;
+                    const ratio = Math.min(1, Math.max(0, smoothedZ / maxZ));
+
+                    offCtx.fillStyle = getColor(ratio);
+                    offCtx.globalAlpha = 0.75;
+                    offCtx.fillRect(px, py, dx + 0.8, dy + 0.8);
+                }
             }
+            ctx.drawImage(offCanvas, padLeft, padTop);
         }
-        ctx.globalAlpha = 1.0;
 
         // Smooth contour grid lines
         ctx.strokeStyle = 'rgba(255,255,255,0.22)';
