@@ -94,10 +94,10 @@ function ComparativaPopoutModal({
     setComparativaPopout: (val: number | null) => void;
     comparativaDraws: number[];
     allDraws: Draw[];
-    getComparativaRows: (draws: number[]) => ComparativaRow[];
+    getComparativaRows: (draws: number[], allDraws: Draw[]) => ComparativaRow[];
     comparativaFilter: string;
     comparativaSort: ComparativaSort;
-    comparativaTop14Freq: (topRows: ComparativaRow[], drawIdx: number, allDraws: Draw[], draws: number[]) => number[];
+    comparativaTop14Freq: (topRows: ComparativaRow[], drawNum: number, allDraws: Draw[], draws: number[]) => number[];
 }) {
     if (comparativaPopout === null) return null;
     const drawNum = comparativaPopout;
@@ -105,26 +105,12 @@ function ComparativaPopoutModal({
     const isNext = drawIdx === comparativaDraws.length - 1 || !allDraws.some(d => d.num === drawNum);
     const draw = allDraws.find(d => d.num === drawNum);
     const winners: number[] = draw ? [...draw.win].sort((a, b) => a - b) : [];
-    const allRows = getComparativaRows(comparativaDraws);
+    const allRows = getComparativaRows(comparativaDraws, allDraws);
     const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
     const avgOf2 = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
-    const sortVal2 = (r: ComparativaRow): number | string => {
-        if (!comparativaSort) return 0;
-        const k = comparativaSort.key;
-        if (k === 'label') return r.label;
-        if (k === 'avg') return avgOf2(r);
-        if (k === 'n2') return r.hits.filter(h => h >= 2).length;
-        if (k === 'eff') return avgOf2(r) / r.avgNums;
-        if (k.startsWith('draw:')) { const v = r.hits[parseInt(k.slice(5), 10)]; return v === undefined ? -1 : v; }
-        return 0;
-    };
-    const sorted2 = comparativaSort ? [...rows].sort((a, b) => {
-        const va = sortVal2(a), vb = sortVal2(b);
-        const cmp = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb) : (va as number) - (vb as number);
-        return comparativaSort!.dir === 'desc' ? -cmp : cmp;
-    }) : rows;
-    const top14 = sorted2.slice(0, 14);
-    const freq = comparativaTop14Freq(top14, drawIdx, allDraws, comparativaDraws);
+    const defaultSorted = [...rows].sort((a, b) => avgOf2(b) - avgOf2(a) || a.label.localeCompare(b.label));
+    const top14 = defaultSorted.slice(0, 14);
+    const freq = comparativaTop14Freq(top14, drawNum, allDraws, comparativaDraws);
     const ranked = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => freq[b - 1] - freq[a - 1] || a - b);
     const top5Hits = ranked.slice(0, 5).filter(n => winners.includes(n)).length;
     const top10Hits = ranked.slice(0, 10).filter(n => winners.includes(n)).length;
@@ -2890,15 +2876,78 @@ function getComparativaDraws(allDraws: Draw[]): number[] {
     const lastNum = last30[last30.length - 1]?.num || 12367;
     return [...last30.map(d => d.num), lastNum + 1];
 }
-function getComparativaRows(draws: number[]): ComparativaRow[] {
+function getComparativaRows(draws: number[], allDraws: Draw[]): ComparativaRow[] {
     const rows: ComparativaRow[] = [];
-    for (let r = 0; r < 6; r++) rows.push({ label: `Receta ${r + 1}`, hits: COMPARATIVA_RECIPE_HITS[r], avgNums: COMPARATIVA_RECIPE_AVG_NUMS[r], family: 'recetas' });
-    const g = (idx: number, label: string, avgNums: number) => rows.push({ label, hits: GEMINI_REF_ROWS.map(r => r[idx]), avgNums, family: 'gemini' });
+    for (let r = 0; r < 6; r++) {
+        const hits = draws.map(dNum => {
+            const histIdx = dNum - 12338;
+            if (histIdx >= 0 && histIdx < 30 && COMPARATIVA_RECIPE_HITS[r]?.[histIdx] !== undefined) {
+                return COMPARATIVA_RECIPE_HITS[r][histIdx];
+            }
+            const drawObj = allDraws.find(d => d.num === dNum);
+            if (!drawObj) return 0;
+            return evaluateRecipeOnDraw(drawObj, allDraws, r + 1).hits;
+        });
+        rows.push({ label: `Receta ${r + 1}`, hits, avgNums: COMPARATIVA_RECIPE_AVG_NUMS[r], family: 'recetas' });
+    }
+
+    const g = (idx: number, label: string, avgNums: number) => {
+        const hits = draws.map(dNum => {
+            const histIdx = dNum - 12338;
+            if (histIdx >= 0 && histIdx < 30 && GEMINI_REF_ROWS[histIdx]?.[idx] !== undefined) {
+                return GEMINI_REF_ROWS[histIdx][idx];
+            }
+            const drawObj = allDraws.find(d => d.num === dNum);
+            if (!drawObj) return 0;
+            const group = getComparativaRowSetForDraw(label, dNum, allDraws);
+            return drawObj.win.filter(n => group.includes(n)).length;
+        });
+        rows.push({ label, hits, avgNums, family: 'gemini' });
+    };
+
     g(2, 'Gemini 5', 5); g(4, 'Gemini 10', 10); g(6, 'Gemini 14', 14); g(8, 'Gemini 22', 22);
     g(3, 'Gemini 5\u2032', COMPARATIVA_GEMINI_PM1_AVG[5]); g(5, 'Gemini 10\u2032', COMPARATIVA_GEMINI_PM1_AVG[10]); g(7, 'Gemini 14\u2032', COMPARATIVA_GEMINI_PM1_AVG[14]); g(9, 'Gemini 22\u2032', COMPARATIVA_GEMINI_PM1_AVG[22]);
-    for (let i = 0; i < draws.length - 1; i++) rows.push({ label: `Opt. 10 #${draws[i]}`, hits: COMPARATIVA_OPT_MATRIX[i] || [], avgNums: COMPARATIVA_OPT_NUMS[i]?.length || 10, family: 'opt10', optIdx: i, optNums: COMPARATIVA_OPT_NUMS[i] });
-    for (let i = 0; i < draws.length - 1; i++) rows.push({ label: `Opt. 14 #${draws[i]}`, hits: COMPARATIVA_OPT14_MATRIX[i] || [], avgNums: COMPARATIVA_OPT14_NUMS[i]?.length || 14, family: 'opt14', optIdx: i, optNums: COMPARATIVA_OPT14_NUMS[i] });
-    for (const pool of COMPARATIVA_POOLS) for (const sz of COMPARATIVA_POOL_SIZES) rows.push({ label: `pool${pool}#${sz}`, hits: COMPARATIVA_POOL_HITS[`${pool}#${sz}`] || [], avgNums: sz, family: 'pools' });
+
+    draws.forEach((dNum, i) => {
+        if (i === draws.length - 1) return;
+        const histIdx = dNum - 12338;
+        const optNums = (histIdx >= 0 && histIdx < 30 && COMPARATIVA_OPT_NUMS[histIdx]) ? COMPARATIVA_OPT_NUMS[histIdx] : getOptimalPredictiveNumbers(dNum, allDraws, 10);
+        const hits = draws.map(targetDNum => {
+            const targetDraw = allDraws.find(d => d.num === targetDNum);
+            if (!targetDraw) return 0;
+            return targetDraw.win.filter(n => optNums.includes(n)).length;
+        });
+        rows.push({ label: `Opt. 10 #${dNum}`, hits, avgNums: optNums.length, family: 'opt10', optIdx: i, optNums });
+    });
+
+    draws.forEach((dNum, i) => {
+        if (i === draws.length - 1) return;
+        const histIdx = dNum - 12338;
+        const optNums = (histIdx >= 0 && histIdx < 30 && COMPARATIVA_OPT14_NUMS[histIdx]) ? COMPARATIVA_OPT14_NUMS[histIdx] : getOptimalPredictiveNumbers(dNum, allDraws, 14);
+        const hits = draws.map(targetDNum => {
+            const targetDraw = allDraws.find(d => d.num === targetDNum);
+            if (!targetDraw) return 0;
+            return targetDraw.win.filter(n => optNums.includes(n)).length;
+        });
+        rows.push({ label: `Opt. 14 #${dNum}`, hits, avgNums: optNums.length, family: 'opt14', optIdx: i, optNums });
+    });
+
+    for (const pool of COMPARATIVA_POOLS) {
+        for (const sz of COMPARATIVA_POOL_SIZES) {
+            const hits = draws.map(dNum => {
+                const histIdx = dNum - 12338;
+                if (histIdx >= 0 && histIdx < 30 && COMPARATIVA_POOL_HITS[`${pool}#${sz}`]?.[histIdx] !== undefined) {
+                    return COMPARATIVA_POOL_HITS[`${pool}#${sz}`][histIdx];
+                }
+                const drawObj = allDraws.find(d => d.num === dNum);
+                if (!drawObj) return 0;
+                const ml = getPoolsForDraw(allDraws, dNum, sz);
+                const pNums = (ml as any)[pool] || [];
+                return drawObj.win.filter(n => pNums.includes(n)).length;
+            });
+            rows.push({ label: `pool${pool}#${sz}`, hits, avgNums: sz, family: 'pools' });
+        }
+    }
     return rows;
 }
 type ComparativaSort = { key: string; dir: 'asc' | 'desc' } | null;
@@ -2910,7 +2959,6 @@ function comparativaSortArrow(sort: ComparativaSort, key: string): string {
     if (!sort || sort.key !== key) return '\u2195';
     return sort.dir === 'desc' ? '\u2193' : '\u2191';
 }
-// Conjunto de números de una fila de la Comparativa en un sorteo (por índice 0..29).
 function comparativaRecipeSet(allDraws: Draw[], recipeId: number, drawNum: number): number[] {
     const rec = getRecipeConfig(recipeId);
     const SIZES = [9, 12, 15, 18, 21, 24, 27];
@@ -2939,15 +2987,24 @@ function comparativaRecipeSet(allDraws: Draw[], recipeId: number, drawNum: numbe
     if (finalResultNums.length > rec.targetSize) finalResultNums = finalResultNums.slice(0, rec.targetSize);
     return finalResultNums;
 }
-function getComparativaRowSet(row: ComparativaRow, drawIdx: number, allDraws: Draw[], draws: number[]): number[] {
-    const drawNum = draws[drawIdx];
-    if (row.family === 'opt10' || row.family === 'opt14') return row.optNums ? [...row.optNums] : [];
-    if (row.family === 'gemini') {
-        const mm = row.label.match(/Gemini (\d+)(\u2032)?/);
+function getComparativaRowSetForDraw(label: string, drawNum: number, allDraws: Draw[]): number[] {
+    const histIdx = drawNum - 12338;
+    if (label.startsWith('Gemini')) {
+        const mm = label.match(/Gemini (\d+)(\u2032)?/);
         if (!mm) return [];
         const baseIdx = { '5': 0, '10': 1, '14': 2, '22': 3 }[mm[1]] ?? 0;
         const gi = baseIdx + (mm[2] ? 4 : 0);
-        return [...(GEMINI_GROUPS[drawIdx]?.[gi] ?? [])];
+        if (histIdx >= 0 && histIdx < 30 && GEMINI_GROUPS[histIdx]?.[gi]) {
+            return [...GEMINI_GROUPS[histIdx][gi]];
+        }
+        return [];
+    }
+    return [];
+}
+function getComparativaRowSet(row: ComparativaRow, drawNum: number, allDraws: Draw[]): number[] {
+    if (row.family === 'opt10' || row.family === 'opt14') return row.optNums ? [...row.optNums] : [];
+    if (row.family === 'gemini') {
+        return getComparativaRowSetForDraw(row.label, drawNum, allDraws);
     }
     if (row.family === 'pools') {
         const pm = row.label.match(/^pool(.+)#(\d+)$/);
@@ -2962,16 +3019,22 @@ function getComparativaRowSet(row: ComparativaRow, drawIdx: number, allDraws: Dr
     }
     return [];
 }
-// Frecuencia de cada número (1..28) en los conjuntos del top 14 dado, para un sorteo.
-function comparativaTop14Freq(topRows: ComparativaRow[], drawIdx: number, allDraws: Draw[], draws: number[]): number[] {
+function comparativaTop14Freq(topRows: ComparativaRow[], targetDrawNum: number, allDraws: Draw[], draws: number[]): number[] {
     const freq = new Array(28).fill(0);
+    const targetIdx = draws.indexOf(targetDrawNum);
     for (const r of topRows) {
-        if (r.optIdx === drawIdx) continue;
-        for (const n of getComparativaRowSet(r, drawIdx, allDraws, draws)) {
+        if (r.optIdx === targetIdx) continue;
+        for (const n of getComparativaRowSet(r, targetDrawNum, allDraws)) {
             if (n >= 1 && n <= 28) freq[n - 1]++;
         }
     }
     return freq;
+}
+function getOptimalPredictiveNumbers(drawNum: number, allDraws: Draw[], targetSize: number): number[] {
+    const histIdx = allDraws.findIndex(d => d.num === drawNum);
+    const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+    const mlPools = getPoolsForDraw(allDraws, drawNum, 21);
+    return mlPools.final.slice(0, targetSize);
 }
 // Resumen: [k, promBase, promPm1, coberturaPm1, pct>=3 (±1), pct>=4 (±1)]
 const GEMINI_REF_SUMMARY: any[] = [[5,0.75,2.15,13.2,40.0,10.0],[10,1.45,3.25,20.8,80.0,40.0],[14,2.2,3.95,24.1,95.0,65.0],[22,3.95,4.95,27.7,100.0,100.0]];
@@ -8868,7 +8931,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                         </thead>
                                         <tbody>
                                             {(() => {
-                                                const allRows = getComparativaRows(COMPARATIVA_DRAWS);
+                                                const allRows = getComparativaRows(COMPARATIVA_DRAWS, allDraws);
                                                 const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
                                                 const avgOf = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
                                                 const effOf = (r: ComparativaRow) => avgOf(r) / r.avgNums;
