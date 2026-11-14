@@ -721,25 +721,44 @@ function calculateMLPools(draws: Draw[], poolSize: number = 21): PoolResult {
     return { final: finalPool, anti: antiPool, p2, p3, p4, p5, p6, p7 };
 }
 
+const predCacheMap = new Map<string, PoolResult>();
+
 function savePredictionIfNotExists(concurso: number, draws: Draw[], poolSize: number = 21): PoolResult | null {
+    const cacheKey = `sz_${poolSize}_${concurso}`;
+    if (predCacheMap.has(cacheKey)) return predCacheMap.get(cacheKey)!;
+
     const key = `chispazo_pred_v7_sz_${poolSize}_` + concurso;
     const saved = localStorage.getItem(key);
     if (saved) {
-        try { return JSON.parse(saved); } catch(e){}
+        try { 
+            const parsed = JSON.parse(saved);
+            predCacheMap.set(cacheKey, parsed);
+            return parsed; 
+        } catch(e){}
     }
     const idx = draws.findIndex(d => d.num === concurso);
-    const histDraws = idx > 0 ? draws.slice(0, idx) : draws.slice(0, 50);
+    const histDraws = idx >= 0 ? draws.slice(0, idx) : draws;
     const pred = calculateMLPools(histDraws, poolSize);
     const toSave = { final: pred.final, anti: pred.anti, p2: pred.p2, p3: pred.p3, p4: pred.p4, p5: pred.p5, p6: pred.p6, p7: pred.p7 };
-    localStorage.setItem(key, JSON.stringify(toSave));
+    try {
+        localStorage.setItem(key, JSON.stringify(toSave));
+    } catch(e){}
+    predCacheMap.set(cacheKey, toSave);
     return toSave;
 }
 
 function getPrediction(concurso: number, draws: Draw[], poolSize: number = 21): PoolResult | null {
+    const cacheKey = `sz_${poolSize}_${concurso}`;
+    if (predCacheMap.has(cacheKey)) return predCacheMap.get(cacheKey)!;
+
     const key = `chispazo_pred_v7_sz_${poolSize}_` + concurso;
     const saved = localStorage.getItem(key);
     if (saved) {
-        try { return JSON.parse(saved); } catch(e){}
+        try { 
+            const parsed = JSON.parse(saved);
+            predCacheMap.set(cacheKey, parsed);
+            return parsed; 
+        } catch(e){}
     }
     return savePredictionIfNotExists(concurso, draws, poolSize);
 }
@@ -756,6 +775,8 @@ function getPoolsForDraw(allDraws: Draw[], drawNum: number | null, poolSize: num
         const idx = allDraws.findIndex(d => d.num === drawNum);
         if (idx >= 0) {
             return getPrediction(drawNum, allDraws, poolSize) || calculateMLPools(allDraws.slice(0, idx), poolSize);
+        } else {
+            return getPrediction(drawNum, allDraws, poolSize) || calculateMLPools(allDraws, poolSize);
         }
     }
     return calculateMLPools(allDraws, poolSize);
@@ -848,6 +869,19 @@ export default function App() {
                     const dTime = getNextDrawTime(parsed);
                     setDrawTime(dTime);
 
+                    const lastRealizedNum = parsed[parsed.length - 1].num;
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                        const k = localStorage.key(i);
+                        if (k && k.startsWith('chispazo_pred_v7_sz_')) {
+                            const parts = k.split('_');
+                            const drawNum = parseInt(parts[parts.length - 1], 10);
+                            if (drawNum > lastRealizedNum) {
+                                localStorage.removeItem(k);
+                            }
+                        }
+                    }
+                    predCacheMap.clear();
+
                     const livePools = calculateMLPools(parsed, poolSize);
                     buildPoolsList(livePools, poolSize);
                     setLoading(false);
@@ -866,6 +900,19 @@ export default function App() {
                     setNextNum(nNum);
                     const dTime = getNextDrawTime(parsed);
                     setDrawTime(dTime);
+
+                    const lastRealizedNum2 = parsed[parsed.length - 1].num;
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                        const k = localStorage.key(i);
+                        if (k && k.startsWith('chispazo_pred_v7_sz_')) {
+                            const parts = k.split('_');
+                            const drawNum = parseInt(parts[parts.length - 1], 10);
+                            if (drawNum > lastRealizedNum2) {
+                                localStorage.removeItem(k);
+                            }
+                        }
+                    }
+                    predCacheMap.clear();
 
                     const livePools = calculateMLPools(parsed, poolSize);
                     buildPoolsList(livePools, poolSize);
@@ -886,6 +933,14 @@ export default function App() {
             const optimalLive = getOptimalPredictiveCheckboxes(allDraws, poolSize);
             setSelectedConsensusPools(optimalLive.pools);
             setSelectedFrequencies(optimalLive.freqs);
+
+            const timer = setTimeout(() => {
+                const recent = allDraws.slice(-30);
+                recent.forEach(d => {
+                    getPrediction(d.num, allDraws, poolSize);
+                });
+            }, 100);
+            return () => clearTimeout(timer);
         }
     }, [poolSize, allDraws]);
 
@@ -1233,6 +1288,16 @@ export default function App() {
                                             }) : <span className="text-[9px] text-[#666]">No aplica wheeling</span>}
                                         </div>
                                         <div className="font-mono text-[8px] text-[#666] mt-1 leading-[1.3]">{p.desc}</div>
+                                        <div className="mt-2 pt-1.5 border-t border-[#333]/50 flex justify-end">
+                                            <button 
+                                                onClick={() => setModalConfig({ type: 'contour', poolId: p.id, poolLabel: p.label, poolNums: p.nums, poolBorder: p.border, poolAccent: p.accent })}
+                                                className="wheel-btn rounded-lg px-2.5 py-1 text-[9px] font-extrabold cursor-pointer border transition hover:opacity-85 flex items-center gap-1 shadow-sm"
+                                                style={{ borderColor: `${p.border}88`, background: `${p.border}22`, color: p.accent }}
+                                                title="Gráfica de Contorno Z (Incidencia en últimos 20 sorteos)"
+                                            >
+                                                🏔️ Gráfica Contorno Z
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -2206,6 +2271,10 @@ function ModalContainer({ config, allDraws, pools, poolSize, onClose, onCopy, on
         return <DrawPopoutModal draw={s} pred={poolData} allDraws={allDraws} onClose={onClose} onCopyConsensus={onCopyConsensus} onOpenWheeling={onOpenWheeling} onOpenMultipool={onOpenMultipool} />;
     }
 
+    if (config.type === 'contour') {
+        return <ContourModal poolId={config.poolId} poolLabel={config.poolLabel} poolNums={config.poolNums} poolBorder={config.poolBorder} poolAccent={config.poolAccent} allDraws={allDraws} onClose={onClose} />;
+    }
+
     return null;
 }
 
@@ -2897,6 +2966,7 @@ function getComparativaRowSet(row: ComparativaRow, drawIdx: number, allDraws: Dr
 function comparativaTop14Freq(topRows: ComparativaRow[], drawIdx: number, allDraws: Draw[], draws: number[]): number[] {
     const freq = new Array(28).fill(0);
     for (const r of topRows) {
+        if (r.optIdx === drawIdx) continue;
         for (const n of getComparativaRowSet(r, drawIdx, allDraws, draws)) {
             if (n >= 1 && n <= 28) freq[n - 1]++;
         }
@@ -3044,6 +3114,186 @@ function evaluateRecipeOnDraw(draw: Draw, allDraws: Draw[], recipeId: number) {
 
     let hits = draw.win.filter(w => finalResultNums.includes(w)).length;
     return { resultingCount: finalResultNums.length, hits, resultingNums: finalResultNums };
+}
+
+function ContourModal({ poolId, poolLabel, poolNums, poolBorder, poolAccent, allDraws, onClose }: { poolId: string; poolLabel: string; poolNums: number[]; poolBorder: string; poolAccent: string; allDraws: Draw[]; onClose: () => void }) {
+    const last20 = allDraws.slice(-20);
+    const cols = 7;
+    const rows = Math.ceil(poolNums.length / cols);
+
+    const dataPoints = poolNums.map((n, idx) => {
+        const x = idx % cols;
+        const y = Math.floor(idx / cols);
+        const z = last20.filter(d => d.win.includes(n)).length;
+        return { n, x, y, z };
+    });
+
+    const maxZ = Math.max(...dataPoints.map(d => d.z), 1);
+    const minZ = Math.min(...dataPoints.map(d => d.z), 0);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.fillStyle = '#141414';
+        ctx.fillRect(0, 0, width, height);
+
+        const padLeft = 45;
+        const padBottom = 35;
+        const padTop = 20;
+        const padRight = 20;
+        const graphW = width - padLeft - padRight;
+        const graphH = height - padTop - padBottom;
+
+        const cellW = graphW / Math.max(1, cols);
+        const cellH = graphH / Math.max(1, rows);
+
+        // High resolution interpolation for superior definition
+        const resX = 140;
+        const resY = 140;
+        const dx = graphW / resX;
+        const dy = graphH / resY;
+
+        const getColor = (ratio: number) => {
+            if (ratio >= 0.85) return '#ff1744'; // Red-pink (High Z)
+            if (ratio >= 0.70) return '#ff9800'; // Orange
+            if (ratio >= 0.50) return '#ffeb3b'; // Yellow
+            if (ratio >= 0.30) return '#76ff03'; // Green
+            if (ratio >= 0.15) return '#00e5ff'; // Cyan
+            return '#00b0ff'; // Blue (Low Z)
+        };
+
+        for (let ix = 0; ix <= resX; ix++) {
+            for (let iy = 0; iy <= resY; iy++) {
+                const px = padLeft + ix * dx;
+                const py = padTop + iy * dy;
+                let totalWeight = 0;
+                let weightedZ = 0;
+                dataPoints.forEach(pt => {
+                    const cx = padLeft + (pt.x + 0.5) * cellW;
+                    const cy = padTop + (pt.y + 0.5) * cellH;
+                    const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+                    const weight = 1 / (dist ** 3 + 8);
+                    totalWeight += weight;
+                    weightedZ += pt.z * weight;
+                });
+                const smoothedZ = totalWeight > 0 ? weightedZ / totalWeight : 0;
+                const ratio = Math.min(1, Math.max(0, smoothedZ / maxZ));
+
+                ctx.fillStyle = getColor(ratio);
+                ctx.globalAlpha = 0.75;
+                ctx.fillRect(px, py, dx + 0.8, dy + 0.8);
+            }
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Smooth contour grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+        ctx.lineWidth = 1.2;
+        for (let c = 0; c <= cols; c++) {
+            ctx.beginPath();
+            ctx.moveTo(padLeft + c * cellW, padTop);
+            ctx.lineTo(padLeft + c * cellW, padTop + graphH);
+            ctx.stroke();
+        }
+        for (let r = 0; r <= rows; r++) {
+            ctx.beginPath();
+            ctx.moveTo(padLeft, padTop + r * cellH);
+            ctx.lineTo(padLeft + graphW, padTop + r * cellH);
+            ctx.stroke();
+        }
+
+        // Axes labels
+        ctx.fillStyle = '#bbb';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        for (let c = 0; c < cols; c++) {
+            ctx.fillText(`X:${c}`, padLeft + (c + 0.5) * cellW, height - 10);
+        }
+        ctx.textAlign = 'right';
+        for (let r = 0; r < rows; r++) {
+            ctx.fillText(`Y:${r}`, padLeft - 6, padTop + (r + 0.5) * cellH + 4);
+        }
+
+        // Data nodes (Number + Z)
+        dataPoints.forEach(pt => {
+            const cx = padLeft + (pt.x + 0.5) * cellW;
+            const cy = padTop + (pt.y + 0.5) * cellH;
+
+            ctx.beginPath();
+            ctx.arc(cx, cy - 5, 12, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f0f0f';
+            ctx.fill();
+            ctx.strokeStyle = poolAccent;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(String(pt.n).padStart(2, '0'), cx, cy - 2);
+
+            ctx.fillStyle = '#ffeb3b';
+            ctx.font = '9px monospace';
+            ctx.fillText(`z:${pt.z}`, cx, cy + 10);
+        });
+
+    }, [dataPoints, cols, rows, maxZ, poolAccent]);
+
+    return (
+        <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={onClose}>
+            <div className="bg-[#121212] border border-[#333] rounded-xl w-full max-w-[620px] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
+                    <div>
+                        <div className="text-[13px] font-black" style={{ color: poolAccent }}>🏔️ Gráfica de Contorno Z — {poolLabel}</div>
+                        <div className="text-[9px] text-[#888]">Ejes X, Y: Coordenadas de casilla · Eje Z: Incidencia de aciertos (ganador en últimos 20 sorteos)</div>
+                    </div>
+                    <button onClick={onClose} className="bg-[#2a2a2a] border border-[#555] text-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-[#333]">×</button>
+                </div>
+
+                <div className="p-4 space-y-3">
+                    <div className="bg-[#161616] border border-[#2a2a2a] rounded-xl p-3 flex flex-col items-center">
+                        <canvas ref={canvasRef} width={560} height={280} className="w-full h-auto rounded-lg" />
+                        
+                        {/* Color Scale Legend */}
+                        <div className="mt-3 w-full flex flex-col gap-1">
+                            <div className="flex justify-between items-center text-[9px] font-bold text-[#aaa]">
+                                <span>Escala de Color Z (Aciertos en 20 Sorteos):</span>
+                                <span className="text-[#ffeb3b]">Mín: {minZ} ac. → Máx: {maxZ} ac.</span>
+                            </div>
+                            <div className="h-4 w-full rounded-md flex overflow-hidden border border-[#444] shadow-inner">
+                                <div className="flex-1 bg-[#00b0ff]" title="Muy baja incidencia"></div>
+                                <div className="flex-1 bg-[#00e5ff]" title="Baja incidencia"></div>
+                                <div className="flex-1 bg-[#76ff03]" title="Incidencia media-baja"></div>
+                                <div className="flex-1 bg-[#ffeb3b]" title="Incidencia media-alta"></div>
+                                <div className="flex-1 bg-[#ff9800]" title="Alta incidencia"></div>
+                                <div className="flex-1 bg-[#ff1744]" title="Máxima incidencia (Hot)"></div>
+                            </div>
+                            <div className="flex justify-between text-[8px] text-[#888] px-1 font-mono">
+                                <span>0 ac.</span>
+                                <span>{Math.round(maxZ * 0.2)} ac.</span>
+                                <span>{Math.round(maxZ * 0.4)} ac.</span>
+                                <span>{Math.round(maxZ * 0.6)} ac.</span>
+                                <span>{Math.round(maxZ * 0.8)} ac.</span>
+                                <span>{maxZ} ac.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-3 bg-[#1a1a1a] border-t border-[#2a2a2a] flex justify-end">
+                    <button onClick={onClose} className="bg-[#7c4dff] hover:bg-[#6c3fe0] text-white px-5 py-2 rounded-lg text-[11px] font-black cursor-pointer shadow-md">Cerrar Gráfica</button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function DrawPopoutModal({ draw, pred, allDraws, onClose, onCopyConsensus, onOpenWheeling, onOpenMultipool }: { draw: Draw; pred: PoolResult; allDraws: Draw[]; onClose: () => void; onCopyConsensus: (nums: number[]) => void; onOpenWheeling: (id: string, k: number, sorteoNum: number, customSlice: number[]) => void; onOpenMultipool: (draw: Draw) => void }) {
