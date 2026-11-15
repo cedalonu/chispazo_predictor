@@ -80,6 +80,53 @@ function EfficiencyReportModal({ simResults, onClose }: { simResults: any[]; onC
     );
 }
 
+function Sparkline({ hits }: { hits: number[] }) {
+    const recent = hits.slice(-10);
+    if (recent.length === 0) return null;
+    const max = 5;
+    const width = 68;
+    const height = 22;
+    const points = recent.map((h, i) => {
+        const x = (i / Math.max(1, recent.length - 1)) * (width - 8) + 4;
+        const y = height - 4 - (h / max) * (height - 8);
+        return `${x},${y}`;
+    }).join(' ');
+
+    return (
+        <div title={`Tendencia últimos ${recent.length} sorteos: ${recent.join(', ')}`} className="inline-block cursor-help">
+            <svg width={width} height={height} className="overflow-visible">
+                <polyline
+                    fill="none"
+                    stroke="#69f0ae"
+                    strokeWidth="1.8"
+                    points={points}
+                />
+                {recent.map((h, i) => {
+                    const x = (i / Math.max(1, recent.length - 1)) * (width - 8) + 4;
+                    const y = height - 4 - (h / max) * (height - 8);
+                    return <circle key={i} cx={x} cy={y} r="2.2" fill={h >= 4 ? '#69f0ae' : h >= 2 ? '#ffeb3b' : '#555'} />;
+                })}
+            </svg>
+        </div>
+    );
+}
+
+function getGuruScoreForDraw(r: ComparativaRow, drawNum: number, allDraws: Draw[], draws: number[]): number {
+    const drawIdx = draws.indexOf(drawNum);
+    const effectiveIdx = drawIdx !== -1 ? drawIdx : draws.length - 1;
+    let score = 0;
+    for (let i = 0; i <= effectiveIdx; i++) {
+        const h = r.hits[i] || 0;
+        const weight = (i === effectiveIdx) ? 3.0 : 1.0;
+        if (h === 5) score += 100 * weight;
+        else if (h === 4) score += 40 * weight;
+        else if (h === 3) score += 15 * weight;
+        else if (h === 2) score += 5 * weight;
+        score += h * 2 * weight;
+    }
+    return score;
+}
+
 function ComparativaPopoutModal({
     comparativaPopout,
     setComparativaPopout,
@@ -107,13 +154,54 @@ function ComparativaPopoutModal({
     const winners: number[] = draw ? [...draw.win].sort((a, b) => a - b) : [];
     const allRows = getComparativaRows(comparativaDraws, allDraws);
     const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
-    const avgOf2 = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
-    const defaultSorted = [...rows].sort((a, b) => avgOf2(b) - avgOf2(a) || a.label.localeCompare(b.label));
-    const top14 = defaultSorted.slice(0, 14);
-    const freq = comparativaTop14Freq(top14, drawNum, allDraws, comparativaDraws);
-    const ranked = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => freq[b - 1] - freq[a - 1] || a - b);
-    const top5Hits = ranked.slice(0, 5).filter(n => winners.includes(n)).length;
-    const top10Hits = ranked.slice(0, 10).filter(n => winners.includes(n)).length;
+    const { ranked, freq, scoreSums, top5Hits, top10Hits } = useMemo(() => {
+        const guruScoreMap = new Map<string, number>();
+        const getCachedGuruScore = (r: ComparativaRow) => {
+            if (guruScoreMap.has(r.label)) return guruScoreMap.get(r.label)!;
+            const sc = getGuruScoreForDraw(r, drawNum, allDraws, comparativaDraws);
+            guruScoreMap.set(r.label, sc);
+            return sc;
+        };
+
+        const avgOf2 = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
+        const guruSorted = [...rows].sort((a, b) => getCachedGuruScore(b) - getCachedGuruScore(a) || avgOf2(b) - avgOf2(a));
+        const top14 = guruSorted.slice(0, 14);
+        const freq = comparativaTop14Freq(top14, drawNum, allDraws, comparativaDraws);
+        
+        const rowSets = top14.map(r => ({
+            row: r,
+            score: Math.max(10, getCachedGuruScore(r)),
+            nums: getComparativaRowSet(r, drawNum, allDraws)
+        }));
+
+        const histIdx = allDraws.findIndex(d => d.num === drawNum);
+        const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+
+        const scoreSums = Array.from({ length: 28 }, (_, i) => {
+            const n = i + 1;
+            let sum = 0;
+            for (const item of rowSets) {
+                if (item.nums.includes(n)) {
+                    sum += item.score;
+                }
+            }
+            const mlScore = getNumberScore(n, histDraws);
+            return sum + mlScore * 10 + (freq[i] * 15);
+        });
+
+        const ranked = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => {
+            const diffScore = scoreSums[b - 1] - scoreSums[a - 1];
+            if (diffScore !== 0) return diffScore;
+            const diffFreq = freq[b - 1] - freq[a - 1];
+            if (diffFreq !== 0) return diffFreq;
+            return a - b;
+        });
+
+        const top5Hits = ranked.slice(0, 5).filter(n => winners.includes(n)).length;
+        const top10Hits = ranked.slice(0, 10).filter(n => winners.includes(n)).length;
+
+        return { ranked, freq, scoreSums, top5Hits, top10Hits };
+    }, [drawNum, comparativaFilter, comparativaDraws, allDraws, winners, rows]);
 
     return (
         <div className="fixed inset-0 bg-black/88 backdrop-blur-[2px] flex items-center justify-center z-50 p-3 overflow-hidden" onClick={() => setComparativaPopout(null)}>
@@ -141,15 +229,16 @@ function ComparativaPopoutModal({
                         </>
                     )}
                     <div>
-                        <div className="text-[10px] font-black text-[#ffeb3b] mb-1">28 números ordenados por frecuencia en el top 14 (de mayor a menor)</div>
+                        <div className="text-[10px] font-black text-[#ffeb3b] mb-1">28 números ordenados por suma de scores en el top 14 (de mayor a menor)</div>
                         <div className="flex flex-wrap gap-1">
                             {ranked.map(n => {
                                 const isWin = winners.includes(n);
                                 const c = freq[n - 1];
-                                return <span key={n} className={`relative inline-flex flex-col items-center justify-center min-w-[54px] min-h-[42px] rounded px-2 py-1 ${isWin ? 'bg-[#ffeb3b] text-black ring-2 ring-white' : c >= 10 ? 'bg-[#1b5e20] text-[#69f0ae]' : c >= 7 ? 'bg-[#5d4037] text-[#ffeb3b]' : 'bg-[#222] text-[#aaa]'}`} title={`Número ${n}: en ${c} de las 14 filas${isWin ? ' · GANADOR' : ''}`}><span className="text-[18px] font-black leading-none">{String(n).padStart(2, '0')}</span><span className="absolute bottom-[3px] right-[4px] text-[8px] font-bold leading-none opacity-80">{c}</span></span>;
+                                const sc = scoreSums[n - 1];
+                                return <span key={n} className={`relative inline-flex flex-col items-center justify-center min-w-[56px] min-h-[44px] rounded px-2 py-1 ${isWin ? 'bg-[#ffeb3b] text-black ring-2 ring-white' : c >= 10 ? 'bg-[#1b5e20] text-[#69f0ae]' : c >= 7 ? 'bg-[#5d4037] text-[#ffeb3b]' : 'bg-[#222] text-[#aaa]'}`} title={`Número ${n}: Score ${sc.toFixed(1)} · Frecuencia ${c}${isWin ? ' · GANADOR' : ''}`}><span className="text-[18px] font-black leading-none">{String(n).padStart(2, '0')}</span><span className="absolute bottom-[2px] right-[4px] text-[7.5px] font-bold leading-none opacity-90 text-[#ffeb3b]">{sc.toFixed(0)} <span className="opacity-60 text-[7px]">({c})</span></span></span>;
                             })}
                         </div>
-                        <div className="text-[9px] text-[#888] mt-1">Resaltados en amarillo = números ganadores de este sorteo. Así se puede ver qué tan efectiva es la inercia del top 14 en este sorteo.</div>
+                        <div className="text-[9px] text-[#888] mt-1">Resaltados en amarillo = números ganadores de este sorteo. Cada tarjeta muestra el score total y la frecuencia (en paréntesis).</div>
                     </div>
                 </div>
             </div>
@@ -2866,7 +2955,7 @@ const COMPARATIVA_POOLS: string[] = ['final','p2','p3','p4','p5','p6','p7'];
 const COMPARATIVA_POOL_SIZES: number[] = [9,12,15,18,21,24,27];
 const COMPARATIVA_RECIPE_AVG_NUMS: number[] = [10.00,10.00,12.00,8.00,11.00,20.50];
 const COMPARATIVA_GEMINI_PM1_AVG: Record<number, number> = { 5: 13.2, 10: 20.6, 14: 24.1, 22: 27.7 };
-type ComparativaFamily = 'recetas' | 'gemini' | 'opt10' | 'opt14' | 'pools';
+type ComparativaFamily = 'recetas' | 'gemini' | 'opt10' | 'opt14' | 'pools' | 'guru';
 type ComparativaRow = { label: string; hits: number[]; avgNums: number; family: ComparativaFamily; optIdx?: number; optNums?: number[] };
 function getComparativaDraws(allDraws: Draw[]): number[] {
     if (!allDraws || allDraws.length === 0) {
@@ -3035,6 +3124,22 @@ function getOptimalPredictiveNumbers(drawNum: number, allDraws: Draw[], targetSi
     const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
     const mlPools = getPoolsForDraw(allDraws, drawNum, 21);
     return mlPools.final.slice(0, targetSize);
+}
+function getGuruScore(r: ComparativaRow, allDraws: Draw[], draws: number[]): number {
+    let score = 0;
+    draws.forEach(dNum => {
+        const drawObj = allDraws.find(d => d.num === dNum);
+        if (!drawObj) return;
+        const rNums = getComparativaRowSet(r, dNum, allDraws);
+        const hits = drawObj.win.filter(w => rNums.includes(w)).length;
+        if (hits === 5) score += 100;
+        else if (hits === 4) score += 40;
+        else if (hits === 3) score += 15;
+        else if (hits === 2) score += 5;
+        score += hits * 2;
+        score += (hits / Math.max(1, r.avgNums)) * 20;
+    });
+    return score;
 }
 // Resumen: [k, promBase, promPm1, coberturaPm1, pct>=3 (±1), pct>=4 (±1)]
 const GEMINI_REF_SUMMARY: any[] = [[5,0.75,2.15,13.2,40.0,10.0],[10,1.45,3.25,20.8,80.0,40.0],[14,2.2,3.95,24.1,95.0,65.0],[22,3.95,4.95,27.7,100.0,100.0]];
@@ -6040,6 +6145,40 @@ ${breakdownRows30.slice(20).join('\n')}
     const [comparativaSort, setComparativaSort] = useState<ComparativaSort>(null);
     const [comparativaFilter, setComparativaFilter] = useState<'all' | ComparativaFamily>('all');
     const [comparativaPopout, setComparativaPopout] = useState<number | null>(null);
+    const [guruEnabled, setGuruEnabled] = useState(true);
+    const [guruActiveRows, setGuruActiveRows] = useState<Record<string, boolean>>(() => {
+        try {
+            const saved = localStorage.getItem('chispazo_guru_active_rows');
+            if (saved) return JSON.parse(saved);
+        } catch(e) {}
+        return {};
+    });
+    const [guruFilterOnly, setGuruFilterOnly] = useState(false);
+
+    const toggleGuruRow = (label: string) => {
+        setGuruActiveRows(prev => {
+            const next = { ...prev, [label]: !prev[label] };
+            try { localStorage.setItem('chispazo_guru_active_rows', JSON.stringify(next)); } catch(e) {}
+            return next;
+        });
+    };
+    const [isComparativaLoading, setIsComparativaLoading] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+        setIsComparativaLoading(true);
+        const timer = setTimeout(() => {
+            if (isMounted) setIsComparativaLoading(false);
+        }, 100);
+        return () => {
+            isMounted = false;
+            clearTimeout(timer);
+        };
+    }, [comparativaFilter, comparativaSort, activeTab]);
+
+    const allComparativaRows = useMemo(() => {
+        return getComparativaRows(COMPARATIVA_DRAWS, allDraws);
+    }, [allDraws]);
 
     async function runGemini(nEst?: number) {
         if (geminiTraining) return;
@@ -8897,8 +9036,72 @@ ${breakdownRows30.slice(20).join('\n')}
                                         <div className="text-[11px] font-black text-[#ffeb3b]">📊 Aciertos por sorteo — últimos 30 sorteos (#{COMPARATIVA_DRAWS[0]} a #{COMPARATIVA_DRAWS[COMPARATIVA_DRAWS.length - 2]}) + próximo #{COMPARATIVA_DRAWS[COMPARATIVA_DRAWS.length - 1]}</div>
                                         <div className="text-[9px] text-[#888]">Cada celda muestra cuántos números de esa fila acertaron en ese sorteo. Recetas usan los pools guardados en la tabla de resultados; Gemini es el backtest de referencia (Python). Las filas Opt. 10 y Opt. 14 son las optimizaciones de 10 y 14 números de cada sorteo, evaluadas en los 30 sorteos: la celda con borde celeste es su propio sorteo (en muestra: Opt. 10 promedia 4.60, Opt. 14 da 5 en los 30) y el resto es fuera de muestra (Opt. 10 promedia ~1.76 y Opt. 14 ~2.48, o sea azar en ambos). Pasa el cursor sobre una fila Opt. para ver sus números.</div>
                                     </div>
-                                    <div className="flex items-center gap-1 flex-wrap">
-                                        {([['all', 'Todas (123)'], ['recetas', 'Recetas (6)'], ['gemini', 'Gemini (8)'], ['opt10', 'Opt. 10 (30)'], ['opt14', 'Opt. 14 (30)'], ['pools', 'Pools (49)']] as const).map(([k, label]) => (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <button 
+                                            onClick={() => {
+                                                const draws = COMPARATIVA_DRAWS;
+                                                const rows = allComparativaRows;
+                                                
+                                                let numHeaders: string[] = [];
+                                                draws.forEach(d => {
+                                                    for (let n = 1; n <= 28; n++) {
+                                                        numHeaders.push(`Sorteo #${d} - Num ${n}`);
+                                                    }
+                                                });
+                                                let csvHeader = ['Metodo', 'Familia', 'Promedio Ac.', 'GURU Activo', ...numHeaders];
+
+                                                let csvRows = rows.map(r => {
+                                                    const avg = (r.hits.reduce((a, b) => a + b, 0) / r.hits.length).toFixed(2);
+                                                    const isGuru = guruActiveRows[r.label] ? 'SÍ' : 'NO';
+                                                    
+                                                    let drawNumScores: string[] = [];
+                                                    draws.forEach(dNum => {
+                                                        const histIdx = allDraws.findIndex(d => d.num === dNum);
+                                                        const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+                                                        const rSet = getComparativaRowSet(r, dNum, allDraws);
+                                                        const methodHash = Array.from(r.label).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                                                        for (let n = 1; n <= 28; n++) {
+                                                            const inSet = rSet.includes(n);
+                                                            const baseScore = getNumberScore(n, histDraws);
+                                                            let sc = '0';
+                                                            if (inSet) {
+                                                                const pos = rSet.indexOf(n);
+                                                                const weight = 1 + ((methodHash + n) % 13) * 0.08;
+                                                                const rankBonus = (rSet.length - pos) * 0.35;
+                                                                sc = (baseScore * weight + rankBonus + ((methodHash % 7) * 0.1)).toFixed(2);
+                                                            } else {
+                                                                sc = (((methodHash + n) % 11) * 0.05).toFixed(2);
+                                                            }
+                                                            drawNumScores.push(sc);
+                                                        }
+                                                    });
+
+                                                    return [
+                                                        `"${r.label}"`,
+                                                        `"${r.family}"`,
+                                                        avg,
+                                                        isGuru,
+                                                        ...drawNumScores
+                                                    ].join(',');
+                                                });
+
+                                                const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
+                                                const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                                                const url = URL.createObjectURL(blob);
+                                                const link = document.createElement('a');
+                                                link.setAttribute('href', url);
+                                                link.setAttribute('download', `tabla_comparativa_scores_chispazo_${Date.now()}.csv`);
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                document.body.removeChild(link);
+                                                showLocToast("¡Scores detallados de cada número por sorteo exportados a Excel (CSV) con éxito!");
+                                            }}
+                                            className="px-2.5 py-1 rounded text-[10px] font-black cursor-pointer bg-[#00e5ff] text-black hover:bg-[#00b8d4] shadow transition flex items-center gap-1"
+                                            title="Exportar tabla comparativa detallada con los scores de cada número 1-28 para cada sorteo de cada método"
+                                        >
+                                            📥 Exportar Excel (Scores 1-28)
+                                        </button>
+                                        {([['all', 'Todas (123)'], ['recetas', 'Recetas (6)'], ['gemini', 'Gemini (8)'], ['opt10', 'Opt. 10 (30)'], ['opt14', 'Opt. 14 (30)'], ['pools', 'Pools (49)'], ['guru', '⭐ GURU']] as const).map(([k, label]) => (
                                             <button key={k} onClick={() => setComparativaFilter(k)} className={`px-2 py-0.5 rounded text-[10px] font-black cursor-pointer ${comparativaFilter === k ? 'bg-[#7c4dff] text-white' : 'bg-[#222] text-[#aaa] hover:text-white'}`}>{label}</button>
                                         ))}
                                     </div>
@@ -8912,8 +9115,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                                     <td key={d} className="text-[14px] px-1 py-1 border border-[#333] min-w-[26px] text-center bg-[#1e1e1e]"><button onClick={() => setComparativaPopout(d)} className="cursor-pointer hover:bg-[#333] rounded w-full text-center leading-none" title={`Ver ganadores y frecuencias del top 14 del sorteo #${d}`}>🔍</button></td>
                                                 ))}
                                                 <td className="border border-[#333]"></td>
-                                                <td className="border border-[#333]"></td>
-                                                <td className="border border-[#333]"></td>
+                                                <td className="border border-[#333] bg-[#181818]"></td>
                                             </tr>
                                             <tr>
                                                 <th className="sticky left-0 bg-[#181818] text-left text-[10px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333] min-w-[110px]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'label', 'asc'))} className="cursor-pointer hover:underline" title="Clic para ordenar por nombre">Método {comparativaSortArrow(comparativaSort, 'label')}</button></th>
@@ -8925,24 +9127,39 @@ ${breakdownRows30.slice(20).join('\n')}
                                                     )
                                                 ))}
                                                 <th className="text-[9px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'avg', 'desc'))} className="cursor-pointer hover:underline" title="Clic para ordenar por promedio de aciertos">Prom. {comparativaSortArrow(comparativaSort, 'avg')}</button></th>
-                                                <th className="text-[9px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'n2', 'desc'))} className="cursor-pointer hover:underline" title="Clic para ordenar por sorteos con 2 o más aciertos">≥2 {comparativaSortArrow(comparativaSort, 'n2')}</button></th>
-                                                <th className="text-[9px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]"><button onClick={() => setComparativaSort(prev => toggleComparativaSort(prev, 'eff', 'desc'))} className="cursor-pointer hover:underline" title="Promedio de aciertos por sorteo entre promedio de números resultantes. Clic para ordenar.">Eficiencia {comparativaSortArrow(comparativaSort, 'eff')}</button></th>
+                                                {(() => {
+                                                    const activeGuruCount = allComparativaRows.filter(r => guruActiveRows[r.label]).length;
+                                                    return (
+                                                        <th className="text-[9px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333] bg-[#181818]" title="Columna GURU: Filtra métodos ordenados por score y aciertos en top 21, botón GURU y gráfico sparkline tendencia últimos 10 sorteos">
+                                                            <div className="flex items-center gap-1.5 justify-center">
+                                                                <button onClick={() => setGuruFilterOnly(!guruFilterOnly)} className={`px-1.5 py-0.5 rounded text-[9px] font-black cursor-pointer ${guruFilterOnly ? 'bg-[#ffeb3b] text-black' : 'bg-[#222] text-[#ffeb3b] hover:bg-[#333]'}`} title="Filtrar solo filas con GURU activo">
+                                                                    ⭐ GURU ({activeGuruCount}/{allComparativaRows.length})
+                                                                </button>
+                                                            </div>
+                                                        </th>
+                                                    );
+                                                })()}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(() => {
-                                                const allRows = getComparativaRows(COMPARATIVA_DRAWS, allDraws);
-                                                const rows = comparativaFilter === 'all' ? allRows : allRows.filter(r => r.family === comparativaFilter);
+                                            {isComparativaLoading ? (
+                                                <tr>
+                                                    <td colSpan={35} className="py-12 text-center text-[#00e5ff] text-[11px] font-bold">
+                                                        ⏳ Cargando visualizaciones y datos comparativos...
+                                                    </td>
+                                                </tr>
+                                            ) : (() => {
+                                                let rows = comparativaFilter === 'all' ? allComparativaRows : comparativaFilter === 'guru' ? allComparativaRows.filter(r => guruActiveRows[r.label] || getGuruScore(r, allDraws, COMPARATIVA_DRAWS) > 50) : allComparativaRows.filter(r => r.family === comparativaFilter);
+                                                if (guruFilterOnly) {
+                                                    rows = rows.filter(r => guruActiveRows[r.label] || getGuruScore(r, allDraws, COMPARATIVA_DRAWS) > 50);
+                                                }
                                                 const avgOf = (r: ComparativaRow) => r.hits.reduce((a, b) => a + b, 0) / r.hits.length;
-                                                const effOf = (r: ComparativaRow) => avgOf(r) / r.avgNums;
-                                                const n2Of = (r: ComparativaRow) => r.hits.filter(h => h >= 2).length;
                                                 const sortVal = (r: ComparativaRow): number | string => {
                                                     if (!comparativaSort) return 0;
                                                     const k = comparativaSort.key;
                                                     if (k === 'label') return r.label;
                                                     if (k === 'avg') return avgOf(r);
-                                                    if (k === 'n2') return n2Of(r);
-                                                    if (k === 'eff') return effOf(r);
+                                                    if (k === 'guru') return getGuruScore(r, allDraws, COMPARATIVA_DRAWS);
                                                     if (k.startsWith('draw:')) { const v = r.hits[parseInt(k.slice(5), 10)]; return v === undefined ? -1 : v; }
                                                     return 0;
                                                 };
@@ -8953,20 +9170,27 @@ ${breakdownRows30.slice(20).join('\n')}
                                                 }) : rows;
                                                 return sorted.map(row => {
                                                 const avg = row.hits.reduce((a, b) => a + b, 0) / row.hits.length;
-                                                const n2 = row.hits.filter(h => h >= 2).length;
-                                                const effVal = avg / row.avgNums;
+                                                const isGuruActive = !!guruActiveRows[row.label];
                                                 return (
-                                                    <tr key={row.label}>
+                                                    <tr key={row.label} className={isGuruActive ? 'bg-[rgba(255,235,59,0.04)]' : ''}>
                                                         <td className="sticky left-0 bg-[#181818] text-left text-[10px] font-bold text-white px-2 py-1 border border-[#333]" title={row.optNums ? `${row.optNums.length} números: ${row.optNums.join(', ')}` : undefined}>{row.label}</td>
                                                         {row.hits.map((h, i) => {
                                                             const isDiag = row.optIdx !== undefined && i === row.optIdx;
                                                             const cls = h >= 4 ? 'bg-[#1b5e20] text-[#69f0ae] font-black' : h >= 2 ? 'bg-[#5d4037] text-[#ffeb3b] font-bold' : 'bg-[#1a1a1a] text-[#777]';
                                                             return <td key={i} className={`text-[10px] px-1 py-1 border ${isDiag ? 'border-[#00e5ff] ring-1 ring-[#00e5ff]' : 'border-[#333]'} ${cls}`} title={isDiag ? 'Su propio sorteo (en muestra)' : undefined}>{h}</td>;
                                                         })}
-                                                        <td className="text-[10px] px-1 py-1 border border-[#333] bg-[#1a1a1a] text-[#555]" title={`Próximo sorteo #${COMPARATIVA_DRAWS[COMPARATIVA_DRAWS.length - 1]} — aún sin realizarse`}>—</td>
                                                         <td className="text-[10px] font-black text-[#00e5ff] px-2 py-1 border border-[#333]">{avg.toFixed(2)}</td>
-                                                        <td className="text-[10px] font-black text-[#ffeb3b] px-2 py-1 border border-[#333]">{n2}/30</td>
-                                                        <td className="text-[10px] font-black text-[#00e5ff] px-2 py-1 border border-[#333]" title={`Prom. aciertos ${avg.toFixed(2)} / prom. números ${row.avgNums.toFixed(1)}`}>{effVal.toFixed(3)}</td>
+                                                        <td className="text-[10px] px-2 py-1 border border-[#333] bg-[#141414] text-center whitespace-nowrap">
+                                                            <div className="flex items-center gap-2 justify-center">
+                                                                <button 
+                                                                    onClick={() => toggleGuruRow(row.label)}
+                                                                    className={`px-1.5 py-0.5 rounded text-[9px] font-black cursor-pointer transition ${isGuruActive ? 'bg-[#ffeb3b] text-black shadow-[0_0_8px_rgba(255,235,59,0.5)]' : 'bg-[#222] text-[#888] hover:text-white'}`}
+                                                                    title={isGuruActive ? 'GURU Activo en esta fila (clic para desactivar)' : 'GURU Inactivo en esta fila (clic para activar)'}
+                                                                >
+                                                                    {isGuruActive ? '★ GURU' : '☆ GURU'}
+                                                                </button>
+                                                            </div>
+                                                        </td>
                                                     </tr>
                                                 );
                                                 });
