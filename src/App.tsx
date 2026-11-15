@@ -253,6 +253,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import { GoogleGenAI } from '@google/genai';
 import { RandomForestClassifier } from 'ml-random-forest';
+import { SOLUCIONES_COMPARATIVA } from './soluciones';
 
 
 
@@ -2726,7 +2727,8 @@ function GeminiMultiChart({ rows, enabled }: { rows: any[]; enabled: Record<stri
 }
 
 const GEMINI_REF_ROWS: any[] = [[12338,[2,4,7,19,24],1,2,1,5,1,5,4,5],[12339,[5,12,15,25,27],0,3,0,5,1,5,5,5],[12340,[1,6,13,17,23],0,4,1,4,2,4,4,5],[12341,[1,13,16,19,25],1,3,3,4,4,5,5,5],[12342,[2,3,12,14,25],1,4,1,4,3,4,4,5],[12343,[6,22,24,25,27],1,2,2,4,3,5,5,5],[12344,[6,15,20,27,28],2,3,2,5,2,5,4,5],[12345,[6,7,15,21,26],1,4,1,5,4,5,4,5],[12346,[4,13,15,18,21],2,2,2,2,3,3,4,5],[12347,[1,2,6,16,24],1,2,1,3,2,3,4,5],[12348,[2,11,15,24,25],2,4,3,4,3,5,5,5],[12349,[3,12,16,17,23],0,4,1,5,2,5,5,5],[12350,[7,9,18,20,24],0,0,1,2,1,3,2,4],[12351,[3,10,14,18,21],1,2,1,3,2,5,4,5],[12352,[8,9,15,20,24],0,2,2,3,3,4,4,5],[12353,[2,4,6,19,24],1,3,1,4,3,5,4,5],[12354,[5,9,10,16,27],0,2,1,4,2,4,3,5],[12355,[1,3,8,17,23],0,1,0,3,1,4,3,5],[12356,[4,13,16,23,25],1,1,2,2,2,4,3,5],[12357,[1,2,7,18,23],1,3,1,4,2,5,5,5],[12358,[4,7,12,18,22],0,2,1,3,2,3,4,5],[12359,[6,9,11,23,27],0,3,1,4,1,4,4,5],[12360,[6,11,15,24,27],2,3,3,4,3,4,4,5],[12361,[2,3,12,15,17],2,3,2,3,2,3,5,5],[12362,[10,13,16,17,22],1,2,2,4,3,5,4,5],[12363,[1,8,14,27,28],0,1,1,2,1,2,3,5],[12364,[13,17,21,24,25],1,3,1,3,4,5,4,5],[12365,[8,10,17,22,24],2,2,2,2,3,3,4,5],[12366,[1,6,14,15,27],0,0,2,3,2,3,5,5],[12367,[2,3,6,22,26],1,2,2,4,3,5,4,5]];
-// Grupos Gemini por sorteo (base 5/10/14/22 y ±1), mismo orden que GEMINI_REF_ROWS (12338-12367).
+// Grupos Gemini por sorteo (base 5/10/14/22 y ±1). Índice = sorteo - 12338. 12338-12368: referencia original (Python);
+// 12369-12375: regenerados con RandomForest (sklearn, 100 árboles, max_depth 5, seed 42, ventana 300), historia previa a cada sorteo.
 const GEMINI_GROUPS: number[][][] = [
     [[6,13,14,17,24],[3,5,6,13,14,17,20,24,25,26],[3,5,6,13,14,15,17,18,20,22,23,24,25,26],[2,3,4,5,6,7,8,12,13,14,15,16,17,18,20,21,22,23,24,25,26,27],[5,6,7,12,13,14,15,16,17,18,23,24,25],[2,3,4,5,6,7,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27],[2,3,4,5,6,7,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27],[1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
     [[4,6,14,19,24],[2,4,6,13,14,19,20,23,24,26],[2,4,6,7,8,13,14,15,17,19,20,23,24,26],[2,3,4,5,6,7,8,12,13,14,15,16,17,19,20,21,22,23,24,25,26,27],[3,4,5,6,7,13,14,15,18,19,20,23,24,25],[1,2,3,4,5,6,7,12,13,14,15,18,19,20,21,22,23,24,25,26,27],[1,2,3,4,5,6,7,8,9,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27],[1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
@@ -2759,6 +2761,13 @@ const GEMINI_GROUPS: number[][][] = [
     [[8,10,17,22,24],[8,10,12,14,17,22,23,24,25,27],[8,9,10,12,13,14,17,18,21,22,23,24,25,27],[1,3,4,6,8,9,10,11,12,13,14,15,17,18,19,21,22,23,24,25,27,28],[7,8,9,10,11,16,17,18,21,22,23,24,25],[7,8,9,10,11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28],[7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
     [[6,14,17,24,27],[1,6,14,15,17,18,22,24,25,27],[1,3,6,8,14,15,17,18,20,22,23,24,25,27],[1,2,3,5,6,7,8,10,12,13,14,15,16,17,18,20,21,22,23,24,25,27],[5,6,7,13,14,15,16,17,18,23,24,25,26,27,28],[1,2,5,6,7,13,14,15,16,17,18,19,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
     [[6,15,17,22,26],[2,5,6,14,15,17,22,25,26,27],[2,3,5,6,14,15,17,18,20,22,24,25,26,27],[2,3,4,5,6,8,9,10,11,13,14,15,16,17,18,20,22,23,24,25,26,27],[5,6,7,14,15,16,17,18,21,22,23,25,26,27],[1,2,3,4,5,6,7,13,14,15,16,17,18,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]],
+    [[5,6,17,18,22],[5,6,15,17,18,20,21,22,24,27],[1,5,6,14,15,17,18,20,21,22,24,25,26,27],[1,3,5,6,8,9,10,11,13,14,15,17,18,19,20,21,22,23,24,25,26,27],[4,5,6,7,16,17,18,19,21,22,23],[4,5,6,7,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,4,5,6,7,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]], // #12369
+    [[6,10,11,17,21],[2,6,10,11,13,15,17,18,21,22],[2,5,6,10,11,13,15,17,18,21,22,23,24,25],[1,2,4,5,6,8,10,11,13,14,15,17,18,20,21,22,23,24,25,26,27,28],[5,6,7,9,10,11,12,16,17,18,20,21,22],[1,2,3,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23],[1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]], // #12370
+    [[5,10,17,22,26],[2,5,10,12,17,18,19,22,26,27],[2,5,9,10,12,14,17,18,19,21,22,23,26,27],[1,2,3,5,6,8,9,10,11,12,14,15,17,18,19,20,21,22,23,25,26,27],[4,5,6,9,10,11,16,17,18,21,22,23,25,26,27],[1,2,3,4,5,6,9,10,11,12,13,16,17,18,19,20,21,22,23,25,26,27,28],[1,2,3,4,5,6,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]], // #12371
+    [[5,10,17,22,24],[4,5,10,11,15,17,19,22,24,26],[2,4,5,6,8,10,11,12,15,17,19,22,24,26],[1,2,3,4,5,6,8,9,10,11,12,13,14,15,17,18,19,20,22,24,26,27],[4,5,6,9,10,11,16,17,18,21,22,23,24,25],[3,4,5,6,9,10,11,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]], // #12372
+    [[11,17,24,26,27],[4,5,10,11,17,20,21,24,26,27],[4,5,10,11,14,16,17,18,19,20,21,24,26,27],[2,3,4,5,6,8,10,11,12,14,15,16,17,18,19,20,21,22,23,24,26,27],[10,11,12,16,17,18,23,24,25,26,27,28],[3,4,5,6,9,10,11,12,16,17,18,19,20,21,22,23,24,25,26,27,28],[3,4,5,6,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]], // #12373
+    [[12,13,19,24,27],[4,12,13,14,17,19,24,25,26,27],[3,4,11,12,13,14,15,17,19,22,24,25,26,27],[1,2,3,4,5,6,8,10,11,12,13,14,15,17,18,19,20,22,24,25,26,27],[11,12,13,14,18,19,20,23,24,25,26,27,28],[3,4,5,11,12,13,14,15,16,17,18,19,20,23,24,25,26,27,28],[2,3,4,5,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]], // #12374
+    [[1,12,18,26,27],[1,7,10,12,18,19,24,25,26,27],[1,3,6,7,10,11,12,13,18,19,24,25,26,27],[1,2,3,4,6,7,9,10,11,12,13,14,17,18,19,20,21,22,24,25,26,27],[1,2,11,12,13,17,18,19,25,26,27,28],[1,2,6,7,8,9,10,11,12,13,17,18,19,20,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,17,18,19,20,23,24,25,26,27,28],[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]], // #12375
 ];
 // Tabla Comparativa (últimos 30 sorteos): aciertos por sorteo de cada método.
 const COMPARATIVA_RECIPE_HITS: number[][] = [
@@ -3083,7 +3092,7 @@ function getComparativaRowSetForDraw(label: string, drawNum: number, allDraws: D
         if (!mm) return [];
         const baseIdx = { '5': 0, '10': 1, '14': 2, '22': 3 }[mm[1]] ?? 0;
         const gi = baseIdx + (mm[2] ? 4 : 0);
-        if (histIdx >= 0 && histIdx < 30 && GEMINI_GROUPS[histIdx]?.[gi]) {
+        if (histIdx >= 0 && histIdx < GEMINI_GROUPS.length && GEMINI_GROUPS[histIdx]?.[gi]) {
             return [...GEMINI_GROUPS[histIdx][gi]];
         }
         return [];
@@ -3118,6 +3127,77 @@ function comparativaTop14Freq(topRows: ComparativaRow[], targetDrawNum: number, 
         }
     }
     return freq;
+}
+// Score por número (1-28) de un método en un sorteo. Misma fórmula que usaba la
+// exportación de scores; baseScores[n-1] = getNumberScore(n, historia previa al sorteo).
+function getComparativaMethodNumberScores(r: ComparativaRow, dNum: number, allDraws: Draw[], baseScores: number[]): number[] {
+    const rSet = getComparativaRowSet(r, dNum, allDraws);
+    const methodHash = Array.from(r.label).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const out: number[] = [];
+    for (let n = 1; n <= 28; n++) {
+        const pos = rSet.indexOf(n);
+        let sc: number;
+        if (pos !== -1) {
+            const weight = 1 + ((methodHash + n) % 13) * 0.08;
+            const rankBonus = (rSet.length - pos) * 0.35;
+            sc = baseScores[n - 1] * weight + rankBonus + ((methodHash % 7) * 0.1);
+        } else {
+            sc = ((methodHash + n) % 11) * 0.05;
+        }
+        out.push(Math.round(sc * 100) / 100);
+    }
+    return out;
+}
+// Arma las hojas del Excel de la comparativa:
+//  - "Scores 1-28": score de cada número por método y sorteo.
+//  - Una hoja por sorteo: por cada solución (combinación de métodos) dos filas:
+//      fila 1 = números ordenados de mayor a menor suma de scores,
+//      fila 2 = la suma de scores de cada número, debajo de cada número.
+function buildComparativaExportSheets(draws: number[], rows: ComparativaRow[], allDraws: Draw[], soluciones: string[][]) {
+    const scoresByLabel = new Map<string, number[][]>(); // label -> [drawIdx][n-1]
+    rows.forEach(r => scoresByLabel.set(r.label, []));
+    draws.forEach((dNum, di) => {
+        const histIdx = allDraws.findIndex(d => d.num === dNum);
+        const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
+        const baseScores = Array.from({ length: 28 }, (_, i) => getNumberScore(i + 1, histDraws));
+        rows.forEach(r => { scoresByLabel.get(r.label)![di] = getComparativaMethodNumberScores(r, dNum, allDraws, baseScores); });
+    });
+
+    const scoresAoa: (string | number)[][] = [];
+    const head: (string | number)[] = ['Metodo', 'Familia', 'Promedio Ac.'];
+    draws.forEach(d => { for (let n = 1; n <= 28; n++) head.push(`Sorteo #${d} - Num ${n}`); });
+    scoresAoa.push(head);
+    rows.forEach(r => {
+        const avg = Math.round((r.hits.reduce((a, b) => a + b, 0) / r.hits.length) * 100) / 100;
+        const line: (string | number)[] = [r.label, r.family, avg];
+        scoresByLabel.get(r.label)!.forEach(arr => arr.forEach(v => line.push(v)));
+        scoresAoa.push(line);
+    });
+
+    const validSols = soluciones.filter(sol => sol.every(l => scoresByLabel.has(l)));
+    const sheets: { name: string; aoa: (string | number)[][] }[] = [];
+    draws.forEach((dNum, di) => {
+        const drawObj = allDraws.find(d => d.num === dNum);
+        const winners = drawObj ? [...drawObj.win].sort((a, b) => a - b) : [];
+        const aoa: (string | number)[][] = [];
+        aoa.push([`Sorteo #${dNum}`, 'Fecha', drawObj?.date ?? 'Pendiente']);
+        aoa.push(['Resultado', ...(winners.length ? winners : ['Pendiente (aún sin realizarse)'])]);
+        aoa.push([]);
+        const h: (string | number)[] = ['Solución', 'Cant. métodos', 'Combinación'];
+        for (let p = 1; p <= 28; p++) h.push(`Pos ${p}`);
+        h.push('Ac. Top 10', 'Ac. Top 21');
+        aoa.push(h);
+        validSols.forEach((sol, si) => {
+            const sums = new Array(28).fill(0);
+            sol.forEach(l => { const sc = scoresByLabel.get(l)![di]; for (let i = 0; i < 28; i++) sums[i] += sc[i]; });
+            const order = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => (sums[b - 1] - sums[a - 1]) || (a - b));
+            const hit = (k: number) => winners.length ? order.slice(0, k).filter(n => winners.includes(n)).length : '';
+            aoa.push([`Sol. ${si + 1}`, sol.length, sol.join(' + '), ...order, hit(10), hit(21)]);
+            aoa.push(['', '', 'Suma de scores', ...order.map(n => Math.round(sums[n - 1] * 100) / 100)]);
+        });
+        sheets.push({ name: `Sorteo ${dNum}${drawObj ? '' : ' (próx)'}`, aoa });
+    });
+    return { scoresAoa, sheets, skipped: soluciones.length - validSols.length };
 }
 function getOptimalPredictiveNumbers(drawNum: number, allDraws: Draw[], targetSize: number): number[] {
     const histIdx = allDraws.findIndex(d => d.num === drawNum);
@@ -9038,68 +9118,31 @@ ${breakdownRows30.slice(20).join('\n')}
                                     </div>
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                         <button 
-                                            onClick={() => {
-                                                const draws = COMPARATIVA_DRAWS;
-                                                const rows = allComparativaRows;
-                                                
-                                                let numHeaders: string[] = [];
-                                                draws.forEach(d => {
-                                                    for (let n = 1; n <= 28; n++) {
-                                                        numHeaders.push(`Sorteo #${d} - Num ${n}`);
-                                                    }
-                                                });
-                                                let csvHeader = ['Metodo', 'Familia', 'Promedio Ac.', 'GURU Activo', ...numHeaders];
-
-                                                let csvRows = rows.map(r => {
-                                                    const avg = (r.hits.reduce((a, b) => a + b, 0) / r.hits.length).toFixed(2);
-                                                    const isGuru = guruActiveRows[r.label] ? 'SÍ' : 'NO';
-                                                    
-                                                    let drawNumScores: string[] = [];
-                                                    draws.forEach(dNum => {
-                                                        const histIdx = allDraws.findIndex(d => d.num === dNum);
-                                                        const histDraws = histIdx > 0 ? allDraws.slice(0, histIdx) : allDraws;
-                                                        const rSet = getComparativaRowSet(r, dNum, allDraws);
-                                                        const methodHash = Array.from(r.label).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                                                        for (let n = 1; n <= 28; n++) {
-                                                            const inSet = rSet.includes(n);
-                                                            const baseScore = getNumberScore(n, histDraws);
-                                                            let sc = '0';
-                                                            if (inSet) {
-                                                                const pos = rSet.indexOf(n);
-                                                                const weight = 1 + ((methodHash + n) % 13) * 0.08;
-                                                                const rankBonus = (rSet.length - pos) * 0.35;
-                                                                sc = (baseScore * weight + rankBonus + ((methodHash % 7) * 0.1)).toFixed(2);
-                                                            } else {
-                                                                sc = (((methodHash + n) % 11) * 0.05).toFixed(2);
-                                                            }
-                                                            drawNumScores.push(sc);
-                                                        }
+                                            onClick={async () => {
+                                                showLocToast("⏳ Generando Excel de soluciones por sorteo… puede tardar unos segundos.");
+                                                await new Promise(res => setTimeout(res, 60));
+                                                try {
+                                                    const XLSX = await import('xlsx');
+                                                    const { scoresAoa, sheets, skipped } = buildComparativaExportSheets(COMPARATIVA_DRAWS, allComparativaRows, allDraws, SOLUCIONES_COMPARATIVA);
+                                                    const wb = XLSX.utils.book_new();
+                                                    const wsScores = XLSX.utils.aoa_to_sheet(scoresAoa);
+                                                    wsScores['!cols'] = [{ wch: 20 }, { wch: 10 }, { wch: 12 }];
+                                                    XLSX.utils.book_append_sheet(wb, wsScores, 'Scores 1-28');
+                                                    sheets.forEach(sh => {
+                                                        const ws = XLSX.utils.aoa_to_sheet(sh.aoa);
+                                                        ws['!cols'] = [{ wch: 10 }, { wch: 13 }, { wch: 46 }];
+                                                        XLSX.utils.book_append_sheet(wb, ws, sh.name);
                                                     });
-
-                                                    return [
-                                                        `"${r.label}"`,
-                                                        `"${r.family}"`,
-                                                        avg,
-                                                        isGuru,
-                                                        ...drawNumScores
-                                                    ].join(',');
-                                                });
-
-                                                const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
-                                                const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-                                                const url = URL.createObjectURL(blob);
-                                                const link = document.createElement('a');
-                                                link.setAttribute('href', url);
-                                                link.setAttribute('download', `tabla_comparativa_scores_chispazo_${Date.now()}.csv`);
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
-                                                showLocToast("¡Scores detallados de cada número por sorteo exportados a Excel (CSV) con éxito!");
+                                                    XLSX.writeFile(wb, `comparativa_soluciones_chispazo_${Date.now()}.xlsx`, { compression: true });
+                                                    showLocToast(`¡Excel exportado: ${sheets.length} hojas de sorteos + scores${skipped ? ` (${skipped} soluciones omitidas por métodos no encontrados)` : ''}!`);
+                                                } catch (e: any) {
+                                                    showLocToast("Error al exportar el Excel: " + (e?.message || e));
+                                                }
                                             }}
                                             className="px-2.5 py-1 rounded text-[10px] font-black cursor-pointer bg-[#00e5ff] text-black hover:bg-[#00b8d4] shadow transition flex items-center gap-1"
-                                            title="Exportar tabla comparativa detallada con los scores de cada número 1-28 para cada sorteo de cada método"
+                                            title="Exporta un .xlsx con una hoja por sorteo (soluciones con sus números ordenados por suma de scores) y una hoja con los scores 1-28 de cada método"
                                         >
-                                            📥 Exportar Excel (Scores 1-28)
+                                            📥 Exportar Excel (Soluciones por sorteo)
                                         </button>
                                         {([['all', 'Todas (123)'], ['recetas', 'Recetas (6)'], ['gemini', 'Gemini (8)'], ['opt10', 'Opt. 10 (30)'], ['opt14', 'Opt. 14 (30)'], ['pools', 'Pools (49)'], ['guru', '⭐ GURU']] as const).map(([k, label]) => (
                                             <button key={k} onClick={() => setComparativaFilter(k)} className={`px-2 py-0.5 rounded text-[10px] font-black cursor-pointer ${comparativaFilter === k ? 'bg-[#7c4dff] text-white' : 'bg-[#222] text-[#aaa] hover:text-white'}`}>{label}</button>
