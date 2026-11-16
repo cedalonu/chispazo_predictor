@@ -3153,7 +3153,7 @@ function getComparativaMethodNumberScores(r: ComparativaRow, dNum: number, allDr
 //  - Una hoja por sorteo: por cada solución (combinación de métodos) dos filas:
 //      fila 1 = números ordenados de mayor a menor suma de scores,
 //      fila 2 = la suma de scores de cada número, debajo de cada número.
-function buildComparativaExportSheets(draws: number[], rows: ComparativaRow[], allDraws: Draw[], soluciones: string[][]) {
+function buildComparativaExportSheets(draws: number[], rows: ComparativaRow[], allDraws: Draw[], soluciones: string[][], XLSX: any) {
     const scoresByLabel = new Map<string, number[][]>(); // label -> [drawIdx][n-1]
     rows.forEach(r => scoresByLabel.set(r.label, []));
     draws.forEach((dNum, di) => {
@@ -3163,41 +3163,152 @@ function buildComparativaExportSheets(draws: number[], rows: ComparativaRow[], a
         rows.forEach(r => { scoresByLabel.get(r.label)![di] = getComparativaMethodNumberScores(r, dNum, allDraws, baseScores); });
     });
 
-    const scoresAoa: (string | number)[][] = [];
-    const head: (string | number)[] = ['Metodo', 'Familia', 'Promedio Ac.'];
-    draws.forEach(d => { for (let n = 1; n <= 28; n++) head.push(`Sorteo #${d} - Num ${n}`); });
-    scoresAoa.push(head);
-    rows.forEach(r => {
-        const avg = Math.round((r.hits.reduce((a, b) => a + b, 0) / r.hits.length) * 100) / 100;
-        const line: (string | number)[] = [r.label, r.family, avg];
-        scoresByLabel.get(r.label)!.forEach(arr => arr.forEach(v => line.push(v)));
-        scoresAoa.push(line);
-    });
-
     const validSols = soluciones.filter(sol => sol.every(l => scoresByLabel.has(l)));
-    const sheets: { name: string; aoa: (string | number)[][] }[] = [];
+    const sheets: { name: string; ws: any }[] = [];
+
+    const pastelColors = ["FFCDD2", "C5CAE9", "C8E6C9", "FFE0B2", "E1BEE7"];
+    const getWinnerPastelColor = (val: number, winners: number[]): string | null => {
+        const idx = winners.indexOf(val);
+        if (idx !== -1) return pastelColors[idx % pastelColors.length];
+        return null;
+    };
+
     draws.forEach((dNum, di) => {
         const drawObj = allDraws.find(d => d.num === dNum);
         const winners = drawObj ? [...drawObj.win].sort((a, b) => a - b) : [];
-        const aoa: (string | number)[][] = [];
-        aoa.push([`Sorteo #${dNum}`, 'Fecha', drawObj?.date ?? 'Pendiente']);
-        aoa.push(['Resultado', ...(winners.length ? winners : ['Pendiente (aún sin realizarse)'])]);
-        aoa.push([]);
-        const h: (string | number)[] = ['Solución', 'Cant. métodos', 'Combinación'];
-        for (let p = 1; p <= 28; p++) h.push(`Pos ${p}`);
-        h.push('Ac. Top 10', 'Ac. Top 21');
-        aoa.push(h);
-        validSols.forEach((sol, si) => {
+        const numCols = 28;
+        const colValues: number[][] = Array.from({ length: numCols }, () => []);
+
+        validSols.forEach(sol => {
             const sums = new Array(28).fill(0);
             sol.forEach(l => { const sc = scoresByLabel.get(l)![di]; for (let i = 0; i < 28; i++) sums[i] += sc[i]; });
             const order = Array.from({ length: 28 }, (_, i) => i + 1).sort((a, b) => (sums[b - 1] - sums[a - 1]) || (a - b));
-            const hit = (k: number) => winners.length ? order.slice(0, k).filter(n => winners.includes(n)).length : '';
-            aoa.push([`Sol. ${si + 1}`, sol.length, sol.join(' + '), ...order, hit(10), hit(21)]);
-            aoa.push(['', '', 'Suma de scores', ...order.map(n => Math.round(sums[n - 1] * 100) / 100)]);
+            for (let p = 1; p <= numCols; p++) {
+                const val = order[p - 1];
+                if (!colValues[p - 1].includes(val)) {
+                    colValues[p - 1].push(val);
+                }
+            }
         });
-        sheets.push({ name: `Sorteo ${dNum}${drawObj ? '' : ' (próx)'}`, aoa });
+
+        const ws: any = {};
+        const setCell = (r: number, c: number, v: any, s?: any) => {
+            const cellRef = XLSX.utils.encode_cell({ r, c });
+            ws[cellRef] = { v, t: typeof v === 'number' ? 'n' : 's', ...(s ? { s } : {}) };
+        };
+
+        // Row 0: Draw info (no black fill)
+        setCell(0, 0, `Sorteo #${dNum}`, { font: { bold: true, sz: 12, color: { rgb: "333333" } } });
+        setCell(0, 1, 'Fecha', { font: { bold: true, color: { rgb: "666666" } } });
+        setCell(0, 2, drawObj?.date ?? 'Pendiente', { font: { italic: true, color: { rgb: "333333" } } });
+
+        // Row 1: Resultado
+        setCell(1, 0, 'Resultado', { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "555555" } }, alignment: { horizontal: "center", vertical: "center" } });
+        if (winners.length > 0) {
+            winners.forEach((w, wi) => {
+                const pColor = getWinnerPastelColor(w, winners);
+                setCell(1, wi + 1, w, {
+                    font: { bold: true, sz: 11, color: { rgb: "000000" } },
+                    fill: { fgColor: { rgb: pColor || "FFEB3B" } },
+                    alignment: { horizontal: "center", vertical: "center" }
+                });
+            });
+        } else {
+            setCell(1, 1, 'Pendiente (aún sin realizarse)', { font: { italic: true, color: { rgb: "666666" } } });
+        }
+
+        // Row 3: Headers (Pos 1 to Pos 28)
+        for (let p = 0; p < numCols; p++) {
+            setCell(3, p, `Pos ${p + 1}`, {
+                font: { bold: true, color: { rgb: "005B96" } },
+                fill: { fgColor: { rgb: "E0F7FA" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            });
+        }
+
+        // Rows 4+: Data numbers (no black background, pastel if winner)
+        const maxRows = Math.max(...colValues.map(arr => arr.length), 0);
+        for (let r = 0; r < maxRows; r++) {
+            for (let p = 0; p < numCols; p++) {
+                const val = colValues[p][r];
+                if (val !== undefined) {
+                    const pColor = getWinnerPastelColor(val, winners);
+                    const isWinner = pColor !== null;
+                    setCell(4 + r, p, val, {
+                        font: {
+                            bold: isWinner,
+                            color: { rgb: isWinner ? "000000" : "333333" }
+                        },
+                        ...(isWinner ? { fill: { fgColor: { rgb: pColor } } } : {}),
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            top: { style: "thin", color: { rgb: "E0E0E0" } },
+                            bottom: { style: "thin", color: { rgb: "E0E0E0" } },
+                            left: { style: "thin", color: { rgb: "E0E0E0" } },
+                            right: { style: "thin", color: { rgb: "E0E0E0" } }
+                        }
+                    });
+                }
+            }
+        }
+
+        // Table in AE4 (Column AE = col 30, Row 3 = Excel row 4 / index 3)
+        setCell(3, 30, 'Número', { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "444444" } }, alignment: { horizontal: "center", vertical: "center" } });
+        setCell(3, 31, 'Frecuencia', { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "444444" } }, alignment: { horizontal: "center", vertical: "center" } });
+
+        for (let n = 1; n <= 28; n++) {
+            const rowIdx = 3 + n; // Excel row 5 onwards
+            const pColor = getWinnerPastelColor(n, winners);
+            const isWinner = pColor !== null;
+
+            // Column AE (col 30): Number n (colored with winner pastel color if winning number)
+            setCell(rowIdx, 30, n, {
+                font: { bold: isWinner, color: { rgb: isWinner ? "000000" : "333333" } },
+                ...(isWinner ? { fill: { fgColor: { rgb: pColor } } } : {}),
+                alignment: { horizontal: "center", vertical: "center" },
+                border: {
+                    top: { style: "thin", color: { rgb: "CCCCCC" } },
+                    bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+                    left: { style: "thin", color: { rgb: "CCCCCC" } },
+                    right: { style: "thin", color: { rgb: "CCCCCC" } }
+                }
+            });
+
+            // Column AF (col 31): Formula =COUNTIF($A$4:$AB$126, AE5)
+            const cellRefAE = XLSX.utils.encode_cell({ r: rowIdx, c: 30 });
+            const formula = `COUNTIF($A$4:$AB$126, ${cellRefAE})`;
+            const afRef = XLSX.utils.encode_cell({ r: rowIdx, c: 31 });
+            ws[afRef] = { f: formula, t: 'n', s: {
+                alignment: { horizontal: "center", vertical: "center" },
+                border: {
+                    top: { style: "thin", color: { rgb: "CCCCCC" } },
+                    bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+                    left: { style: "thin", color: { rgb: "CCCCCC" } },
+                    right: { style: "thin", color: { rgb: "CCCCCC" } }
+                }
+            }};
+        }
+
+        ws['!ref'] = XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: Math.max(4 + maxRows - 1, 31), c: 31 }
+        });
+
+        const colWidths = Array.from({ length: 32 }, (_, c) => {
+            if (c < 28) return { wch: 7 };
+            if (c === 28 || c === 29) return { wch: 3 };
+            if (c === 30) return { wch: 8 };
+            return { wch: 11 };
+        });
+        ws['!cols'] = colWidths;
+
+        // Sheet numbering: 1 to 30 for historical draws, 'prox' for next draw
+        const sheetName = (di === draws.length - 1) ? 'prox' : String(di + 1);
+
+        sheets.push({ name: sheetName, ws });
     });
-    return { scoresAoa, sheets, skipped: soluciones.length - validSols.length };
+
+    return { sheets, skipped: soluciones.length - validSols.length };
 }
 function getOptimalPredictiveNumbers(drawNum: number, allDraws: Draw[], targetSize: number): number[] {
     const histIdx = allDraws.findIndex(d => d.num === drawNum);
@@ -4645,7 +4756,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     const COMPARATIVA_DRAWS = useMemo(() => getComparativaDraws(allDraws), [allDraws]);
     const [showEfficiencyReportModal, setShowEfficiencyReportModal] = useState(false);
     const [showFocusGraphModal, setShowFocusGraphModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'simulator' | 'simulatorC' | 'thesis' | 'gemini' | 'comparativa'>('simulatorC');
+    const [activeTab, setActiveTab] = useState<'simulatorC' | 'thesis' | 'comparativa'>('simulatorC');
     const [thesisSubTab, setThesisSubTab] = useState<'document' | 'optimize' | 'adendum'>('document');
     const [selectedScoreModalNum, setSelectedScoreModalNum] = useState<number | null>(null);
     const [isOptimizingThesis, setIsOptimizingThesis] = useState(false);
@@ -7056,12 +7167,6 @@ ${breakdownRows30.slice(20).join('\n')}
                                 🗑️ Limpiar Configs
                             </button>
                             <button 
-                                onClick={() => setActiveTab('simulator')} 
-                                className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${activeTab === 'simulator' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
-                            >
-                                🔬 Simulación por Iteraciones
-                            </button>
-                            <button 
                                 onClick={() => setActiveTab('simulatorC')} 
                                 className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${activeTab === 'simulatorC' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
                             >
@@ -7072,12 +7177,6 @@ ${breakdownRows30.slice(20).join('\n')}
                                 className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition flex items-center gap-1 ${activeTab === 'thesis' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#ffeb3b] hover:text-white'}`}
                             >
                                 📜 TESIS 14
-                            </button>
-                            <button 
-                                onClick={() => setActiveTab('gemini')} 
-                                className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition flex items-center gap-1 ${activeTab === 'gemini' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#aaa] hover:text-white'}`}
-                            >
-                                🤖 Gemini
                             </button>
                             <button 
                                 onClick={() => setActiveTab('comparativa')} 
@@ -7094,113 +7193,6 @@ ${breakdownRows30.slice(20).join('\n')}
                             <div>
                                 <div className="text-[10px] font-black text-[#ffeb3b]">📜 Tesis de Análisis Predictivo & Científico V4 ML</div>
                                 <div className="text-[8px] text-[#888]">Estudio formal basado en escaneo de Simulador C e Iteraciones.</div>
-                            </div>
-                        ) : activeTab === 'simulator' ? (
-                            <div className="flex items-center justify-between flex-wrap gap-2 w-full">
-                                <div>
-                                    <div className="text-[10px] font-black text-[#ffeb3b]">Simulador por Iteraciones - Selector y Ejecución</div>
-                                    <div className="text-[8px] text-[#888]">Configura iteraciones, pool sizes y frecuencias.</div>
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-wrap w-full md:w-auto">
-                                    <select 
-                                        value={selectedTargetDrawNum} 
-                                        onChange={(e) => setSelectedTargetDrawNum(parseInt(e.target.value))}
-                                        className="bg-[#222] text-[#ffeb3b] border border-[#00e5ff]/50 rounded-lg px-2 py-1 text-[10px] font-black cursor-pointer shadow-sm"
-                                    >
-                                                                                 <option value={0}>Próximo Sorteo (En Vivo)</option>
-                                         <option value={-20}>- 20 ÚLTIMOS</option>
-                                         <option value={-30}>- 30 ÚLTIMOS</option>
-                                        {allDraws.slice(-30).reverse().map(d => (
-                                            <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
-                                        ))}
-                                    </select>
-                                    <select 
-                                        value={iterOptMode} 
-                                        onChange={(e) => setIterOptMode(e.target.value as 'madre' | 'sub5' | 'experimental' | 'stochastic1' | 'stochastic2' | 'tunner' | 'smooth' | 'greenV')}
-                                        className="bg-[#222] text-[#00e5ff] border border-[#00e5ff]/50 rounded-lg px-2 py-1 text-[10px] font-bold cursor-pointer"
-                                        title="Seleccionar Objetivo de Optimización"
-                                    >
-                                                                                                                         <option value="madre">🎯 Foco: Madre (~27#)</option>
-                                                                                <option value="sub5">🎯 Foco: Cierre (~12#)</option>
-                                                                                <option value="experimental">🔬 Foco: Avanzado (~18#)</option>
-                                                                                <option value="stochastic1">🎲 Foco: Estocástico 1</option>
-                                                                                <option value="stochastic2">🎲 Foco: Estocástico 2</option>
-                                                                                 <option value="tunner">🎛️ Foco: TUNNER</option>
-                                                                                 <option value="smooth">🌊 Foco: SMOOTH</option>
-                                                                                 <option value="greenV">🟢 Foco: Perfil V Verde</option>
-                                    </select>
-                                    <button 
-                                        onClick={optimizeStatisticalSimulator}
-                                        className="bg-[#00e5ff] text-black hover:bg-[#00d0eb] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
-                                    >
-                                        ⚡ Optimizar
-                                    </button>
-                                    <button 
-                                        onClick={runSimulation}
-                                        disabled={isSimulating}
-                                        className="bg-[#7c4dff] text-white hover:bg-[#6c3fe0] px-3 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition shadow-md flex items-center gap-1"
-                                    >
-                                        🚀 {isSimulating ? 'Simulando...' : 'Simulación'}
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            if (simResults.length === 0) {
-                                                runSimulation();
-                                            }
-                                            setShowEfficiencyReportModal(true);
-                                        }}
-                                        className="bg-[rgba(124,77,255,.2)] border border-[rgba(124,77,255,.5)] text-[#b388ff] hover:bg-[rgba(124,77,255,.3)] px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
-                                        title="Analizar eficiencia de las 6 iteraciones en sorteos pasados"
-                                    >
-                                        📊 Analizar Eficiencia
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            if (simResults.length === 0) {
-                                                runSimulation();
-                                            }
-                                            setShowFocusGraphModal(true);
-                                        }}
-                                        className="bg-[rgba(0,229,255,.2)] border border-[rgba(0,229,255,.5)] text-[#00e5ff] hover:bg-[#00e5ff]/30 px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer transition flex items-center gap-1"
-                                        title="Analizar gráficamente los focos de optimización (XY)"
-                                    >
-                                        📈 Análisis Gráfico Focos
-                                    </button>
-                                    <div className="flex items-center gap-1 ml-auto">
-                                        <select 
-                                            onChange={(e) => handleLoadIterativeRecipe(e.target.value)}
-                                            className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2 py-1 text-[10px] font-bold cursor-pointer"
-                                            defaultValue=""
-                                            title="Cargar Receta"
-                                        >
-                                            <option value="" disabled>📂 Cargar...</option>
-                                            {customRecipes.filter(r => r.simulatorType === 'simulator').map(r => (
-                                                <option key={r.id} value={r.id}>{r.name}</option>
-                                            ))}
-                                        </select>
-                                        <button 
-                                            onClick={() => setShowSaveRecipeModal(true)}
-                                            className="bg-[#2e7d32] text-white px-2 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer hover:bg-[#1b5e20] transition shadow-md"
-                                            title="Guardar Receta"
-                                        >
-                                            💾
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : activeTab === 'gemini' ? (
-                            <div className="flex items-center justify-between flex-wrap gap-2 w-full">
-                                <div>
-                                    <div className="text-[10px] font-black text-[#ffeb3b]">🤖 Simulador Gemini (RandomForest) - Selector y Ejecución</div>
-                                    <div className="text-[8px] text-[#888]">RandomForest multi-salida (28 bolillas) con retardo y frecuencias rodantes (ventanas 5/10/20). Entrena 28 bosques y ordena las bolillas por probabilidad. Grupos de 5, 10, 14 y 22 con técnica ±1.</div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <label className="text-[9px] text-[#aaa]">Árboles por bolilla</label>
-                                    <input type="number" min={10} max={200} step={10} value={geminiEstimators} onChange={(e) => setGeminiEstimators(Math.max(10, Math.min(200, parseInt(e.target.value) || 100)))} disabled={geminiTraining} className="bg-[#222] text-white border border-[#00e5ff]/50 rounded-lg px-2 py-1 text-[10px] font-black w-[70px]" />
-                                    <button onClick={() => runGemini()} disabled={geminiTraining} className="bg-[#7c4dff] text-white text-[11px] font-black rounded-lg px-3 py-1 cursor-pointer hover:opacity-90 transition disabled:opacity-50">
-                                        {geminiTraining ? `⏳ Entrenando… ${geminiProgress.done}/${geminiProgress.total}` : '⚡ Entrenar Gemini'}
-                                    </button>
-                                </div>
                             </div>
                         ) : activeTab === 'comparativa' ? (
                             <div className="flex items-center justify-between flex-wrap gap-2 w-full">
@@ -7604,1510 +7596,6 @@ ${breakdownRows30.slice(20).join('\n')}
                                 </div>
                             )}
                         </div>
-                    ) : activeTab === 'simulator' ? (
-                        <div className="space-y-4">
-
-                            {/* User Picks Selector (Deterministic & Immutable) */}
-                            <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-md">
-                                <div className="flex justify-between items-center mb-1 flex-wrap gap-2">
-                                    <div>
-                                        <div className="text-[11px] font-black text-[#ffeb3b]">🎯 Tus Picks Fijos / Favoritos (Inmutables & Deterministas)</div>
-                                        <div className="text-[9px] text-[#888]">Selecciona tus números (1 a 28). Se integran de forma armónica e inmutable en el modelo para potenciar los aciertos.</div>
-                                    </div>
-                                    {userPicks.length > 0 && (
-                                        <button 
-                                            onClick={() => { setUserPicks([]); localStorage.removeItem('chispazo_user_picks'); showLocToast("Picks de usuario limpiados."); }}
-                                            className="text-[9px] bg-[#222] border border-[#ff5252]/40 text-[#ff5252] px-2 py-0.5 rounded cursor-pointer hover:bg-[#ff5252]/20"
-                                        >
-                                            Limpiar ({userPicks.length})
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="grid grid-cols-7 sm:grid-cols-14 gap-1 mt-2">
-                                    {Array.from({length: 28}, (_, i) => i + 1).map(n => {
-                                        const isPicked = userPicks.includes(n);
-                                        return (
-                                            <button
-                                                key={n}
-                                                onClick={() => toggleUserPick(n)}
-                                                className={`py-1 rounded text-[10px] font-black border transition cursor-pointer ${isPicked ? 'bg-[#ffeb3b] text-black border-[#ffeb3b] shadow-[0_0_8px_rgba(255,235,59,0.4)]' : 'bg-[#222] text-[#aaa] border-[#333] hover:border-[#ffeb3b]/50'}`}
-                                            >
-                                                {String(n).padStart(2, '0')}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* ESCENARIO MADRE (ITERACIÓN #1) - Simplified Collapsed View by Default */}
-                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${madreActive ? 'border-[#00e5ff]/40 shadow-[0_0_10px_rgba(0,229,255,0.1)]' : 'border-[#333] opacity-65'}`}>
-                                <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div className="flex items-center gap-2.5">
-                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={madreActive} 
-                                                onChange={(e) => setMadreActive(e.target.checked)}
-                                                className="cursor-pointer accent-[#00e5ff]"
-                                            />
-                                            <span style={{color: madreActive ? '#00e5ff' : '#888'}}>
-                                                {madreActive ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
-                                            </span>
-                                        </label>
-                                        <div>
-                                            <h3 className="text-[12px] font-black text-[#00e5ff]">Iteración #1 (Base / Madre) — Alta Eficiencia</h3>
-                                            <p className="text-[9px] text-[#888]">
-                                                {selectedTargetDrawNum === 0 ? 'Predicción para el Próximo Sorteo' : `Análisis sobre Sorteo #${selectedTargetDrawNum}`} | {liveTargetResult.motherFiltered.length} Números Resultantes
-                                                {liveTargetResult.hitsMadre !== null && ` | Aciertos: ${liveTargetResult.hitsMadre} ac`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setMadreExpanded(!madreExpanded)}
-                                        className="bg-[#00e5ff]/20 border border-[#00e5ff]/50 text-[#00e5ff] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#00e5ff]/30 transition"
-                                    >
-                                        {madreExpanded ? '▲ Ocultar Checkboxes' : '⚙️ Configurar Pool Sizes (Expandir)'}
-                                    </button>
-                                </div>
-
-                                {/* Resulting numbers preview badge */}
-                                <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #1):</div>
-                                        <button 
-                                            onClick={() => {
-                                                const txt = liveTargetResult.motherFiltered.map(n => String(n).padStart(2, '0')).join(' ');
-                                                navigator.clipboard.writeText(txt);
-                                                showLocToast("¡Números de Escenario Madre copiados al portapapeles!");
-                                            }}
-                                            className="bg-[#00e5ff]/20 border border-[#00e5ff]/50 text-[#00e5ff] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#00e5ff]/30 transition flex items-center gap-1"
-                                        >
-                                            📋 Copiar
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {liveTargetResult.motherFiltered.map(n => {
-                                            const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
-                                            return (
-                                                <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#ffeb3b]'}`}>
-                                                    {String(n).padStart(2, '0')}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-
-
-                                {madreExpanded && (
-                                    <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
-                                        <div className="bg-[#141414] border border-[#00e5ff]/40 rounded-xl p-3 mb-3">
-                                            <div className="text-[11px] font-black text-[#00e5ff] mb-1">🎯 Selector de Frecuencias Finales (Escenario Madre):</div>
-                                            <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias finales aplicado al conjunto combinado de los pool sizes de esta iteración.</div>
-                                            <div className="flex gap-1.5 flex-wrap">
-                                                {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                    const fActive = madreFinalFreqs[f];
-                                                    return (
-                                                        <label key={f} className={`flex items-center gap-1 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#00e5ff]/25 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                            <input type="checkbox" checked={fActive} onChange={(e) => setMadreFinalFreqs({...madreFinalFreqs, [f]: e.target.checked})} className="sr-only" />
-                                                            <span>F{f}</span>
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                        {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                            const cfg = madreConfigs[sz];
-                                            return (
-                                                <div key={sz} className={`border rounded-xl p-2.5 transition ${cfg.enabled ? 'bg-[#1e1e1e] border-[#00e5ff]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={cfg.enabled} 
-                                                                onChange={(e) => {
-                                                                    const updated = { ...madreConfigs };
-                                                                    updated[sz] = { ...updated[sz], enabled: e.target.checked };
-                                                                    setMadreConfigs(updated);
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${cfg.enabled ? 'bg-[#00e5ff] text-black font-black' : 'bg-[#222] border border-[#444]'}`}>
-                                                                {cfg.enabled ? '✓' : ''}
-                                                            </span>
-                                                            <span className="text-[11px] font-black text-[#00e5ff]">Pool Size: {sz} números</span>
-                                                        </label>
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#00e5ff]/20 text-[#00e5ff]' : 'bg-[#222] text-[#666]'}`}>
-                                                            {cfg.enabled ? 'Activo' : 'Inactivo'}
-                                                        </span>
-                                                    </div>
-
-                                                    {cfg.enabled && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#262626]">
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {Object.keys(cfg.pools).map(pid => {
-                                                                        const pActive = cfg.pools[pid];
-                                                                        return (
-                                                                            <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${pActive ? 'bg-[#00e5ff]/20 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={pActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...madreConfigs };
-                                                                                        updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
-                                                                                        setMadreConfigs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>{pid.toUpperCase()}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                        const fActive = cfg.freqs[f];
-                                                                        return (
-                                                                            <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#ffeb3b]/20 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={fActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...madreConfigs };
-                                                                                        updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
-                                                                                        setMadreConfigs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>F{f}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ========================================================= */}
-                            {/* SUBESCENARIO 1 (ITERACIÓN #2) - Simplified Collapsed View  */}
-                            {/* ========================================================= */}
-                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub1Active ? 'border-[#ffeb3b]/40 shadow-[0_0_12px_rgba(255,235,59,0.1)]' : 'border-[#333] opacity-65'}`}>
-                                <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div className="flex items-center gap-2.5">
-                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={sub1Active} 
-                                                onChange={(e) => setSub1Active(e.target.checked)}
-                                                className="cursor-pointer accent-[#ffeb3b]"
-                                            />
-                                            <span style={{color: sub1Active ? '#ffeb3b' : '#888'}}>
-                                                {sub1Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
-                                            </span>
-                                        </label>
-                                        <div>
-                                            <h3 className="text-[12px] font-black text-[#ffeb3b]">Iteración #2 (Filtro Primario) — Promedio ~24 Números</h3>
-                                            <p className="text-[9px] text-[#888]">
-                                                Entrada: Madre ({liveTargetResult.motherFiltered.length}#) → Sub1 ({liveTargetResult.subFiltered.length}#) | Reducción: -{liveTargetResult.redPct}%
-                                                {liveTargetResult.hitsSub1 !== null && ` | Aciertos: ${liveTargetResult.hitsSub1} ac`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setSub1Expanded(!sub1Expanded)}
-                                        className="bg-[#ffeb3b]/20 border border-[#ffeb3b]/50 text-[#ffeb3b] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#ffeb3b]/30 transition"
-                                    >
-                                        {sub1Expanded ? '▲ Ocultar Checkboxes' : '⚙️ Configurar Pool Sizes (Expandir)'}
-                                    </button>
-                                </div>
-
-                                {/* Resulting numbers preview badge */}
-                                <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #2):</div>
-                                        <button 
-                                            onClick={() => {
-                                                const txt = liveTargetResult.subFiltered.map(n => String(n).padStart(2, '0')).join(' ');
-                                                navigator.clipboard.writeText(txt);
-                                                showLocToast("¡Números de Subescenario 1 copiados al portapapeles!");
-                                            }}
-                                            className="bg-[#ffeb3b]/20 border border-[#ffeb3b]/50 text-[#ffeb3b] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#ffeb3b]/30 transition flex items-center gap-1"
-                                        >
-                                            📋 Copiar
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {liveTargetResult.subFiltered.map(n => {
-                                            const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
-                                            return (
-                                                <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#ffeb3b]'}`}>
-                                                    {String(n).padStart(2, '0')}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-
-
-                                {sub1Expanded && (
-                                    <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
-                                        {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                            const cfg = sub1Configs[sz];
-                                            return (
-                                                <div key={sz} className={`border rounded-xl p-2.5 transition ${cfg.enabled ? 'bg-[#1e1e1e] border-[#ffeb3b]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={cfg.enabled} 
-                                                                onChange={(e) => {
-                                                                    const updated = { ...sub1Configs };
-                                                                    updated[sz] = { ...updated[sz], enabled: e.target.checked };
-                                                                    setSub1Configs(updated);
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${cfg.enabled ? 'bg-[#ffeb3b] text-black font-black' : 'bg-[#222] border border-[#444]'}`}>
-                                                                {cfg.enabled ? '✓' : ''}
-                                                            </span>
-                                                            <span className="text-[11px] font-black text-[#ffeb3b]">Sub1 Pool Size: {sz} números</span>
-                                                        </label>
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#ffeb3b]/20 text-[#ffeb3b]' : 'bg-[#222] text-[#666]'}`}>
-                                                            {cfg.enabled ? 'Activo' : 'Inactivo'}
-                                                        </span>
-                                                    </div>
-
-                                                    {cfg.enabled && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#262626]">
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {Object.keys(cfg.pools).map(pid => {
-                                                                        const pActive = cfg.pools[pid];
-                                                                        return (
-                                                                            <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${pActive ? 'bg-[#ffeb3b]/20 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={pActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub1Configs };
-                                                                                        updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
-                                                                                        setSub1Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>{pid.toUpperCase()}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                        const fActive = cfg.freqs[f];
-                                                                        return (
-                                                                            <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#00e5ff]/20 border-[#00e5ff] text-[#00e5ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={fActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub1Configs };
-                                                                                        updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
-                                                                                        setSub1Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>F{f}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ========================================================= */}
-                            {/* SUBESCENARIO 2 (ITERACIÓN #3) - Simplified Collapsed View  */}
-                            {/* ========================================================= */}
-                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub2Active ? 'border-[#7c4dff]/40 shadow-[0_0_12px_rgba(124,77,255,0.1)]' : 'border-[#333] opacity-65'}`}>
-                                <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div className="flex items-center gap-2.5">
-                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={sub2Active} 
-                                                onChange={(e) => setSub2Active(e.target.checked)}
-                                                className="cursor-pointer accent-[#b388ff]"
-                                            />
-                                            <span style={{color: sub2Active ? '#b388ff' : '#888'}}>
-                                                {sub2Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
-                                            </span>
-                                        </label>
-                                        <div>
-                                            <h3 className="text-[12px] font-black text-[#b388ff]">Iteración #3 (Filtro Secundario) — Promedio ~21 Números</h3>
-                                            <p className="text-[9px] text-[#888]">
-                                                Entrada: Sub1 ({liveTargetResult.subFiltered.length}#) → Sub2 ({liveTargetResult.sub2Filtered.length}#) | Reducción: -{liveTargetResult.red2Pct}%
-                                                {liveTargetResult.hitsSub2 !== null && ` | Aciertos: ${liveTargetResult.hitsSub2} ac`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setSub2Expanded(!sub2Expanded)}
-                                        className="bg-[#7c4dff]/20 border border-[#7c4dff]/50 text-[#b388ff] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#7c4dff]/30 transition"
-                                    >
-                                        {sub2Expanded ? '▲ Ocultar Checkboxes' : '⚙️ Configurar Pool Sizes (Expandir)'}
-                                    </button>
-                                </div>
-
-                                {/* Resulting numbers preview badge */}
-                                <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #3):</div>
-                                        <button 
-                                            onClick={() => {
-                                                const txt = liveTargetResult.sub2Filtered.map(n => String(n).padStart(2, '0')).join(' ');
-                                                navigator.clipboard.writeText(txt);
-                                                showLocToast("¡Números de Subescenario 2 copiados al portapapeles!");
-                                            }}
-                                            className="bg-[#7c4dff]/20 border border-[#7c4dff]/50 text-[#b388ff] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#7c4dff]/30 transition flex items-center gap-1"
-                                        >
-                                            📋 Copiar
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {liveTargetResult.sub2Filtered.map(n => {
-                                            const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
-                                            return (
-                                                <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#b388ff]'}`}>
-                                                    {String(n).padStart(2, '0')}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-
-
-                                {sub2Expanded && (
-                                    <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
-                                        {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                            const cfg = sub2Configs[sz];
-                                            return (
-                                                <div key={sz} className={`border rounded-xl p-2.5 transition ${cfg.enabled ? 'bg-[#1e1e1e] border-[#7c4dff]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={cfg.enabled} 
-                                                                onChange={(e) => {
-                                                                    const updated = { ...sub2Configs };
-                                                                    updated[sz] = { ...updated[sz], enabled: e.target.checked };
-                                                                    setSub2Configs(updated);
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${cfg.enabled ? 'bg-[#7c4dff] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
-                                                                {cfg.enabled ? '✓' : ''}
-                                                            </span>
-                                                            <span className="text-[11px] font-black text-[#b388ff]">Sub2 Pool Size: {sz} números</span>
-                                                        </label>
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#7c4dff]/20 text-[#b388ff]' : 'bg-[#222] text-[#666]'}`}>
-                                                            {cfg.enabled ? 'Activo' : 'Inactivo'}
-                                                        </span>
-                                                    </div>
-
-                                                    {cfg.enabled && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#262626]">
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {Object.keys(cfg.pools).map(pid => {
-                                                                        const pActive = cfg.pools[pid];
-                                                                        return (
-                                                                            <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${pActive ? 'bg-[#7c4dff]/20 border-[#7c4dff] text-[#b388ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={pActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub2Configs };
-                                                                                        updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
-                                                                                        setSub2Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>{pid.toUpperCase()}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                        const fActive = cfg.freqs[f];
-                                                                        return (
-                                                                            <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#7c4dff]/20 border-[#7c4dff] text-[#b388ff]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={fActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub2Configs };
-                                                                                        updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
-                                                                                        setSub2Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>F{f}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ========================================================= */}
-                            {/* SUBESCENARIO 3 (ITERACIÓN #4) - Simplified Collapsed View  */}
-                            {/* ========================================================= */}
-                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub3Active ? 'border-[#26c6da]/40 shadow-[0_0_12px_rgba(38,198,218,0.1)]' : 'border-[#333] opacity-65'}`}>
-                                <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div className="flex items-center gap-2.5">
-                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={sub3Active} 
-                                                onChange={(e) => setSub3Active(e.target.checked)}
-                                                className="cursor-pointer accent-[#26c6da]"
-                                            />
-                                            <span style={{color: sub3Active ? '#26c6da' : '#888'}}>
-                                                {sub3Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
-                                            </span>
-                                        </label>
-                                        <div>
-                                            <h3 className="text-[12px] font-black text-[#26c6da]">Iteración #4 (Filtro Avanzado) — Promedio ~18 Números</h3>
-                                            <p className="text-[9px] text-[#888]">
-                                                Entrada: Sub2 ({liveTargetResult.sub2Filtered.length}#) → Sub3 ({liveTargetResult.sub3Filtered.length}#) | Reducción: -{liveTargetResult.red3Pct}%
-                                                {liveTargetResult.hitsSub3 !== null && ` | Aciertos: ${liveTargetResult.hitsSub3} ac`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setSub3Expanded(!sub3Expanded)}
-                                        className="bg-[#26c6da]/20 border border-[#26c6da]/50 text-[#26c6da] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#26c6da]/30 transition"
-                                    >
-                                        {sub3Expanded ? '▲ Ocultar Checkboxes' : '⚙️ Configurar Pool Sizes (Expandir)'}
-                                    </button>
-                                </div>
-
-                                {/* Resulting numbers preview badge */}
-                                <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #4):</div>
-                                        <button 
-                                            onClick={() => {
-                                                const txt = liveTargetResult.sub3Filtered.map(n => String(n).padStart(2, '0')).join(' ');
-                                                navigator.clipboard.writeText(txt);
-                                                showLocToast("¡Números de Subescenario 3 copiados al portapapeles!");
-                                            }}
-                                            className="bg-[#26c6da]/20 border border-[#26c6da]/50 text-[#26c6da] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#26c6da]/30 transition flex items-center gap-1"
-                                        >
-                                            📋 Copiar
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {liveTargetResult.sub3Filtered.map(n => {
-                                            const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
-                                            return (
-                                                <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#26c6da]'}`}>
-                                                    {String(n).padStart(2, '0')}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-
-
-                                {sub3Expanded && (
-                                    <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
-                                        {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                            const cfg = sub3Configs[sz];
-                                            return (
-                                                <div key={sz} className={`border rounded-xl p-2.5 transition ${cfg.enabled ? 'bg-[#1e1e1e] border-[#26c6da]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={cfg.enabled} 
-                                                                onChange={(e) => {
-                                                                    const updated = { ...sub3Configs };
-                                                                    updated[sz] = { ...updated[sz], enabled: e.target.checked };
-                                                                    setSub3Configs(updated);
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${cfg.enabled ? 'bg-[#26c6da] text-black font-black' : 'bg-[#222] border border-[#444]'}`}>
-                                                                {cfg.enabled ? '✓' : ''}
-                                                            </span>
-                                                            <span className="text-[11px] font-black text-[#26c6da]">Sub3 Pool Size: {sz} números</span>
-                                                        </label>
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#26c6da]/20 text-[#26c6da]' : 'bg-[#222] text-[#666]'}`}>
-                                                            {cfg.enabled ? 'Activo' : 'Inactivo'}
-                                                        </span>
-                                                    </div>
-
-                                                    {cfg.enabled && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#262626]">
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {Object.keys(cfg.pools).map(pid => {
-                                                                        const pActive = cfg.pools[pid];
-                                                                        return (
-                                                                            <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${pActive ? 'bg-[#26c6da]/20 border-[#26c6da] text-[#26c6da]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={pActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub3Configs };
-                                                                                        updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
-                                                                                        setSub3Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>{pid.toUpperCase()}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                        const fActive = cfg.freqs[f];
-                                                                        return (
-                                                                            <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#26c6da]/20 border-[#26c6da] text-[#26c6da]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={fActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub3Configs };
-                                                                                        updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
-                                                                                        setSub3Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>F{f}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ========================================================= */}
-                            {/* SUBESCENARIO 4 (ITERACIÓN #5) - Simplified Collapsed View  */}
-                            {/* ========================================================= */}
-                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub4Active ? 'border-[#e040fb]/40 shadow-[0_0_12px_rgba(224,64,251,0.1)]' : 'border-[#333] opacity-65'}`}>
-                                <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div className="flex items-center gap-2.5">
-                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={sub4Active} 
-                                                onChange={(e) => setSub4Active(e.target.checked)}
-                                                className="cursor-pointer accent-[#e040fb]"
-                                            />
-                                            <span style={{color: sub4Active ? '#e040fb' : '#888'}}>
-                                                {sub4Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
-                                            </span>
-                                        </label>
-                                        <div>
-                                            <h3 className="text-[12px] font-black text-[#e040fb]">Iteración #5 (Filtro de Precisión) — Promedio ~15 Números</h3>
-                                            <p className="text-[9px] text-[#888]">
-                                                Entrada: Sub3 ({liveTargetResult.sub3Filtered.length}#) → Sub4 ({liveTargetResult.sub4Filtered.length}#) | Reducción: -{liveTargetResult.red4Pct}%
-                                                {liveTargetResult.hitsSub4 !== null && ` | Aciertos: ${liveTargetResult.hitsSub4} ac`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setSub4Expanded(!sub4Expanded)}
-                                        className="bg-[#e040fb]/20 border border-[#e040fb]/50 text-[#e040fb] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#e040fb]/30 transition"
-                                    >
-                                        {sub4Expanded ? '▲ Ocultar Checkboxes' : '⚙️ Configurar Pool Sizes (Expandir)'}
-                                    </button>
-                                </div>
-
-                                {/* Resulting numbers preview badge */}
-                                <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #5):</div>
-                                        <button 
-                                            onClick={() => {
-                                                const txt = liveTargetResult.sub4Filtered.map(n => String(n).padStart(2, '0')).join(' ');
-                                                navigator.clipboard.writeText(txt);
-                                                showLocToast("¡Números de Subescenario 4 copiados al portapapeles!");
-                                            }}
-                                            className="bg-[#e040fb]/20 border border-[#e040fb]/50 text-[#e040fb] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#e040fb]/30 transition flex items-center gap-1"
-                                        >
-                                            📋 Copiar
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {liveTargetResult.sub4Filtered.map(n => {
-                                            const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
-                                            return (
-                                                <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#e040fb]'}`}>
-                                                    {String(n).padStart(2, '0')}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-
-
-                                {sub4Expanded && (
-                                    <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
-                                        {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                            const cfg = sub4Configs[sz];
-                                            return (
-                                                <div key={sz} className={`border rounded-xl p-2.5 transition ${cfg.enabled ? 'bg-[#1e1e1e] border-[#e040fb]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={cfg.enabled} 
-                                                                onChange={(e) => {
-                                                                    const updated = { ...sub4Configs };
-                                                                    updated[sz] = { ...updated[sz], enabled: e.target.checked };
-                                                                    setSub4Configs(updated);
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${cfg.enabled ? 'bg-[#e040fb] text-white font-black' : 'bg-[#222] border border-[#444]'}`}>
-                                                                {cfg.enabled ? '✓' : ''}
-                                                            </span>
-                                                            <span className="text-[11px] font-black text-[#e040fb]">Sub4 Pool Size: {sz} números</span>
-                                                        </label>
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#e040fb]/20 text-[#e040fb]' : 'bg-[#222] text-[#666]'}`}>
-                                                            {cfg.enabled ? 'Activo' : 'Inactivo'}
-                                                        </span>
-                                                    </div>
-
-                                                    {cfg.enabled && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#262626]">
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {Object.keys(cfg.pools).map(pid => {
-                                                                        const pActive = cfg.pools[pid];
-                                                                        return (
-                                                                            <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${pActive ? 'bg-[#e040fb]/20 border-[#e040fb] text-[#e040fb]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={pActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub4Configs };
-                                                                                        updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
-                                                                                        setSub4Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>{pid.toUpperCase()}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                        const fActive = cfg.freqs[f];
-                                                                        return (
-                                                                            <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#e040fb]/20 border-[#e040fb] text-[#e040fb]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={fActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub4Configs };
-                                                                                        updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
-                                                                                        setSub4Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>F{f}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ========================================================= */}
-                            {/* SUBESCENARIO 5 (ITERACIÓN #6) - Simplified Collapsed View  */}
-                            {/* ========================================================= */}
-                            <div className={`bg-[#181818] border rounded-xl p-3 shadow-md transition ${sub5Active ? 'border-[#00e676]/40 shadow-[0_0_12px_rgba(0,230,118,0.1)]' : 'border-[#333] opacity-65'}`}>
-                                <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
-                                    <div className="flex items-center gap-2.5">
-                                        <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer bg-[#222] border border-[#333] px-2.5 py-1 rounded-lg">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={sub5Active} 
-                                                onChange={(e) => setSub5Active(e.target.checked)}
-                                                className="cursor-pointer accent-[#00e676]"
-                                            />
-                                            <span style={{color: sub5Active ? '#00e676' : '#888'}}>
-                                                {sub5Active ? '● Participa (Activa)' : '○ Omitida (Cascading)'}
-                                            </span>
-                                        </label>
-                                        <div>
-                                            <h3 className="text-[12px] font-black text-[#00e676]">Iteración #6 (Filtro Experto / Cierre) — Promedio ~12 Números</h3>
-                                            <p className="text-[9px] text-[#888]">
-                                                Entrada: Sub4 ({liveTargetResult.sub4Filtered.length}#) → Sub5 ({liveTargetResult.sub5Filtered.length}#) | Reducción: -{liveTargetResult.red5Pct}%
-                                                {liveTargetResult.hitsSub5 !== null && ` | Aciertos: ${liveTargetResult.hitsSub5} ac`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setSub5Expanded(!sub5Expanded)}
-                                        className="bg-[#00e676]/20 border border-[#00e676]/50 text-[#00e676] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#00e676]/30 transition"
-                                    >
-                                        {sub5Expanded ? '▲ Ocultar Checkboxes' : '⚙️ Configurar Pool Sizes (Expandir)'}
-                                    </button>
-                                </div>
-
-                                {/* Resulting numbers preview badge */}
-                                <div className="bg-[#121212] border border-[#2a2a2a] rounded-lg p-2 mb-2">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] font-bold text-[#aaa]">Números Resultantes (Iteración #6):</div>
-                                        <button 
-                                            onClick={() => {
-                                                const txt = liveTargetResult.sub5Filtered.map(n => String(n).padStart(2, '0')).join(' ');
-                                                navigator.clipboard.writeText(txt);
-                                                showLocToast("¡Números de Subescenario 5 copiados al portapapeles!");
-                                            }}
-                                            className="bg-[#00e676]/20 border border-[#00e676]/50 text-[#00e676] px-2 py-0.5 rounded text-[9px] font-extrabold cursor-pointer hover:bg-[#00e676]/30 transition flex items-center gap-1"
-                                        >
-                                            📋 Copiar
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {liveTargetResult.sub5Filtered.map(n => {
-                                            const isWin = liveTargetResult.targetDrawObj ? liveTargetResult.targetDrawObj.win.includes(n) : false;
-                                            return (
-                                                <span key={n} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#00e676]'}`}>
-                                                    {String(n).padStart(2, '0')}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-
-
-                                {sub5Expanded && (
-                                    <div className="space-y-2.5 mt-3 pt-3 border-t border-[#333]">
-                                        {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                            const cfg = sub5Configs[sz];
-                                            return (
-                                                <div key={sz} className={`border rounded-xl p-2.5 transition ${cfg.enabled ? 'bg-[#1e1e1e] border-[#00e676]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={cfg.enabled} 
-                                                                onChange={(e) => {
-                                                                    const updated = { ...sub5Configs };
-                                                                    updated[sz] = { ...updated[sz], enabled: e.target.checked };
-                                                                    setSub5Configs(updated);
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${cfg.enabled ? 'bg-[#00e676] text-black font-black' : 'bg-[#222] border border-[#444]'}`}>
-                                                                {cfg.enabled ? '✓' : ''}
-                                                            </span>
-                                                            <span className="text-[11px] font-black text-[#00e676]">Sub5 Pool Size: {sz} números</span>
-                                                        </label>
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#00e676]/20 text-[#00e676]' : 'bg-[#222] text-[#666]'}`}>
-                                                            {cfg.enabled ? 'Activo' : 'Inactivo'}
-                                                        </span>
-                                                    </div>
-
-                                                    {cfg.enabled && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#262626]">
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {Object.keys(cfg.pools).map(pid => {
-                                                                        const pActive = cfg.pools[pid];
-                                                                        return (
-                                                                            <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${pActive ? 'bg-[#00e676]/20 border-[#00e676] text-[#00e676]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={pActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub5Configs };
-                                                                                        updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
-                                                                                        setSub5Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>{pid.toUpperCase()}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1 flex-wrap">
-                                                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                        const fActive = cfg.freqs[f];
-                                                                        return (
-                                                                            <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#00e676]/20 border-[#00e676] text-[#00e676]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={fActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const updated = { ...sub5Configs };
-                                                                                        updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
-                                                                                        setSub5Configs(updated);
-                                                                                    }}
-                                                                                    className="sr-only"
-                                                                                />
-                                                                                <span>F{f}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                         <div className="mt-3 pt-3 border-t border-[#333]">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="text-[10px] font-black text-[#ffeb3b]">⚙️ Configuración Secundaria de Pools y Frecuencias (Expansión hasta 15 #)</span>
-                                                <button 
-                                                    onClick={() => setSub5SecondaryExpanded(!sub5SecondaryExpanded)}
-                                                    className="bg-[#ffeb3b]/20 border border-[#ffeb3b]/50 text-[#ffeb3b] px-2.5 py-0.5 rounded-full text-[9px] font-extrabold cursor-pointer hover:bg-[#ffeb3b]/30 transition"
-                                                >
-                                                    {sub5SecondaryExpanded ? '▲ Ocultar Config. Secundaria' : '⚙️ Configurar Secundaria (Expandir)'}
-                                                </button>
-                                            </div>
-                                            {sub5SecondaryExpanded && (
-                                                <div className="space-y-2 mt-2">
-                                                    {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                                        const secCfg = sub5SecondaryConfigs[sz];
-                                                        return (
-                                                            <div key={sz} className={`border rounded-xl p-2.5 transition ${secCfg.enabled ? 'bg-[#1e1e1e] border-[#ffeb3b]/50' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                                <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                                        <input 
-                                                                            type="checkbox" 
-                                                                            checked={secCfg.enabled} 
-                                                                            onChange={(e) => {
-                                                                                const updated = { ...sub5SecondaryConfigs };
-                                                                                updated[sz] = { ...updated[sz], enabled: e.target.checked };
-                                                                                setSub5SecondaryConfigs(updated);
-                                                                            }}
-                                                                            className="sr-only"
-                                                                        />
-                                                                        <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${secCfg.enabled ? 'bg-[#ffeb3b] text-black font-black' : 'bg-[#222] border border-[#444]'}`}>
-                                                                            {secCfg.enabled ? '✓' : ''}
-                                                                        </span>
-                                                                        <span className="text-[11px] font-black text-[#ffeb3b]">Sub5 Secundario Pool Size: {sz} números</span>
-                                                                    </label>
-                                                                    <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${secCfg.enabled ? 'bg-[#ffeb3b]/20 text-[#ffeb3b]' : 'bg-[#222] text-[#666]'}`}>
-                                                                        {secCfg.enabled ? 'Activo' : 'Inactivo'}
-                                                                    </span>
-                                                                </div>
-
-                                                                {secCfg.enabled && (
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#262626]">
-                                                                        <div>
-                                                                            <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS SECUNDARIOS (SZ {sz}#):</div>
-                                                                            <div className="flex gap-1 flex-wrap">
-                                                                                {Object.keys(secCfg.pools).map(pid => {
-                                                                                    const pActive = secCfg.pools[pid];
-                                                                                    return (
-                                                                                        <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${pActive ? 'bg-[#ffeb3b]/20 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                            <input 
-                                                                                                type="checkbox" 
-                                                                                                checked={pActive} 
-                                                                                                onChange={(e) => {
-                                                                                                    const updated = { ...sub5SecondaryConfigs };
-                                                                                                    updated[sz].pools = { ...updated[sz].pools, [pid]: e.target.checked };
-                                                                                                    setSub5SecondaryConfigs(updated);
-                                                                                                }}
-                                                                                                className="sr-only"
-                                                                                            />
-                                                                                            <span>{pid.toUpperCase()}</span>
-                                                                                        </label>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <div>
-                                                                            <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS SECUNDARIAS (SZ {sz}#):</div>
-                                                                            <div className="flex gap-1 flex-wrap">
-                                                                                {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                                    const fActive = secCfg.freqs[f];
-                                                                                    return (
-                                                                                        <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-0.5 rounded transition ${fActive ? 'bg-[#ffeb3b]/20 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                            <input 
-                                                                                                type="checkbox" 
-                                                                                                checked={fActive} 
-                                                                                                onChange={(e) => {
-                                                                                                    const updated = { ...sub5SecondaryConfigs };
-                                                                                                    updated[sz].freqs = { ...updated[sz].freqs, [f]: e.target.checked };
-                                                                                                    setSub5SecondaryConfigs(updated);
-                                                                                                }}
-                                                                                                className="sr-only"
-                                                                                            />
-                                                                                            <span>F{f}</span>
-                                                                                        </label>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            
-
-
-
-
-
-                            {simResults.length > 0 && (
-                                <div className="space-y-4">
-                                    {/* Comparative Summary Panel: All 6 Iterations Synthesized */}
-                                    <div className="bg-[#1a1a1a] border border-[#7c4dff]/50 rounded-xl p-3 shadow-xl">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <div className="text-[11px] font-black text-[#ffeb3b] flex items-center gap-1.5">
-                                                <span>⚖️ Panel Comparativo General (Las 6 Iteraciones) — Foco Activo: <span className="text-[#00e5ff] uppercase">{iterOptMode}</span></span>
-                                            </div>
-                                            <span className="text-[9px] text-[#888]">Basado en {simResults.length} sorteos evaluados</span>
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                                            {[
-                                                { name: 'Iteración #1 (Madre)', countKey: 'madreCount', hitKey: 'madreHits', color: '#00e5ff', active: madreActive },
-                                                { name: 'Iteración #2 (Primario)', countKey: 'sub1Count', hitKey: 'sub1Hits', color: '#ffeb3b', active: sub1Active },
-                                                { name: 'Iteración #3 (Secundario)', countKey: 'sub2Count', hitKey: 'sub2Hits', color: '#b388ff', active: sub2Active },
-                                                { name: 'Iteración #4 (Avanzado)', countKey: 'sub3Count', hitKey: 'sub3Hits', color: '#26c6da', active: sub3Active },
-                                                { name: 'Iteración #5 (Precisión)', countKey: 'sub4Count', hitKey: 'sub4Hits', color: '#e040fb', active: sub4Active },
-                                                { name: 'Iteración #6 (Cierre)', countKey: 'sub5Count', hitKey: 'sub5Hits', color: '#00e676', active: sub5Active }
-                                            ].map((it, idx) => {
-                                                const avgHits = (simResults.reduce((acc, r) => acc + (r[it.hitKey] || 0), 0) / simResults.length).toFixed(2);
-                                                const hits4Plus = simResults.filter(r => (r[it.hitKey] || 0) >= 4).length;
-                                                const hits5 = simResults.filter(r => (r[it.hitKey] || 0) === 5).length;
-                                                const avgCount = Math.round(simResults.reduce((acc, r) => acc + (r[it.countKey] || 0), 0) / simResults.length);
-                                                return (
-                                                    <div key={idx} className={`bg-[#121212] rounded-lg p-2.5 border transition ${it.active ? 'opacity-100 shadow-md' : 'opacity-50 border-dashed'}`} style={{borderColor: `${it.color}44`}}>
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <div className="text-[10px] font-black" style={{color: it.color}}>{it.name}</div>
-                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[#1a1a1a]" style={{color: it.color}}>Prom. {avgCount}#</span>
-                                                        </div>
-                                                        <div className="grid grid-cols-3 gap-1 text-center text-[9px]">
-                                                            <div className="bg-[#1a1a1a] p-1 rounded border border-[#333]">
-                                                                <div className="text-[#888] text-[7px]">Prom. Ac.</div>
-                                                                <div className="font-black text-[#ffeb3b]">{avgHits}</div>
-                                                            </div>
-                                                            <div className="bg-[#1a1a1a] p-1 rounded border border-[#333]">
-                                                                <div className="text-[#888] text-[7px]">4+ Ac.</div>
-                                                                <div className="font-black text-[#76ff03]">{hits4Plus} ({Math.round(hits4Plus / simResults.length * 100)}%)</div>
-                                                            </div>
-                                                            <div className="bg-[#1a1a1a] p-1 rounded border border-[#333]">
-                                                                <div className="text-[#888] text-[7px]">5 Ac.</div>
-                                                                <div className="font-black" style={{color: it.color}}>{hits5}</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* Active Focus Summary Box for Selected Draw */}
-                                    {(() => {
-                                        const targetNum = selectedTargetDrawNum === 0 ? (allDraws[allDraws.length - 1]?.num || 0) : selectedTargetDrawNum;
-                                        const targetRes = simResults.find(r => r.num === targetNum);
-                                        if (!targetRes) return null;
-                                        return (
-                                            <div className="bg-[rgba(0,229,255,0.08)] border border-[#00e5ff]/50 rounded-xl p-3 text-[11px] mb-3 shadow-md">
-                                                <div className="font-black text-[#ffeb3b] mb-1.5 flex items-center justify-between">
-                                                    <span>🎯 Desglose de Aciertos por Iteración (Sorteo #{targetRes.num} - Fecha: {allDraws.find(d => d.num === targetRes.num)?.date || ''})</span>
-                                                    <span className="text-[9px] text-[#00e5ff]">Ganadores: {targetRes.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</span>
-                                                </div>
-                                                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center text-[10px]">
-                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#00e5ff]/40">
-                                                        <div className="text-[#888] text-[8px]">Madre ~27#</div>
-                                                        <div className="font-black text-[#00e5ff] text-[12px]">{targetRes.madreHits} ac</div>
-                                                    </div>
-                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#ffeb3b]/40">
-                                                        <div className="text-[#888] text-[8px]">Prim. ~24#</div>
-                                                        <div className="font-black text-[#ffeb3b] text-[12px]">{targetRes.sub1Hits} ac</div>
-                                                    </div>
-                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#b388ff]/40">
-                                                        <div className="text-[#888] text-[8px]">Sec. ~21#</div>
-                                                        <div className="font-black text-[#b388ff] text-[12px]">{targetRes.sub2Hits} ac</div>
-                                                    </div>
-                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#26c6da]/40">
-                                                        <div className="text-[#888] text-[8px]">Avanz. ~18#</div>
-                                                        <div className="font-black text-[#26c6da] text-[12px]">{targetRes.sub3Hits} ac</div>
-                                                    </div>
-                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#e040fb]/40">
-                                                        <div className="text-[#888] text-[8px]">Prec. ~15#</div>
-                                                        <div className="font-black text-[#e040fb] text-[12px]">{targetRes.sub4Hits} ac</div>
-                                                    </div>
-                                                    <div className="bg-[#121212] p-1.5 rounded border border-[#00e676]/40">
-                                                        <div className="text-[#888] text-[8px]">Cierre ~12#</div>
-                                                        <div className="font-black text-[#00e676] text-[12px]">{targetRes.sub5Hits} ac</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Madre Results Table */}
-                                    {madreActive && (
-                                    <div className="bg-[#161616] border border-[#2a2a2a] rounded-xl p-3">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h4 className="text-[12px] font-black text-[#00e5ff]">Resultados Iteración #1 (Base / Madre) ({simResults.length} Sorteos Evaluados)</h4>
-                                            <span className="text-[10px] text-[#00e5ff] font-bold">
-                                                4+ Aciertos: {simResults.filter(r => r.madreHits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.madreHits >= 4).length / simResults.length * 100)}%)
-                                            </span>
-                                        </div>
-                                        <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                            <table className="w-full text-[10px] border-collapse">
-                                                <thead>
-                                                    <tr className="bg-[#222] text-[#aaa] text-center">
-                                                        <th className="p-1.5 border border-[#333]">Sorteo</th>
-                                                        <th className="p-1.5 border border-[#333]">Ganadores</th>
-                                                        <th className="p-1.5 border border-[#333]">Números Resultantes Madre</th>
-                                                        <th className="p-1.5 border border-[#333]">Aciertos Madre</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {simResults.map(r => (
-                                                        <tr key={r.num} className="text-center hover:bg-[#1f1f1f]">
-                                                            <td className="p-1.5 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
-                                                            <td className="p-1.5 border border-[#333] font-mono">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
-                                                            <td className="p-1.5 border border-[#333]">{r.madreCount} #</td>
-                                                            <td className="p-1.5 border border-[#333] font-bold" style={{color: r.madreHits >= 4 ? '#76ff03' : r.madreHits === 3 ? '#ffeb3b' : '#aaa'}}>{r.madreHits} ac</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                    )}
-
-                                    {/* Subescenario 1 Results Table */}
-                                    {sub1Active && (
-                                    <div className="bg-[#161616] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(255,235,59,0.1)]">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h4 className="text-[12px] font-black text-[#ffeb3b]">Resultados Iteración #2 (Filtro Primario) (Promedio ~24 Números)</h4>
-                                            <span className="text-[10px] text-[#ffeb3b] font-bold">
-                                                4+ Aciertos: {simResults.filter(r => r.sub1Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub1Hits >= 4).length / simResults.length * 100)}%) | Reducción Promedio: {Math.round(simResults.reduce((acc, r) => acc + (1 - r.sub1Count / Math.max(1, r.madreCount)) * 100, 0) / simResults.length)}%
-                                            </span>
-                                        </div>
-                                        <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                            <table className="w-full text-[10px] border-collapse">
-                                                <thead>
-                                                    <tr className="bg-[#222] text-[#aaa] text-center">
-                                                        <th className="p-1.5 border border-[#333]">Sorteo</th>
-                                                        <th className="p-1.5 border border-[#333]">Ganadores</th>
-                                                        <th className="p-1.5 border border-[#333]">Madre → Sub1 #</th>
-                                                        <th className="p-1.5 border border-[#333]">Reducción %</th>
-                                                        <th className="p-1.5 border border-[#333]">Aciertos Sub1</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {simResults.map(r => {
-                                                        const redPct = Math.round((1 - r.sub1Count / Math.max(1, r.madreCount)) * 100);
-                                                        return (
-                                                            <tr key={r.num} className="text-center hover:bg-[#1f1f1f]">
-                                                                <td className="p-1.5 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
-                                                                <td className="p-1.5 border border-[#333] font-mono">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
-                                                                <td className="p-1.5 border border-[#333] font-bold text-[#00e5ff]">{r.madreCount}# → <span className="text-[#ffeb3b]">{r.sub1Count}#</span></td>
-                                                                <td className="p-1.5 border border-[#333] text-[#76ff03] font-bold">-{redPct}%</td>
-                                                                <td className="p-1.5 border border-[#333] font-bold" style={{color: r.sub1Hits >= 4 ? '#76ff03' : r.sub1Hits === 3 ? '#ffeb3b' : '#aaa'}}>{r.sub1Hits} ac</td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                    )}
-
-                                    {/* Iteración #3 (Filtro Secundario) Results Table */}
-                                    <div className="bg-[#161616] border border-[#7c4dff]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(124,77,255,0.1)]">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <h4 className="text-[12px] font-black text-[#b388ff]">Resultados Iteración #3 (Filtro Secundario) (Promedio ~21 Números)</h4>
-                                            <span className="text-[10px] text-[#b388ff] font-bold">
-                                                4+ Aciertos: {simResults.filter(r => r.sub2Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub2Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub2Count, 0) / simResults.length)}#
-                                            </span>
-                                        </div>
-                                        <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                            <table className="w-full text-[10px] border-collapse">
-                                                <thead>
-                                                    <tr className="bg-[#222] text-[#aaa] text-center">
-                                                        <th className="p-1.5 border border-[#333]">Sorteo</th>
-                                                        <th className="p-1.5 border border-[#333]">Ganadores</th>
-                                                        <th className="p-1.5 border border-[#333]">Sub1 → Sub2 #</th>
-                                                        <th className="p-1.5 border border-[#333]">Aciertos Sub2</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {simResults.map(r => (
-                                                        <tr key={r.num} className="text-center hover:bg-[#1f1f1f]">
-                                                            <td className="p-1.5 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
-                                                            <td className="p-1.5 border border-[#333] font-mono">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
-                                                            <td className="p-1.5 border border-[#333] font-bold text-[#ffeb3b]">{r.sub1Count}# → <span className="text-[#b388ff]">{r.sub2Count}#</span></td>
-                                                            <td className="p-1.5 border border-[#333] font-bold" style={{color: r.sub2Hits >= 4 ? '#76ff03' : r.sub2Hits === 3 ? '#ffeb3b' : '#aaa'}}>{r.sub2Hits} ac</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                     {/* Iteración #4 (Filtro Avanzado) Results Table */}
-                                     <div className="bg-[#161616] border border-[#26c6da]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(38,198,218,0.1)]">
-                                         <div className="flex justify-between items-center mb-2">
-                                             <h4 className="text-[12px] font-black text-[#26c6da]">Resultados Iteración #4 (Filtro Avanzado) (Promedio ~18 Números)</h4>
-                                             <span className="text-[10px] text-[#26c6da] font-bold">
-                                                 4+ Aciertos: {simResults.filter(r => r.sub3Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub3Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub3Count, 0) / simResults.length)}#
-                                             </span>
-                                         </div>
-                                         <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                             <table className="w-full text-[10px] border-collapse">
-                                                 <thead>
-                                                     <tr className="bg-[#222] text-[#aaa] text-center">
-                                                         <th className="p-1.5 border border-[#333]">Sorteo</th>
-                                                         <th className="p-1.5 border border-[#333]">Ganadores</th>
-                                                         <th className="p-1.5 border border-[#333]">Sub2 → Sub3 #</th>
-                                                         <th className="p-1.5 border border-[#333]">Aciertos Sub3</th>
-                                                     </tr>
-                                                 </thead>
-                                                 <tbody>
-                                                     {simResults.map(r => (
-                                                         <tr key={r.num} className="text-center hover:bg-[#1f1f1f]">
-                                                             <td className="p-1.5 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
-                                                             <td className="p-1.5 border border-[#333] font-mono">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
-                                                             <td className="p-1.5 border border-[#333] font-bold text-[#b388ff]">{r.sub2Count}# → <span className="text-[#26c6da]">{r.sub3Count}#</span></td>
-                                                             <td className="p-1.5 border border-[#333] font-bold" style={{color: r.sub3Hits >= 4 ? '#76ff03' : r.sub3Hits === 3 ? '#ffeb3b' : '#aaa'}}>{r.sub3Hits} ac</td>
-                                                         </tr>
-                                                     ))}
-                                                 </tbody>
-                                             </table>
-                                         </div>
-                                     </div>
-
-                                     {/* Iteración #5 (Filtro de Precisión) Results Table */}
-                                     <div className="bg-[#161616] border border-[#e040fb]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(224,64,251,0.1)]">
-                                         <div className="flex justify-between items-center mb-2">
-                                             <h4 className="text-[12px] font-black text-[#e040fb]">Resultados Iteración #5 (Filtro de Precisión) (Promedio ~15 Números)</h4>
-                                             <span className="text-[10px] text-[#e040fb] font-bold">
-                                                 4+ Aciertos: {simResults.filter(r => r.sub4Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub4Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub4Count, 0) / simResults.length)}#
-                                             </span>
-                                         </div>
-                                         <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                             <table className="w-full text-[10px] border-collapse">
-                                                 <thead>
-                                                     <tr className="bg-[#222] text-[#aaa] text-center">
-                                                         <th className="p-1.5 border border-[#333]">Sorteo</th>
-                                                         <th className="p-1.5 border border-[#333]">Ganadores</th>
-                                                         <th className="p-1.5 border border-[#333]">Sub3 → Sub4 #</th>
-                                                         <th className="p-1.5 border border-[#333]">Aciertos Sub4</th>
-                                                     </tr>
-                                                 </thead>
-                                                 <tbody>
-                                                     {simResults.map(r => (
-                                                         <tr key={r.num} className="text-center hover:bg-[#1f1f1f]">
-                                                             <td className="p-1.5 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
-                                                             <td className="p-1.5 border border-[#333] font-mono">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
-                                                             <td className="p-1.5 border border-[#333] font-bold text-[#26c6da]">{r.sub3Count}# → <span className="text-[#e040fb]">{r.sub4Count}#</span></td>
-                                                             <td className="p-1.5 border border-[#333] font-bold" style={{color: r.sub4Hits >= 4 ? '#76ff03' : r.sub4Hits === 3 ? '#ffeb3b' : '#aaa'}}>{r.sub4Hits} ac</td>
-                                                         </tr>
-                                                     ))}
-                                                 </tbody>
-                                             </table>
-                                         </div>
-                                     </div>
-
-                                     {/* Iteración #6 (Filtro Experto / Cierre) Results Table */}
-                                     <div className="bg-[#161616] border border-[#00e676]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(0,230,118,0.1)]">
-                                         <div className="flex justify-between items-center mb-2">
-                                             <h4 className="text-[12px] font-black text-[#00e676]">Resultados Iteración #6 (Filtro Experto / Cierre) (Promedio ~12 Números)</h4>
-                                             <span className="text-[10px] text-[#00e676] font-bold">
-                                                 4+ Aciertos: {simResults.filter(r => r.sub5Hits >= 4).length} de {simResults.length} sorteos ({Math.round(simResults.filter(r => r.sub5Hits >= 4).length / simResults.length * 100)}%) | Promedio Resultantes: {Math.round(simResults.reduce((acc, r) => acc + r.sub5Count, 0) / simResults.length)}#
-                                             </span>
-                                         </div>
-                                         <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-                                             <table className="w-full text-[10px] border-collapse">
-                                                 <thead>
-                                                     <tr className="bg-[#222] text-[#aaa] text-center">
-                                                         <th className="p-1.5 border border-[#333]">Sorteo</th>
-                                                         <th className="p-1.5 border border-[#333]">Ganadores</th>
-                                                         <th className="p-1.5 border border-[#333]">Sub4 → Sub5 #</th>
-                                                         <th className="p-1.5 border border-[#333]">Aciertos Sub5</th>
-                                                     </tr>
-                                                 </thead>
-                                                 <tbody>
-                                                     {simResults.map(r => (
-                                                         <tr key={r.num} className="text-center hover:bg-[#1f1f1f]">
-                                                             <td className="p-1.5 border border-[#333] font-bold text-[#ffeb3b]">#{r.num}</td>
-                                                             <td className="p-1.5 border border-[#333] font-mono">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</td>
-                                                             <td className="p-1.5 border border-[#333] font-bold text-[#e040fb]">{r.sub4Count}# → <span className="text-[#00e676]">{r.sub5Count}#</span></td>
-                                                             <td className="p-1.5 border border-[#333] font-bold" style={{color: r.sub5Hits >= 4 ? '#76ff03' : r.sub5Hits === 3 ? '#ffeb3b' : '#aaa'}}>{r.sub5Hits} ac</td>
-                                                         </tr>
-                                                     ))}
-                                                 </tbody>
-                                             </table>
-                                         </div>
-                                     </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ) : activeTab === 'gemini' ? (
-                        <div className="space-y-4">
-                            <div className="bg-[#181818] border border-[#00e5ff]/40 rounded-xl p-3 shadow-md">
-                                <div className="flex justify-between items-center flex-wrap gap-2">
-                                    <div>
-                                        <div className="text-[11px] font-black text-[#ffeb3b]">🤖 Pronóstico Gemini — Próximo Sorteo #{allDraws.length > 0 ? allDraws[allDraws.length - 1].num + 1 : 0} (En Vivo)</div>
-                                        <div className="text-[9px] text-[#888]">RandomForest entrenado en el navegador con los últimos 300 sorteos (retardo + frecuencias 5/10/20). Cada bolilla tiene su propio bosque; se ordenan por probabilidad de salir.</div>
-                                    </div>
-                                    {geminiRanking && !geminiTraining && (
-                                        <button onClick={() => runGemini()} className="text-[9px] bg-[#222] border border-[#00e5ff]/40 text-[#00e5ff] px-2 py-0.5 rounded cursor-pointer hover:bg-[#00e5ff]/20">↻ Re-entrenar</button>
-                                    )}
-                                </div>
-                                {geminiError && <div className="text-[10px] text-[#ff5252] mt-2">⚠️ {geminiError}</div>}
-                                {geminiTraining && (
-                                    <div className="mt-2">
-                                        <div className="text-[10px] text-[#00e5ff]">⏳ Entrenando modelo… {geminiProgress.done}/{geminiProgress.total} bolillas ({geminiEstimators} árboles c/u). Tarda ~1 minuto; puedes seguir navegando.</div>
-                                        <div className="h-2 bg-[#222] rounded-full mt-1 overflow-hidden"><div className="h-full bg-[#00e5ff]" style={{ width: `${Math.round(geminiProgress.done / Math.max(1, geminiProgress.total) * 100)}%` }} /></div>
-                                    </div>
-                                )}
-                                {!geminiTraining && !geminiRanking && (
-                                    <div className="text-[10px] text-[#aaa] mt-2">Pulsa “Entrenar Gemini” para generar el pronóstico del próximo sorteo.</div>
-                                )}
-                                {geminiRanking && (
-                                    <div className="space-y-3 mt-2">
-                                        {GEMINI_GROUP_SIZES.map(k => {
-                                            const base = geminiRanking.slice(0, k).map(r => r.num).sort((a, b) => a - b);
-                                            const pm1 = geminiPM1(base);
-                                            return (
-                                                <div key={k} className="border border-[#333] rounded-lg p-2">
-                                                    <div className="text-[10px] font-black text-[#00e5ff]">Grupo de {k} números</div>
-                                                    <div className="flex flex-wrap gap-1 mt-1">
-                                                        {base.map(n => <span key={n} className="bg-[#7c4dff] text-white text-[11px] font-black rounded px-2 py-0.5">{String(n).padStart(2, '0')}</span>)}
-                                                    </div>
-                                                    <div className="text-[9px] text-[#aaa] mt-1">Con técnica ±1 ({pm1.length} bolillas cubiertas):</div>
-                                                    <div className="flex flex-wrap gap-1 mt-1">
-                                                        {pm1.map(n => <span key={n} className="bg-[#222] text-[#ddd] border border-[#444] text-[10px] font-bold rounded px-1.5 py-0.5">{String(n).padStart(2, '0')}</span>)}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        <div>
-                                            <div className="text-[10px] font-black text-[#ffeb3b]">Ranking completo por probabilidad</div>
-                                            <div className="space-y-0.5 mt-1">
-                                                {geminiRanking.map((r, i) => (
-                                                    <div key={r.num} className="flex items-center gap-2 text-[9px]">
-                                                        <span className="w-5 text-right text-[#aaa]">{i + 1}.</span>
-                                                        <span className="w-6 font-black text-white">{String(r.num).padStart(2, '0')}</span>
-                                                        <div className="flex-1 h-2 bg-[#222] rounded-full overflow-hidden"><div className="h-full bg-[#7c4dff]" style={{ width: `${Math.round(r.prob * 100)}%` }} /></div>
-                                                        <span className="w-10 text-right text-[#00e5ff]">{(r.prob * 100).toFixed(1)}%</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="bg-[#181818] border border-[#00e5ff]/40 rounded-xl p-3 shadow-md">
-                                <div className="flex justify-between items-center flex-wrap gap-2">
-                                    <div>
-                                        <div className="text-[11px] font-black text-[#ffeb3b]">📈 Aciertos por sorteo — Grupos Gemini</div>
-                                        <div className="text-[9px] text-[#888]">Walk-forward de referencia (script Python): aciertos de cada grupo en los últimos sorteos. Líneas sólidas = grupo base; punteadas = con técnica ±1.</div>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => setGeminiWindow(20)} className={`px-2 py-0.5 rounded text-[10px] font-black cursor-pointer ${geminiWindow === 20 ? 'bg-[#7c4dff] text-white' : 'bg-[#222] text-[#aaa] hover:text-white'}`}>20 sorteos</button>
-                                        <button onClick={() => setGeminiWindow(30)} className={`px-2 py-0.5 rounded text-[10px] font-black cursor-pointer ${geminiWindow === 30 ? 'bg-[#7c4dff] text-white' : 'bg-[#222] text-[#aaa] hover:text-white'}`}>30 sorteos</button>
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                    {GEMINI_SERIES.map(se => (
-                                        <button key={se.key} onClick={() => setGeminiSeries(prev => ({ ...prev, [se.key]: !prev[se.key] }))}
-                                            className={`px-2 py-0.5 rounded text-[10px] font-black cursor-pointer border ${geminiSeries[se.key] ? 'text-white' : 'text-[#666] opacity-50'}`}
-                                            style={{ borderColor: se.color, backgroundColor: geminiSeries[se.key] ? se.color + '33' : '#222' }}>
-                                            <span style={{ color: se.color }}>●</span> {se.label}{se.dashed ? ' ±1' : ''}
-                                        </button>
-                                    ))}
-                                    <button onClick={() => setGeminiSeries({ '5': true, '10': true, '14': true, '22': true, "5'": true, "10'": true, "14'": true, "22'": true })} className="px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer bg-[#222] text-[#aaa] hover:text-white">Todos</button>
-                                    <button onClick={() => setGeminiSeries({ '5': false, '10': false, '14': false, '22': false, "5'": false, "10'": false, "14'": false, "22'": false })} className="px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer bg-[#222] text-[#aaa] hover:text-white">Ninguno</button>
-                                </div>
-                                <div className="mt-1">
-                                    <GeminiMultiChart rows={GEMINI_REF_ROWS.slice(-geminiWindow)} enabled={geminiSeries} />
-                                </div>
-                                <div className="text-[9px] text-[#888] mt-1">
-                                    {(() => {
-                                        const vis = GEMINI_REF_ROWS.slice(-geminiWindow);
-                                        const avg = (idx: number) => (vis.reduce((a, r) => a + r[idx], 0) / vis.length).toFixed(2);
-                                        return `Promedio en los últimos ${geminiWindow} sorteos — G5: ${avg(2)} ( ±1: ${avg(3)} ) · G10: ${avg(4)} ( ±1: ${avg(5)} ) · G14: ${avg(6)} ( ±1: ${avg(7)} ) · G22: ${avg(8)} ( ±1: ${avg(9)} )`;
-                                    })()}
-                                </div>
-                            </div>
-                            <div className="bg-[#181818] border border-[#333] rounded-xl p-3 shadow-md">
-                                <div className="text-[11px] font-black text-[#ffeb3b]">📎 Referencia Python (script original) — Próximo Sorteo #12368</div>
-                                <div className="text-[9px] text-[#888]">Grupos que entrega el script en Python (scikit-learn, 100 árboles) con el histórico cerrado al sorteo 12367. El modelo en vivo usa la misma lógica pero otro generador aleatorio, así que los grupos son parecidos, no idénticos.</div>
-                                <div className="space-y-2 mt-2">
-                                    {GEMINI_GROUP_SIZES.map(k => (
-                                        <div key={k}>
-                                            <div className="text-[10px] font-black text-[#00e5ff]">Grupo de {k} (Python)</div>
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                {GEMINI_REF_GROUPS[String(k)][0].map(n => <span key={n} className="bg-[#222] text-[#ddd] border border-[#444] text-[10px] font-bold rounded px-1.5 py-0.5">{String(n).padStart(2, '0')}</span>)}
-                                            </div>
-                                            <div className="text-[9px] text-[#aaa] mt-0.5">Con técnica ±1 ({GEMINI_REF_GROUPS[String(k)][1].length} bolillas): {GEMINI_REF_GROUPS[String(k)][1].map(n => String(n).padStart(2, '0')).join(', ')}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="bg-[#181818] border border-[#333] rounded-xl p-3 shadow-md">
-                                <div className="text-[11px] font-black text-[#ffeb3b]">📊 Backtest de referencia (walk-forward, últimos {geminiWindow} sorteos)</div>
-                                <div className="text-[9px] text-[#888]">Validación del script Python: en cada sorteo se entrena con los 300 anteriores y se evalúan los grupos (base y con ±1). Es historia, no una predicción: cada sorteo es independiente.</div>
-                                <div className="overflow-x-auto mt-2">
-                                    <table className="w-full text-[9px] border-collapse">
-                                        <thead>
-                                            <tr className="bg-[#1f1f1f] text-[#aaa] text-center">
-                                                <th className="p-1 border border-[#333]">Sorteo</th>
-                                                <th className="p-1 border border-[#333]">Reales</th>
-                                                <th className="p-1 border border-[#333]">G5 B/±1</th>
-                                                <th className="p-1 border border-[#333]">G10 B/±1</th>
-                                                <th className="p-1 border border-[#333]">G14 B/±1</th>
-                                                <th className="p-1 border border-[#333]">G22 B/±1</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {GEMINI_REF_ROWS.slice(-geminiWindow).reverse().map(r => (
-                                                <tr key={r[0]} className="text-center text-[#ddd]">
-                                                    <td className="p-1 border border-[#333] font-bold">#{r[0]}</td>
-                                                    <td className="p-1 border border-[#333]">{r[1].map((n: number) => String(n).padStart(2, '0')).join(', ')}</td>
-                                                    <td className="p-1 border border-[#333]">{r[2]} / {r[3]}</td>
-                                                    <td className="p-1 border border-[#333]">{r[4]} / {r[5]}</td>
-                                                    <td className="p-1 border border-[#333]">{r[6]} / {r[7]}</td>
-                                                    <td className="p-1 border border-[#333]">{r[8]} / {r[9]}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div className="overflow-x-auto mt-2">
-                                    <table className="w-full text-[9px] border-collapse">
-                                        <thead>
-                                            <tr className="bg-[#1f1f1f] text-[#aaa] text-center">
-                                                <th className="p-1 border border-[#333]">Grupo</th>
-                                                <th className="p-1 border border-[#333]">Prom Base</th>
-                                                <th className="p-1 border border-[#333]">Prom ±1</th>
-                                                <th className="p-1 border border-[#333]">Cobertura ±1</th>
-                                                <th className="p-1 border border-[#333]">≥3 Ac (±1)</th>
-                                                <th className="p-1 border border-[#333]">≥4 Ac (±1)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(() => {
-                                                const vis = GEMINI_REF_ROWS.slice(-geminiWindow);
-                                                const n = vis.length;
-                                                const cov: Record<number, number> = geminiWindow === 30 ? { 5: 13.1, 10: 20.5, 14: 24.1, 22: 27.7 } : { 5: 13.2, 10: 20.8, 14: 24.1, 22: 27.7 };
-                                                return GEMINI_GROUP_SIZES.map(k => {
-                                                    const bi = k === 5 ? 2 : k === 10 ? 4 : k === 14 ? 6 : 8;
-                                                    const pi = bi + 1;
-                                                    const pb = vis.reduce((a, r) => a + r[bi], 0) / n;
-                                                    const pp = vis.reduce((a, r) => a + r[pi], 0) / n;
-                                                    const p3 = vis.filter(r => r[pi] >= 3).length / n * 100;
-                                                    const p4 = vis.filter(r => r[pi] >= 4).length / n * 100;
-                                                    return (
-                                                        <tr key={k} className="text-center text-[#ddd]">
-                                                            <td className="p-1 border border-[#333] font-bold">Top {k}</td>
-                                                            <td className="p-1 border border-[#333]">{pb.toFixed(2)}</td>
-                                                            <td className="p-1 border border-[#333]">{pp.toFixed(2)}</td>
-                                                            <td className="p-1 border border-[#333]">{cov[k].toFixed(1)}</td>
-                                                            <td className="p-1 border border-[#333]">{p3.toFixed(1)}%</td>
-                                                            <td className="p-1 border border-[#333]">{p4.toFixed(1)}%</td>
-                                                        </tr>
-                                                    );
-                                                });
-                                            })()}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
                     ) : activeTab === 'comparativa' ? (
                         <div className="space-y-4">
                             <div className="bg-[#181818] border border-[#00e5ff]/40 rounded-xl p-3 shadow-md">
@@ -9122,25 +7610,19 @@ ${breakdownRows30.slice(20).join('\n')}
                                                 showLocToast("⏳ Generando Excel de soluciones por sorteo… puede tardar unos segundos.");
                                                 await new Promise(res => setTimeout(res, 60));
                                                 try {
-                                                    const XLSX = await import('xlsx');
-                                                    const { scoresAoa, sheets, skipped } = buildComparativaExportSheets(COMPARATIVA_DRAWS, allComparativaRows, allDraws, SOLUCIONES_COMPARATIVA);
+                                                    const { sheets, skipped } = buildComparativaExportSheets(COMPARATIVA_DRAWS, allComparativaRows, allDraws, SOLUCIONES_COMPARATIVA, XLSX);
                                                     const wb = XLSX.utils.book_new();
-                                                    const wsScores = XLSX.utils.aoa_to_sheet(scoresAoa);
-                                                    wsScores['!cols'] = [{ wch: 20 }, { wch: 10 }, { wch: 12 }];
-                                                    XLSX.utils.book_append_sheet(wb, wsScores, 'Scores 1-28');
                                                     sheets.forEach(sh => {
-                                                        const ws = XLSX.utils.aoa_to_sheet(sh.aoa);
-                                                        ws['!cols'] = [{ wch: 10 }, { wch: 13 }, { wch: 46 }];
-                                                        XLSX.utils.book_append_sheet(wb, ws, sh.name);
+                                                        XLSX.utils.book_append_sheet(wb, sh.ws, sh.name);
                                                     });
                                                     XLSX.writeFile(wb, `comparativa_soluciones_chispazo_${Date.now()}.xlsx`, { compression: true });
-                                                    showLocToast(`¡Excel exportado: ${sheets.length} hojas de sorteos + scores${skipped ? ` (${skipped} soluciones omitidas por métodos no encontrados)` : ''}!`);
+                                                    showLocToast(`¡Excel exportado: ${sheets.length} hojas de sorteos${skipped ? ` (${skipped} soluciones omitidas por métodos no encontrados)` : ''}!`);
                                                 } catch (e: any) {
                                                     showLocToast("Error al exportar el Excel: " + (e?.message || e));
                                                 }
                                             }}
                                             className="px-2.5 py-1 rounded text-[10px] font-black cursor-pointer bg-[#00e5ff] text-black hover:bg-[#00b8d4] shadow transition flex items-center gap-1"
-                                            title="Exporta un .xlsx con una hoja por sorteo (soluciones con sus números ordenados por suma de scores) y una hoja con los scores 1-28 de cada método"
+                                            title="Exporta un .xlsx con hojas por sorteo numeradas del 1 al 30 y prox"
                                         >
                                             📥 Exportar Excel (Soluciones por sorteo)
                                         </button>
