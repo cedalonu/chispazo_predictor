@@ -4807,7 +4807,7 @@ function LabModal({ allDraws, onClose }: { allDraws: Draw[]; onClose: () => void
     const COMPARATIVA_DRAWS = useMemo(() => getComparativaDraws(allDraws), [allDraws]);
     const [showEfficiencyReportModal, setShowEfficiencyReportModal] = useState(false);
     const [showFocusGraphModal, setShowFocusGraphModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'simulatorC' | 'thesis' | 'comparativa'>('simulatorC');
+    const [activeTab, setActiveTab] = useState<'simulatorC' | 'optimizar' | 'thesis' | 'comparativa'>('simulatorC');
     const [thesisSubTab, setThesisSubTab] = useState<'document' | 'optimize' | 'adendum'>('document');
     const [selectedScoreModalNum, setSelectedScoreModalNum] = useState<number | null>(null);
     const [isOptimizingThesis, setIsOptimizingThesis] = useState(false);
@@ -5433,6 +5433,9 @@ ${breakdownRows30.slice(20).join('\n')}
                 }
                 finalFreqRecC = r;
             }
+            // La receta ya corre la simulación explícitamente: guarda su
+            // firma para que el auto-update no la repita.
+            simCOptimizeSigRef.current = simCConfigSignature(newSimConfigs, finalFreqRecC ?? simCFinalFreqs, userPicks, simCPicksInFreq);
             React.startTransition(() => {
                 setSimCConfigs(newSimConfigs);
                 if (finalFreqRecC) setSimCFinalFreqs(finalFreqRecC);
@@ -5454,6 +5457,9 @@ ${breakdownRows30.slice(20).join('\n')}
             showLocToast('Error: Esta receta pertenece a otro simulador y no puede usarse en el Simulador C.');
             return;
         }
+        // La receta ya corre la simulación explícitamente: guarda su
+        // firma para que el auto-update no la repita.
+        simCOptimizeSigRef.current = simCConfigSignature(rec.configs ?? simCConfigs, rec.finalFreqs ?? simCFinalFreqs, rec.userPicks ?? userPicks, simCPicksInFreq);
         React.startTransition(() => {
             if (rec.configs) setSimCConfigs(rec.configs);
             if (rec.finalFreqs) setSimCFinalFreqs(rec.finalFreqs);
@@ -6377,7 +6383,7 @@ ${breakdownRows30.slice(20).join('\n')}
     // salida (en vivo y en la gráfica) se recorta a esos números.
     const [simCTargetSize, setSimCTargetSize] = useState<number | null>(null);
     // Visibilidad de los bloques fijos del Simulador C (numeros
-    // resultantes y grafica) dentro del bloque de control.
+    // resultantes y grafica) en la columna izquierda.
     const [simCChartVisible, setSimCChartVisible] = useState(true);
     const [simCResultVisible, setSimCResultVisible] = useState(true);
     // Toggle para considerar (o no) los picks dentro de la frecuencia
@@ -7059,20 +7065,42 @@ ${breakdownRows30.slice(20).join('\n')}
         }, 100);
     }
 
-    // Corrida inicial con debounce: solo al abrir el LAB o al cargar los
-    // datos. Cambiar toggles (configs, frecuencias finales, target, picks
-    // o sorteo) ya NO actualiza la gráfica por sí solo: la simulación se
-    // corre solo cuando se pide explícitamente (Correr Simulación C,
-    // Optimizar o cargar una receta). Así, limpiar o tocar un grupo no
-    // mueve la gráfica. El toast se suprime en la corrida inicial.
+    // Firma de la configuración de Sim C: identifica si un cambio vino de
+    // Optimizar (entonces el auto-update NO corre la gráfica) o del usuario
+    // (entonces sí). Incluye todo lo que afecta la simulación.
+    function simCConfigSignature(cfgs: any, ff: any, picks: number[], picksInFreq: boolean): string {
+        return JSON.stringify({ c: cfgs, f: ff, p: picks, pf: picksInFreq });
+    }
+    // Cuando Optimizar o una receta aplican una configuración, guardan su
+    // firma aquí para que el auto-update no corra la gráfica por ese cambio
+    // (ya la corren explícitamente; Optimizar no auto-actualiza, y la
+    // gráfica se corre con Correr Simulación C o al tocar un toggle).
+    const simCOptimizeSigRef = useRef<string | null>(null);
+
+    // Auto-update de la simulación: al cambiar la configuración (pool
+    // sizes, pools, frecuencias, frecuencias finales, picks o el toggle
+    // de picks), la gráfica se vuelve a correr sola con debounce.
+    // Optimizar NO auto-actualiza: si el cambio es la configuración que
+    // Optimizar acaba de aplicar (misma firma), se salta la corrida.
+    // El sorteo seleccionado y el target no mueven la gráfica (el backtest
+    // corre libre, sin target). El toast se suprime en estas corridas.
     useEffect(() => {
         if (allDraws.length === 0) return;
         let timer: ReturnType<typeof setTimeout> | undefined;
-        if (activeTab === 'simulatorC') {
-            timer = setTimeout(() => runSimC({ silent: true }), 600);
+        if (activeTab === 'simulatorC' || activeTab === 'optimizar') {
+            timer = setTimeout(() => {
+                const sig = simCConfigSignature(simCConfigs, simCFinalFreqs, userPicks, simCPicksInFreq);
+                if (simCOptimizeSigRef.current !== null && simCOptimizeSigRef.current === sig) {
+                    // Este cambio lo aplicó Optimizar: no auto-actualizar.
+                    simCOptimizeSigRef.current = null;
+                    return;
+                }
+                simCOptimizeSigRef.current = null;
+                runSimC({ silent: true });
+            }, 600);
         }
         return () => { if (timer) clearTimeout(timer); };
-    }, [activeTab, allDraws]);
+    }, [activeTab, allDraws, simCConfigs, simCFinalFreqs, userPicks, simCPicksInFreq]);
     // Simulador C: la salida es el consenso completo, sin recortar
     // ni rellenar a ningún tamaño y sin forzar ganadores.
     // Cada sorteo se evalúa con el consenso completo que resulte.
@@ -7149,13 +7177,179 @@ ${breakdownRows30.slice(20).join('\n')}
     // Nota: getOptimalMultipoolConfig devuelve configs sin 'enabled' y
     // el consenso del LAB exige enabled, así que se marca enabled: true
     // en cada tamaño antes de guardar la configuración.
+    // Optimización por ventana (selector -20/-30): busca la configuración
+    // que maximice los sorteos con 4 o 5 aciertos en la ventana, con el
+    // menor promedio de números resultantes. El promedio de números se
+    // limita al target si hay uno, o a 14 si no (sin límite, el máximo
+    // trivial es jugar los 28 números, que da 5 aciertos en los 30 sorteos
+    // por construcción). Búsqueda estocástica: muestreo aleatorio + escalada.
+    // Si no hay ningún toggle prendido (tras Limpiar), busca en todo el
+    // espacio; si hay toggles prendidos, solo busca dentro de ellos.
+    function optimizeSimCWindow(
+        windowDraws: Draw[],
+        maxAvgCount: number,
+        allowed: { configs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>; finalFreqs: Record<number, boolean> } | null,
+        effPicks: number[]
+    ): { configs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }>; finalFreqs: Record<number, boolean>; n5: number; n4: number; avgCount: number; avgHits: number } | null {
+        const poolSizes = [9, 12, 15, 18, 21, 24, 27];
+        const poolIds = ['final', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
+        const freqVals = [7, 6, 5, 4, 3, 2, 1, 0];
+        const finalFreqVals = [8, 7, 6, 5, 4, 3, 2, 1, 0];
+        // Qué toggles puede tocar la búsqueda (si allowed es null, todos).
+        const sizeAllowed = (sz: number): boolean => !allowed || !!(allowed.configs[sz] && allowed.configs[sz].enabled);
+        const poolAllowed = (sz: number, id: string): boolean => !allowed || !!(allowed.configs[sz] && allowed.configs[sz].pools && allowed.configs[sz].pools[id]);
+        const freqAllowed = (sz: number, f: number): boolean => !allowed || !!(allowed.configs[sz] && allowed.configs[sz].freqs && allowed.configs[sz].freqs[f]);
+        const finalFreqAllowed = (f: number): boolean => !allowed || !!allowed.finalFreqs[f];
+        // Precomputar los pools de cada sorteo de la ventana (una sola vez).
+        const poolsPerDraw: Record<number, PoolResult>[] = windowDraws.map(d => {
+            const m: Record<number, PoolResult> = {};
+            poolSizes.forEach(sz => { m[sz] = getPoolsForDraw(allDraws, d.num, sz); });
+            return m;
+        });
+        function evalWindow(configs: any, finalFreqs: any): { n5: number; n4: number; totalHits: number; avgCount: number; avgHits: number } {
+            let n5 = 0, n4 = 0, totalHits = 0, totalCount = 0;
+            for (let i = 0; i < windowDraws.length; i++) {
+                const d = windowDraws[i];
+                const consensus = calculateMultipoolConsensus(configs, finalFreqs, poolsPerDraw[i], poolSizes, effPicks, false);
+                const hits = d.win.filter((w: number) => consensus.includes(w)).length;
+                if (hits === 5) n5++;
+                if (hits === 4) n4++;
+                totalHits += hits;
+                totalCount += consensus.length;
+            }
+            return { n5, n4, totalHits, avgCount: totalCount / windowDraws.length, avgHits: totalHits / windowDraws.length };
+        }
+        function scoreKey(r: { n5: number; n4: number; totalHits: number; avgCount: number }): [number, number, number, number] {
+            return [r.n4 + r.n5, r.n5, r.totalHits, -r.avgCount];
+        }
+        function better(a: [number, number, number, number], b: [number, number, number, number]): boolean {
+            if (a[0] !== b[0]) return a[0] > b[0];
+            if (a[1] !== b[1]) return a[1] > b[1];
+            if (a[2] !== b[2]) return a[2] > b[2];
+            return a[3] > b[3];
+        }
+        function cloneCfg(c: any): any { return JSON.parse(JSON.stringify(c)); }
+        function randomConfig(): { configs: any; finalFreqs: any } {
+            const configs: Record<number, any> = {};
+            poolSizes.forEach(sz => {
+                const enabled = sizeAllowed(sz) && Math.random() < 0.7;
+                const pools: Record<string, boolean> = {};
+                poolIds.forEach(id => { pools[id] = poolAllowed(sz, id) && Math.random() < 0.6; });
+                const freqs: Record<number, boolean> = {};
+                freqVals.forEach(f => { freqs[f] = freqAllowed(sz, f) && Math.random() < 0.55; });
+                configs[sz] = { enabled, pools, freqs };
+            });
+            const finalFreqs: Record<number, boolean> = {};
+            finalFreqVals.forEach(f => { finalFreqs[f] = finalFreqAllowed(f) && Math.random() < 0.5; });
+            return { configs, finalFreqs };
+        }
+        function mutate(c: { configs: any; finalFreqs: any }): { configs: any; finalFreqs: any } {
+            const next = cloneCfg(c);
+            const kind = Math.random();
+            if (kind < 0.15) {
+                const sz = poolSizes[Math.floor(Math.random() * poolSizes.length)];
+                if (sizeAllowed(sz)) next.configs[sz].enabled = !next.configs[sz].enabled;
+            } else if (kind < 0.45) {
+                const sz = poolSizes[Math.floor(Math.random() * poolSizes.length)];
+                const id = poolIds[Math.floor(Math.random() * poolIds.length)];
+                if (poolAllowed(sz, id)) next.configs[sz].pools[id] = !next.configs[sz].pools[id];
+            } else if (kind < 0.75) {
+                const sz = poolSizes[Math.floor(Math.random() * poolSizes.length)];
+                const f = freqVals[Math.floor(Math.random() * freqVals.length)];
+                if (freqAllowed(sz, f)) next.configs[sz].freqs[f] = !next.configs[sz].freqs[f];
+            } else {
+                const f = finalFreqVals[Math.floor(Math.random() * finalFreqVals.length)];
+                if (finalFreqAllowed(f)) next.finalFreqs[f] = !next.finalFreqs[f];
+            }
+            return next;
+        }
+        let best: { configs: any; finalFreqs: any } | null = null;
+        let bestKey: [number, number, number, number] = [-1, -1, -1, -Infinity];
+        let bestEval: { n5: number; n4: number; totalHits: number; avgCount: number; avgHits: number } | null = null;
+        function consider(c: { configs: any; finalFreqs: any }) {
+            const r = evalWindow(c.configs, c.finalFreqs);
+            if (r.avgCount === 0 || r.avgCount > maxAvgCount) return;
+            const k = scoreKey(r);
+            if (better(k, bestKey)) { bestKey = k; best = cloneCfg(c); bestEval = r; }
+        }
+        // Semilla: la configuración actual (si tiene algo prendido).
+        if (allowed) {
+            consider({ configs: allowed.configs, finalFreqs: allowed.finalFreqs });
+        }
+        const RESTARTS = 8;
+        const STEPS = 250;
+        for (let rs = 0; rs < RESTARTS; rs++) {
+            let cur = randomConfig();
+            consider(cur);
+            let curR = evalWindow(cur.configs, cur.finalFreqs);
+            let curKey: [number, number, number, number] = (curR.avgCount === 0 || curR.avgCount > maxAvgCount) ? [-1, -1, -1, -Infinity] : scoreKey(curR);
+            for (let st = 0; st < STEPS; st++) {
+                const nxt = mutate(cur);
+                const r = evalWindow(nxt.configs, nxt.finalFreqs);
+                if (r.avgCount === 0 || r.avgCount > maxAvgCount) continue;
+                const k = scoreKey(r);
+                if (better(k, curKey)) {
+                    cur = nxt;
+                    curKey = k;
+                    if (better(k, bestKey)) { bestKey = k; best = cloneCfg(nxt); bestEval = r; }
+                }
+            }
+        }
+        if (!best || !bestEval) return null;
+        // Devolver solo los tamaños con enabled (el resto queda como estaba).
+        const outConfigs: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = {};
+        poolSizes.forEach(sz => {
+            if (best!.configs[sz] && best!.configs[sz].enabled) {
+                outConfigs[sz] = { enabled: true, pools: best!.configs[sz].pools, freqs: best!.configs[sz].freqs };
+            }
+        });
+        return { configs: outConfigs, finalFreqs: best.finalFreqs, n5: bestEval.n5, n4: bestEval.n4, avgCount: bestEval.avgCount, avgHits: bestEval.avgHits };
+    }
+
     function optimizeSimC() {
         // Los picks son otro pool size: se optimiza sobre los pool sizes
         // y/o los picks seleccionados (con el toggle de picks prendido).
         const effPicks = simCPicksInFreq ? userPicks : [];
         const anySimCEnabled = [9, 12, 15, 18, 21, 24, 27].some(sz => simCConfigs[sz] && simCConfigs[sz].enabled);
-        if (!anySimCEnabled && effPicks.length === 0) {
-            showLocToast("⚠️ Activa al menos un Pool Size o selecciona picks para optimizar.");
+        // Si no hay nada prendido (tras Limpiar), se busca en todo el
+        // espacio; si hay toggles prendidos, solo dentro de ellos.
+        const allowedOpt = (anySimCEnabled || effPicks.length > 0) ? { configs: simCConfigs, finalFreqs: simCFinalFreqs } : null;
+        // Ventana (-20/-30): optimizar para toda la ventana (maximizar
+        // sorteos con 5 aciertos, con el menor promedio de números; el
+        // promedio se limita al target si hay uno, o a 14 si no).
+        if (selectedTargetDrawNum === -20 || selectedTargetDrawNum === -30) {
+            const countDraws = selectedTargetDrawNum === -20 ? 20 : 30;
+            const windowDraws = allDraws.slice(-countDraws);
+            if (windowDraws.length === 0) {
+                showLocToast("⚠️ No hay sorteos para optimizar.");
+                return;
+            }
+            const maxAvgCount = simCTargetSize ?? 14;
+            setIsSimCRunning(true);
+            setTimeout(() => {
+                const best = optimizeSimCWindow(windowDraws, maxAvgCount, allowedOpt, effPicks);
+                setIsSimCRunning(false);
+                if (!best) {
+                    showLocToast("⚠️ No se encontró configuración en la ventana.");
+                    return;
+                }
+                const simCReady: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = { ...simCConfigs };
+                Object.keys(best.configs).forEach(k => {
+                    const sz = Number(k);
+                    simCReady[sz] = { enabled: true, pools: best.configs[sz].pools, freqs: best.configs[sz].freqs };
+                });
+                // Guarda la firma de la configuración aplicada para que el
+                // auto-update no la vuelva a correr (evita duplicarla); la
+                // gráfica se corre una vez aquí, explícitamente, para que
+                // muestre los números resultantes de la optimización.
+                simCOptimizeSigRef.current = simCConfigSignature(simCReady, best.finalFreqs, userPicks, simCPicksInFreq);
+                React.startTransition(() => {
+                    setSimCConfigs(simCReady);
+                    setSimCFinalFreqs(best.finalFreqs);
+                    showLocToast(`🍳 ¡Optimización de ventana (${countDraws} sorteos) aplicada! ${best.n5 + best.n4} sorteos con 4 o 5 aciertos (${best.n5} con 5), prom. ${best.avgCount.toFixed(1)} # / ${best.avgHits.toFixed(2)} ac.`);
+                });
+                runSimC({ silent: true, configs: simCReady, finalFreqs: best.finalFreqs });
+            }, 100);
             return;
         }
         let drawNum = -1;
@@ -7172,7 +7366,7 @@ ${breakdownRows30.slice(20).join('\n')}
             drawNum = targetIdx;
         }
         if (drawNum >= 0 && allDraws[drawNum]) {
-            const opt = getOptimalMultipoolConfig(allDraws, allDraws[drawNum], simCTargetSize, { configs: simCConfigs, finalFreqs: simCFinalFreqs }, effPicks);
+            const opt = getOptimalMultipoolConfig(allDraws, allDraws[drawNum], simCTargetSize, allowedOpt, effPicks);
             // Fusiona con la selección actual: solo los tamaños activos
             // reciben la optimización; los apagados quedan como estaban.
             const simCReady: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = { ...simCConfigs };
@@ -7180,18 +7374,21 @@ ${breakdownRows30.slice(20).join('\n')}
                 const sz = Number(k);
                 simCReady[sz] = { enabled: true, pools: opt.configs[sz].pools, freqs: opt.configs[sz].freqs };
             });
+            // Guarda la firma de la configuración aplicada para que el
+            // auto-update no la vuelva a correr (evita duplicarla); la
+            // gráfica se corre una vez aquí, explícitamente, para que
+            // muestre los números resultantes de la optimización.
+            simCOptimizeSigRef.current = simCConfigSignature(simCReady, opt.finalFreqs, userPicks, simCPicksInFreq);
             const isSelected = selectedTargetDrawNum > 0;
             React.startTransition(() => {
                 setSimCConfigs(simCReady);
                 setSimCFinalFreqs(opt.finalFreqs);
                 // El target es de la optimización: se conserva para el resultado.
+                const scopeTxt = allowedOpt ? 'sobre los toggles activos' : 'en todo el espacio';
                 showLocToast(isSelected
-                    ? `🍳 ¡Optimización del detalle (Sorteo #${allDraws[drawNum].num}) aplicada en Simulador C sobre los toggles activos${simCTargetSize !== null ? ` — target ${simCTargetSize} #` : ''}!`
-                    : `🍳 ¡Optimización del detalle del último sorteo (#${allDraws[drawNum].num}) aplicada en Simulador C sobre los toggles activos${simCTargetSize !== null ? ` — target ${simCTargetSize} #` : ''}!`);
+                    ? `🍳 ¡Optimización del detalle (Sorteo #${allDraws[drawNum].num}) aplicada en Simulador C ${scopeTxt}${simCTargetSize !== null ? ` — target ${simCTargetSize} #` : ''}!`
+                    : `🍳 ¡Optimización del detalle del último sorteo (#${allDraws[drawNum].num}) aplicada en Simulador C ${scopeTxt}${simCTargetSize !== null ? ` — target ${simCTargetSize} #` : ''}!`);
             });
-            // La gráfica ya no se actualiza sola al cambiar toggles, así que
-            // la optimización corre la simulación explícitamente con la
-            // configuración recién aplicada (sin toast extra).
             runSimC({ silent: true, configs: simCReady, finalFreqs: opt.finalFreqs });
         }
     }
@@ -7261,6 +7458,12 @@ ${breakdownRows30.slice(20).join('\n')}
                                 🆓 Simulador C
                             </button>
                             <button 
+                                onClick={() => setActiveTab('optimizar')} 
+                                className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition flex items-center gap-1 ${activeTab === 'optimizar' ? 'bg-[#00e5ff] text-black shadow-sm' : 'bg-[#222] text-[#00e5ff] hover:text-white'}`}
+                            >
+                                ⚡ Optimizar
+                            </button>
+                            <button 
                                 onClick={() => setActiveTab('thesis')} 
                                 className={`px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition flex items-center gap-1 ${activeTab === 'thesis' ? 'bg-[#7c4dff] text-white shadow-sm' : 'bg-[#222] text-[#ffeb3b] hover:text-white'}`}
                             >
@@ -7292,7 +7495,7 @@ ${breakdownRows30.slice(20).join('\n')}
                         ) : (
                             <div className="flex items-center justify-between flex-wrap gap-2 w-full">
                                 <div>
-                                    <div className="text-[10px] font-black text-[#ffeb3b]">Simulador C (Libre) - Selector y Ejecución</div>
+                                    <div className="text-[10px] font-black text-[#ffeb3b]">{activeTab === 'optimizar' ? 'Optimizar - Configuración Independiente' : 'Simulador C (Libre) - Selector y Ejecución'}</div>
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <select
@@ -7312,30 +7515,27 @@ ${breakdownRows30.slice(20).join('\n')}
                                             <option key={d.num} value={d.num}>Sorteo #{d.num} ({d.date})</option>
                                         ))}
                                     </select>
-                                    <button
-                                        onClick={() => optimizeSimC()}
-                                        disabled={isSimCRunning}
-                                        className="bg-[#00e5ff] text-black px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#00b2cc] transition shadow-md flex items-center gap-1 disabled:opacity-50"
-                                        title="Optimizar: aplica la optimización del detalle del sorteo seleccionado (o del último sorteo) solo sobre los toggles activos, con el target actual"
-                                    >
-                                        ⚡ Optimizar
-                                    </button>
-                                    <button
-                                        onClick={() => runSimC()}
-                                        disabled={isSimCRunning}
-                                        className="bg-[#7c4dff] text-white px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#6539dc] transition shadow-md"
-                                    >
-                                        {isSimCRunning ? 'Simulando...' : '🚀 Correr Simulación C'}
-                                    </button>
-                                    <div className="flex items-center gap-1.5 bg-[#222] border border-[#333] rounded-lg px-2 py-1">
-                                        <span className="text-[10px] text-[#ffeb3b] font-bold">Target Opt.: {simCTargetSize !== null ? `${simCTargetSize} #` : 'Sin target'}</span>
-                                        <button onClick={() => setSimCTargetSize(prev => prev === null ? 10 : Math.max(5, prev - 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">-</button>
-                                        <button onClick={() => setSimCTargetSize(prev => prev === null ? 11 : Math.min(28, prev + 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">+</button>
-                                        {simCTargetSize !== null && (
-                                            <button onClick={() => setSimCTargetSize(null)} className="text-[9px] text-[#ff5252] ml-1 hover:underline">Reset</button>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-1 ml-auto">
+                                    {activeTab === 'optimizar' ? (
+                                        <>
+                                            <div className="flex items-center gap-1.5 bg-[#222] border border-[#333] rounded-lg px-2 py-1">
+                                                <span className="text-[10px] text-[#ffeb3b] font-bold">Target Opt.: {simCTargetSize !== null ? `${simCTargetSize} #` : 'Sin target'}</span>
+                                                <button onClick={() => setSimCTargetSize(prev => prev === null ? 10 : Math.max(5, prev - 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">-</button>
+                                                <button onClick={() => setSimCTargetSize(prev => prev === null ? 11 : Math.min(28, prev + 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">+</button>
+                                                {simCTargetSize !== null && (
+                                                    <button onClick={() => setSimCTargetSize(null)} className="text-[9px] text-[#ff5252] ml-1 hover:underline">Reset</button>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => optimizeSimC()}
+                                                disabled={isSimCRunning}
+                                                className="bg-[#00e5ff] text-black px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer hover:bg-[#00b2cc] transition shadow-md flex items-center gap-1 disabled:opacity-50"
+                                                title="Optimizar: aplica la optimización del detalle del sorteo seleccionado (o del último sorteo) solo sobre los toggles activos, con el target actual"
+                                            >
+                                                ⚡ Optimizar
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center gap-1 ml-auto">
                                         <select
                                             onChange={(e) => handleLoadSimCRecipe(e.target.value)}
                                             className="bg-[#222] text-[#76ff03] border border-[#76ff03]/50 rounded-lg px-2 py-1 text-[10px] font-bold cursor-pointer"
@@ -7371,84 +7571,11 @@ ${breakdownRows30.slice(20).join('\n')}
                                             💾
                                         </button>
                                     </div>
+                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
-                    {activeTab === 'simulatorC' && (
-                        <div className="px-3 pb-2 space-y-2">
-                            {/* Números Resultantes fijos en el bloque de control (con opción a ocultar) */}
-                            <div className="bg-[#181818] border border-[#7c4dff]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(124,77,255,0.15)]">
-                                <div className="flex justify-between items-center mb-2">
-                                    <h3 className="text-[12px] font-black text-[#b388ff]">Números Resultantes — Total: {liveSimCResult.filtered.length} # {simCTargetSize !== null && `| Target: ${simCTargetSize} #`} {liveSimCResult.hits !== null && `| Aciertos: ${liveSimCResult.hits} ac`}</h3>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => {
-                                                const txt = liveSimCResult.filtered.map(n => String(n).padStart(2, '0')).join(' ');
-                                                navigator.clipboard.writeText(txt);
-                                                showLocToast("¡Números de Simulador C (Libre) copiados al portapapeles!");
-                                            }}
-                                            className="bg-[#7c4dff]/20 border border-[#7c4dff]/50 text-[#b388ff] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#7c4dff]/30 transition flex items-center gap-1"
-                                        >
-                                            📋 Copiar
-                                        </button>
-                                        <button
-                                            onClick={() => setSimCResultVisible(v => !v)}
-                                            className="bg-[#222] border border-[#333] text-[#aaa] px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer hover:text-white"
-                                            title={simCResultVisible ? 'Ocultar números resultantes' : 'Mostrar números resultantes'}
-                                        >
-                                            {simCResultVisible ? '▲ Ocultar' : '▼ Mostrar'}
-                                        </button>
-                                    </div>
-                                </div>
-                                {simCResultVisible && (
-                                    <div className="flex flex-wrap gap-1 bg-[#121212] border border-[#2a2a2a] p-2.5 rounded-lg max-h-[120px] overflow-y-auto">
-                                        {liveSimCResult.filtered.map(n => {
-                                            const isWin = liveSimCResult.targetDrawObj ? liveSimCResult.targetDrawObj.win.includes(n) : false;
-                                            return (
-                                                <span key={n} className={`text-[11px] font-black px-2 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#b388ff]'}`}>
-                                                    {String(n).padStart(2, '0')}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Gráfica fija en el bloque de control (con opción a ocultar) */}
-                            {simCResults.length > 0 && (
-                                <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-                                    <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                                        <div>
-                                            <h3 className="text-[12px] font-black text-[#ffeb3b]">📈 Correlación: Números Resultantes vs. Aciertos (Hit Rate en 30 Sorteos)</h3>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] font-bold bg-[#00e5ff]/20 text-[#00e5ff] px-2.5 py-0.5 rounded-full border border-[#00e5ff]/40">
-                                                Promedio Aciertos: {(simCResults.reduce((acc, r) => acc + r.hits, 0) / simCResults.length).toFixed(1)} ac
-                                            </span>
-                                            {userPicks.length > 0 && simCPicksInFreq && simCResults.length > 0 && (
-                                                <span className="text-[9px] font-bold bg-[#ff4081]/20 text-[#ff4081] px-2.5 py-0.5 rounded-full border border-[#ff4081]/40">
-                                                    Prom. picks: {(simCResults.reduce((acc, r) => acc + (r.pickHits ?? 0), 0) / simCResults.length).toFixed(2)} ac
-                                                </span>
-                                            )}
-                                            <button
-                                                onClick={() => setSimCChartVisible(v => !v)}
-                                                className="bg-[#222] border border-[#333] text-[#aaa] px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer hover:text-white"
-                                                title={simCChartVisible ? 'Ocultar gráfica' : 'Mostrar gráfica'}
-                                            >
-                                                {simCChartVisible ? '▲ Ocultar' : '▼ Mostrar'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    {simCChartVisible && (
-                                        <div className="w-full h-[170px] bg-[#121212] border border-[#262626] rounded-xl p-2 flex flex-col justify-center items-center">
-                                             <CustomSVGChart data={simCResults.map(r => ({ draw: `#${r.num}`, count: r.count, hits: r.hits, pickHits: (userPicks.length > 0 && simCPicksInFreq) ? r.pickHits : undefined, date: r.date }))} />
-                                         </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 <div className="p-4 space-y-4 bg-[#121212]">
@@ -7898,247 +8025,321 @@ ${breakdownRows30.slice(20).join('\n')}
                             />
                         </div>
                     ) : (
-                        <div className="space-y-4">
-
-                            <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-md">
-                                <div className="flex justify-between items-center mb-1 flex-wrap gap-2">
-                                    <div>
-                                        <div className="text-[11px] font-black text-[#ffeb3b]">🎯 Tus Picks Fijos / Favoritos (Inmutables & Deterministas)</div>
-                                        <div className="text-[9px] text-[#888]">Selecciona tus números (1 a 28). Se integran de forma armónica e inmutable en el modelo para potenciar los aciertos en Simulador C (Libre).</div>
-                                    </div>
-                                    {userPicks.length > 0 && (
-                                        <button 
-                                            onClick={() => { setUserPicks([]); localStorage.removeItem('chispazo_user_picks'); showLocToast("Picks de usuario limpiados."); }}
-                                            className="text-[9px] bg-[#222] border border-[#ff5252]/40 text-[#ff5252] px-2 py-0.5 rounded cursor-pointer hover:bg-[#ff5252]/20"
-                                        >
-                                            Limpiar ({userPicks.length})
-                                        </button>
-                                    )}
-                                </div>
-                                <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer mt-1" title="Si está activo, los picks cuentan como una fuente más (octava) en la frecuencia final y se incluyen en el resultado; si está apagado, la simulación usa solo los pools.">
-                                    <input
-                                        type="checkbox"
-                                        checked={simCPicksInFreq}
-                                        onChange={(e) => setSimCPicksInFreq(e.target.checked)}
-                                        className="accent-[#ffeb3b] w-3.5 h-3.5 cursor-pointer"
-                                    />
-                                    <span className="text-[#ffeb3b]">Considerar picks en la frecuencia final</span>
-                                </label>
-                                <div className="grid grid-cols-7 sm:grid-cols-14 gap-1 mt-2">
-                                    {Array.from({length: 28}, (_, i) => i + 1).map(n => {
-                                        const isPicked = userPicks.includes(n);
-                                        return (
+                        <div className="flex flex-col md:flex-row gap-3 md:h-[calc(100vh-240px)] md:min-h-[420px]">
+                            {/* Columna izquierda fija: gráfica y números resultantes */}
+                            <div className="w-full md:w-1/2 shrink-0 space-y-2 md:overflow-y-auto md:pr-1">
+                                {/* Números Resultantes fijos en la columna izquierda */}
+                                <div className="bg-[#181818] border border-[#7c4dff]/40 rounded-xl p-3 shadow-[0_0_12px_rgba(124,77,255,0.15)]">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className="text-[12px] font-black text-[#b388ff]">Números Resultantes — Total: {liveSimCResult.filtered.length} # {simCTargetSize !== null && `| Target: ${simCTargetSize} #`} {liveSimCResult.hits !== null && `| Aciertos: ${liveSimCResult.hits} ac`}</h3>
+                                        <div className="flex items-center gap-2">
                                             <button
-                                                key={n}
-                                                onClick={() => toggleUserPick(n)}
-                                                className={`py-1 rounded text-[10px] font-black border transition cursor-pointer ${isPicked ? 'bg-[#ffeb3b] text-black border-[#ffeb3b] shadow-[0_0_8px_rgba(255,235,59,0.4)]' : 'bg-[#222] text-[#aaa] border-[#333] hover:border-[#ffeb3b]/50'}`}
+                                                onClick={() => {
+                                                    const txt = liveSimCResult.filtered.map(n => String(n).padStart(2, '0')).join(' ');
+                                                    navigator.clipboard.writeText(txt);
+                                                    showLocToast("¡Números de Simulador C (Libre) copiados al portapapeles!");
+                                                }}
+                                                className="bg-[#7c4dff]/20 border border-[#7c4dff]/50 text-[#b388ff] px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer hover:bg-[#7c4dff]/30 transition flex items-center gap-1"
                                             >
-                                                {String(n).padStart(2, '0')}
+                                                📋 Copiar
                                             </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Selector de Frecuencias Finales (Entre Pool Sizes / Global en Simulador C) */}
-                            <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-lg">
-                                <div className="text-[11px] font-black text-[#ffeb3b] mb-1">🎯 Selector de Frecuencias Finales (Entre Pool Sizes / Global):</div>
-                                <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias globales aplicadas al conjunto combinado de los pool sizes activos en el Simulador C (Libre).</div>
-                                <div className="flex gap-2 flex-wrap">
-                                    {[8, 7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                        const fActive = simCFinalFreqs[f];
-                                        return (
-                                            <label key={f} className={`flex items-center gap-1.5 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={fActive} 
-                                                    onChange={(e) => {
-                                                        const val = e.target.checked;
-                                                        React.startTransition(() => {
-                                                            setSimCFinalFreqs({...simCFinalFreqs, [f]: val});
-                                                        });
-                                                    }}
-                                                    className="cursor-pointer accent-[#ffeb3b] w-3.5 h-3.5"
-                                                />
-                                                <span>F{f}</span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Pool Sizes Configuration (9, 12, 15, 18, 21, 24, 27) - Vertical Stack View Mode */}
-                            <div className="space-y-3">
-                                <div className="text-[11px] font-black text-[#ffeb3b]">Configuración de Pool Sizes, Pools y Frecuencias (Simulador C (Libre)) — Vista Vertical:</div>
-                                <div className="space-y-3">
-                                    {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                        const rawCfg: any = simCConfigs[sz] || {};
-                                        const cfg = {
-                                            enabled: !!rawCfg.enabled,
-                                            pools: rawCfg.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
-                                            freqs: rawCfg.freqs || { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
-                                        };
-                                        return (
-                                            <div key={sz} className={`border rounded-xl p-3 transition flex flex-col ${cfg.enabled ? 'bg-[#181818] border-[#7c4dff]/50 shadow-[0_0_10px_rgba(124,77,255,0.15)]' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
-                                                <div>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={cfg.enabled} 
-                                                                onChange={(e) => {
-                                                                    const val = e.target.checked;
-                                                                    React.startTransition(() => {
-                                                                        updateSimCField(sz, { enabled: val });
-                                                                    });
-                                                                }}
-                                                                className="cursor-pointer accent-[#7c4dff] w-4 h-4 rounded"
-                                                            />
-                                                            <span className="text-[12px] font-black text-[#ffeb3b]">Pool Size: {sz} #</span>
-                                                        </label>
-                                                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#7c4dff]/20 text-[#b388ff]' : 'bg-[#222] text-[#666]'}`}>
-                                                            {cfg.enabled ? 'Activo' : 'Inactivo'}
-                                                        </span>
-                                                    </div>
-
-                                                    {cfg.enabled && (
-                                                        <div className="space-y-2.5 pt-2 border-t border-[#2a2a2a]">
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1.5 flex-wrap">
-                                                                    {Object.keys(cfg.pools).map(pid => {
-                                                                        const pActive = cfg.pools[pid];
-                                                                        return (
-                                                                            <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-1 rounded transition ${pActive ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-sm' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={pActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const val = e.target.checked;
-                                                                                        React.startTransition(() => {
-                                                                                            updateSimCField(sz, { pools: { [pid]: val } });
-                                                                                        });
-                                                                                    }}
-                                                                                    className="cursor-pointer accent-[#7c4dff] w-3.5 h-3.5"
-                                                                                />
-                                                                                <span>{pid.toUpperCase()}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-
-                                                            <div>
-                                                                <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
-                                                                <div className="flex gap-1.5 flex-wrap">
-                                                                    {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
-                                                                        const fActive = cfg.freqs[f];
-                                                                        return (
-                                                                            <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-1 rounded transition ${fActive ? 'bg-[#00e5ff]/30 border-[#00e5ff] text-white shadow-sm' : 'bg-[#222] border-[#333] text-[#666]'}`}>
-                                                                                <input 
-                                                                                    type="checkbox" 
-                                                                                    checked={fActive} 
-                                                                                    onChange={(e) => {
-                                                                                        const val = e.target.checked;
-                                                                                        React.startTransition(() => {
-                                                                                            updateSimCField(sz, { freqs: { [f]: val } });
-                                                                                        });
-                                                                                    }}
-                                                                                    className="cursor-pointer accent-[#00e5ff] w-3.5 h-3.5"
-                                                                                />
-                                                                                <span>F{f}</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                            {/* Resulting numbers for this specific pool size */}
-                                                            {(() => {
-                                                                const mlPools = liveSimCResult.mlPoolsMap[sz] || calculateMLPools(allDraws, sz);
-                                                                const poolList = [
-                                                                    { id: 'final', nums: mlPools.final },
-                                                                    { id: 'p2', nums: mlPools.p2 },
-                                                                    { id: 'p3', nums: mlPools.p3 },
-                                                                    { id: 'p4', nums: mlPools.p4 },
-                                                                    { id: 'p5', nums: mlPools.p5 },
-                                                                    { id: 'p6', nums: mlPools.p6 },
-                                                                    { id: 'p7', nums: mlPools.p7 }
-                                                                ];
-                                                                let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
-                                                                let szItemFreq: Record<number, number> = {};
-                                                                activePoolObjs.forEach(p => {
-                                                                    p.nums.forEach(n => {
-                                                                        szItemFreq[n] = (szItemFreq[n] || 0) + 1;
-                                                                    });
-                                                                });
-                                                                let szResultingNums: number[] = [];
-                                                                for (let n = 1; n <= 28; n++) {
-                                                                    let f_internal = szItemFreq[n] || 0;
-                                                                    if (cfg.freqs[f_internal]) {
-                                                                        szResultingNums.push(n);
-                                                                    }
-                                                                }
-                                                                let histDrawsForSz = allDraws;
-                                                                if (selectedTargetDrawNum > 0) {
-                                                                    const idx = allDraws.findIndex(d => d.num === selectedTargetDrawNum);
-                                                                    if (idx >= 0) histDrawsForSz = allDraws.slice(0, idx);
-                                                                }
-                                                                szResultingNums.sort((a, b) => getNumberScore(b, histDrawsForSz) - getNumberScore(a, histDrawsForSz));
-                                                                const targetDrawObj = liveSimCResult.targetDrawObj;
-                                                                return (
-                                                                    <div className="mt-2.5 pt-2 border-t border-[#262626]">
-                                                                        <div className="text-[9px] font-bold text-[#00e5ff] mb-1">NÚMEROS RESULTANTES (SZ {sz}# — {szResultingNums.length} #):</div>
-                                                                        <div className="flex gap-1 flex-wrap max-h-[100px] overflow-y-auto pr-1">
-                                                                            {szResultingNums.map(n => {
-                                                                                const isWin = targetDrawObj ? targetDrawObj.win.includes(n) : false;
-                                                                                return (
-                                                                                    <span key={n} className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#121212] border-[#333] text-[#00e5ff]'}`}>
-                                                                                        {String(n).padStart(2, '0')}
-                                                                                    </span>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Simulation Results Table (30 Past Draws) — la gráfica está fija arriba */}
-                            {simCResults.length > 0 && (
-                                <div className="space-y-4">
-                                    <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3">
-                                        <h3 className="text-[12px] font-black text-[#ffeb3b] mb-2">📊 Resultados de Simulación C en los Últimos 30 Sorteos</h3>
-                                        <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
-                                            <div className="grid grid-cols-5 gap-2 bg-[#222] p-2 rounded-lg text-[10px] font-black text-[#00e5ff] text-center sticky top-0 z-10">
-                                                <div>Sorteo</div>
-                                                <div>Fecha</div>
-                                                <div>Ganadores Reales</div>
-                                                <div>Resultantes</div>
-                                                <div>Aciertos</div>
-                                            </div>
-                                            {simCResults.map(r => (
-                                                <div key={r.num} className="grid grid-cols-5 gap-2 bg-[#121212] border border-[#262626] p-2 rounded-lg text-[10px] items-center text-center">
-                                                    <div className="font-bold text-[#ffeb3b]">#{r.num}</div>
-                                                    <div className="text-[#888] text-[9px]">{r.date}</div>
-                                                    <div className="font-mono text-[9px] text-[#ccc]">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</div>
-                                                    <div className="text-[#00e5ff] font-bold">{r.count} #</div>
-                                                    <div className={`font-black px-2 py-0.5 rounded ${r.hits >= 4 ? 'bg-[#2e7d32] text-white' : r.hits === 3 ? 'bg-[#424242] text-[#ffeb3b]' : 'bg-[#1e1e1e] text-[#888]'}`}>
-                                                        {r.hits} aciertos
-                                                    </div>
-                                                </div>
-                                            ))}
+                                            <button
+                                                onClick={() => setSimCResultVisible(v => !v)}
+                                                className="bg-[#222] border border-[#333] text-[#aaa] px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer hover:text-white"
+                                                title={simCResultVisible ? 'Ocultar números resultantes' : 'Mostrar números resultantes'}
+                                            >
+                                                {simCResultVisible ? '▲ Ocultar' : '▼ Mostrar'}
+                                            </button>
                                         </div>
                                     </div>
+                                    {simCResultVisible && (
+                                        <div className="flex flex-wrap gap-1 bg-[#121212] border border-[#2a2a2a] p-2.5 rounded-lg max-h-[120px] overflow-y-auto">
+                                            {liveSimCResult.filtered.map(n => {
+                                                const isWin = liveSimCResult.targetDrawObj ? liveSimCResult.targetDrawObj.win.includes(n) : false;
+                                                return (
+                                                    <span key={n} className={`text-[11px] font-black px-2 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#1a1a1a] border-[#333] text-[#b388ff]'}`}>
+                                                        {String(n).padStart(2, '0')}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
 
+                                {/* Gráfica fija en la columna izquierda */}
+                                {simCResults.length > 0 && (
+                                    <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+                                        <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                                            <div>
+                                                <h3 className="text-[12px] font-black text-[#ffeb3b]">📈 Correlación: Números Resultantes vs. Aciertos (Hit Rate en 30 Sorteos)</h3>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-bold bg-[#00e5ff]/20 text-[#00e5ff] px-2.5 py-0.5 rounded-full border border-[#00e5ff]/40">
+                                                    Promedio Aciertos: {(simCResults.reduce((acc, r) => acc + r.hits, 0) / simCResults.length).toFixed(1)} ac
+                                                </span>
+                                                {userPicks.length > 0 && simCPicksInFreq && simCResults.length > 0 && (
+                                                    <span className="text-[9px] font-bold bg-[#ff4081]/20 text-[#ff4081] px-2.5 py-0.5 rounded-full border border-[#ff4081]/40">
+                                                        Prom. picks: {(simCResults.reduce((acc, r) => acc + (r.pickHits ?? 0), 0) / simCResults.length).toFixed(2)} ac
+                                                    </span>
+                                                )}
+                                                <button
+                                                    onClick={() => setSimCChartVisible(v => !v)}
+                                                    className="bg-[#222] border border-[#333] text-[#aaa] px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer hover:text-white"
+                                                    title={simCChartVisible ? 'Ocultar gráfica' : 'Mostrar gráfica'}
+                                                >
+                                                    {simCChartVisible ? '▲ Ocultar' : '▼ Mostrar'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {simCChartVisible && (
+                                            <div className="w-full h-[170px] bg-[#121212] border border-[#262626] rounded-xl p-2 flex flex-col justify-center items-center">
+                                                 <CustomSVGChart data={simCResults.map(r => ({ draw: `#${r.num}`, count: r.count, hits: r.hits, pickHits: (userPicks.length > 0 && simCPicksInFreq) ? r.pickHits : undefined, date: r.date }))} />
+                                             </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            {/* Columna derecha con scroll: configuración de pool sizes */}
+                            <div className="w-full md:w-1/2 shrink-0 space-y-4 md:overflow-y-auto md:pr-1">
+                                <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-md">
+                                    <div className="flex justify-between items-center mb-1 flex-wrap gap-2">
+                                        <div>
+                                            <div className="text-[11px] font-black text-[#ffeb3b]">🎯 Tus Picks Fijos / Favoritos (Inmutables & Deterministas)</div>
+                                            <div className="text-[9px] text-[#888]">Selecciona tus números (1 a 28). Se integran de forma armónica e inmutable en el modelo para potenciar los aciertos en Simulador C (Libre).</div>
+                                        </div>
+                                        {userPicks.length > 0 && (
+                                            <button 
+                                                onClick={() => { setUserPicks([]); localStorage.removeItem('chispazo_user_picks'); showLocToast("Picks de usuario limpiados."); }}
+                                                className="text-[9px] bg-[#222] border border-[#ff5252]/40 text-[#ff5252] px-2 py-0.5 rounded cursor-pointer hover:bg-[#ff5252]/20"
+                                            >
+                                                Limpiar ({userPicks.length})
+                                            </button>
+                                        )}
+                                    </div>
+                                    <label className="flex items-center gap-1.5 text-[10px] font-bold cursor-pointer mt-1" title="Si está activo, los picks cuentan como una fuente más (octava) en la frecuencia final y se incluyen en el resultado; si está apagado, la simulación usa solo los pools.">
+                                        <input
+                                            type="checkbox"
+                                            checked={simCPicksInFreq}
+                                            onChange={(e) => setSimCPicksInFreq(e.target.checked)}
+                                            className="accent-[#ffeb3b] w-3.5 h-3.5 cursor-pointer"
+                                        />
+                                        <span className="text-[#ffeb3b]">Considerar picks en la frecuencia final</span>
+                                    </label>
+                                    <div className="grid grid-cols-7 sm:grid-cols-14 gap-1 mt-2">
+                                        {Array.from({length: 28}, (_, i) => i + 1).map(n => {
+                                            const isPicked = userPicks.includes(n);
+                                            return (
+                                                <button
+                                                    key={n}
+                                                    onClick={() => toggleUserPick(n)}
+                                                    className={`py-1 rounded text-[10px] font-black border transition cursor-pointer ${isPicked ? 'bg-[#ffeb3b] text-black border-[#ffeb3b] shadow-[0_0_8px_rgba(255,235,59,0.4)]' : 'bg-[#222] text-[#aaa] border-[#333] hover:border-[#ffeb3b]/50'}`}
+                                                >
+                                                    {String(n).padStart(2, '0')}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Selector de Frecuencias Finales (Entre Pool Sizes / Global en Simulador C) */}
+                                <div className="bg-[#181818] border border-[#ffeb3b]/40 rounded-xl p-3 shadow-lg">
+                                    <div className="text-[11px] font-black text-[#ffeb3b] mb-1">🎯 Selector de Frecuencias Finales (Entre Pool Sizes / Global):</div>
+                                    <div className="text-[9px] text-[#888] mb-2">Filtro de frecuencias globales aplicadas al conjunto combinado de los pool sizes activos en el Simulador C (Libre).</div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {[8, 7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                            const fActive = simCFinalFreqs[f];
+                                            return (
+                                                <label key={f} className={`flex items-center gap-1.5 text-[10px] font-bold cursor-pointer border px-2.5 py-1 rounded-lg transition ${fActive ? 'bg-[#ffeb3b]/25 border-[#ffeb3b] text-[#ffeb3b]' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={fActive} 
+                                                        onChange={(e) => {
+                                                            const val = e.target.checked;
+                                                            React.startTransition(() => {
+                                                                setSimCFinalFreqs({...simCFinalFreqs, [f]: val});
+                                                            });
+                                                        }}
+                                                        className="cursor-pointer accent-[#ffeb3b] w-3.5 h-3.5"
+                                                    />
+                                                    <span>F{f}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Pool Sizes Configuration (9, 12, 15, 18, 21, 24, 27) - Vertical Stack View Mode */}
+                                <div className="space-y-3">
+                                    <div className="text-[11px] font-black text-[#ffeb3b]">Configuración de Pool Sizes, Pools y Frecuencias (Simulador C (Libre)) — Vista Vertical:</div>
+                                    <div className="space-y-3">
+                                        {[9, 12, 15, 18, 21, 24, 27].map(sz => {
+                                            const rawCfg: any = simCConfigs[sz] || {};
+                                            const cfg = {
+                                                enabled: !!rawCfg.enabled,
+                                                pools: rawCfg.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
+                                                freqs: rawCfg.freqs || { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                                            };
+                                            return (
+                                                <div key={sz} className={`border rounded-xl p-3 transition flex flex-col ${cfg.enabled ? 'bg-[#181818] border-[#7c4dff]/50 shadow-[0_0_10px_rgba(124,77,255,0.15)]' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
+                                                    <div>
+                                                        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={cfg.enabled} 
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.checked;
+                                                                        React.startTransition(() => {
+                                                                            updateSimCField(sz, { enabled: val });
+                                                                        });
+                                                                    }}
+                                                                    className="cursor-pointer accent-[#7c4dff] w-4 h-4 rounded"
+                                                                />
+                                                                <span className="text-[12px] font-black text-[#ffeb3b]">Pool Size: {sz} #</span>
+                                                            </label>
+                                                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${cfg.enabled ? 'bg-[#7c4dff]/20 text-[#b388ff]' : 'bg-[#222] text-[#666]'}`}>
+                                                                {cfg.enabled ? 'Activo' : 'Inactivo'}
+                                                            </span>
+                                                        </div>
+
+                                                        {cfg.enabled && (
+                                                            <div className="space-y-2.5 pt-2 border-t border-[#2a2a2a]">
+                                                                <div>
+                                                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">POOLS ACTIVOS (SZ {sz}#):</div>
+                                                                    <div className="flex gap-1.5 flex-wrap">
+                                                                        {Object.keys(cfg.pools).map(pid => {
+                                                                            const pActive = cfg.pools[pid];
+                                                                            return (
+                                                                                <label key={pid} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-1 rounded transition ${pActive ? 'bg-[#7c4dff]/30 border-[#7c4dff] text-white shadow-sm' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                                                    <input 
+                                                                                        type="checkbox" 
+                                                                                        checked={pActive} 
+                                                                                        onChange={(e) => {
+                                                                                            const val = e.target.checked;
+                                                                                            React.startTransition(() => {
+                                                                                                updateSimCField(sz, { pools: { [pid]: val } });
+                                                                                            });
+                                                                                        }}
+                                                                                        className="cursor-pointer accent-[#7c4dff] w-3.5 h-3.5"
+                                                                                    />
+                                                                                    <span>{pid.toUpperCase()}</span>
+                                                                                </label>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    <div className="text-[9px] font-bold text-[#aaa] mb-1">FRECUENCIAS (SZ {sz}#):</div>
+                                                                    <div className="flex gap-1.5 flex-wrap">
+                                                                        {[7, 6, 5, 4, 3, 2, 1, 0].map(f => {
+                                                                            const fActive = cfg.freqs[f];
+                                                                            return (
+                                                                                <label key={f} className={`flex items-center gap-1 text-[9px] font-bold cursor-pointer border px-2 py-1 rounded transition ${fActive ? 'bg-[#00e5ff]/30 border-[#00e5ff] text-white shadow-sm' : 'bg-[#222] border-[#333] text-[#666]'}`}>
+                                                                                    <input 
+                                                                                        type="checkbox" 
+                                                                                        checked={fActive} 
+                                                                                        onChange={(e) => {
+                                                                                            const val = e.target.checked;
+                                                                                            React.startTransition(() => {
+                                                                                                updateSimCField(sz, { freqs: { [f]: val } });
+                                                                                            });
+                                                                                        }}
+                                                                                        className="cursor-pointer accent-[#00e5ff] w-3.5 h-3.5"
+                                                                                    />
+                                                                                    <span>F{f}</span>
+                                                                                </label>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                                {/* Resulting numbers for this specific pool size */}
+                                                                {(() => {
+                                                                    const mlPools = liveSimCResult.mlPoolsMap[sz] || calculateMLPools(allDraws, sz);
+                                                                    const poolList = [
+                                                                        { id: 'final', nums: mlPools.final },
+                                                                        { id: 'p2', nums: mlPools.p2 },
+                                                                        { id: 'p3', nums: mlPools.p3 },
+                                                                        { id: 'p4', nums: mlPools.p4 },
+                                                                        { id: 'p5', nums: mlPools.p5 },
+                                                                        { id: 'p6', nums: mlPools.p6 },
+                                                                        { id: 'p7', nums: mlPools.p7 }
+                                                                    ];
+                                                                    let activePoolObjs = poolList.filter(p => cfg.pools[p.id]);
+                                                                    let szItemFreq: Record<number, number> = {};
+                                                                    activePoolObjs.forEach(p => {
+                                                                        p.nums.forEach(n => {
+                                                                            szItemFreq[n] = (szItemFreq[n] || 0) + 1;
+                                                                        });
+                                                                    });
+                                                                    let szResultingNums: number[] = [];
+                                                                    for (let n = 1; n <= 28; n++) {
+                                                                        let f_internal = szItemFreq[n] || 0;
+                                                                        if (cfg.freqs[f_internal]) {
+                                                                            szResultingNums.push(n);
+                                                                        }
+                                                                    }
+                                                                    let histDrawsForSz = allDraws;
+                                                                    if (selectedTargetDrawNum > 0) {
+                                                                        const idx = allDraws.findIndex(d => d.num === selectedTargetDrawNum);
+                                                                        if (idx >= 0) histDrawsForSz = allDraws.slice(0, idx);
+                                                                    }
+                                                                    szResultingNums.sort((a, b) => getNumberScore(b, histDrawsForSz) - getNumberScore(a, histDrawsForSz));
+                                                                    const targetDrawObj = liveSimCResult.targetDrawObj;
+                                                                    return (
+                                                                        <div className="mt-2.5 pt-2 border-t border-[#262626]">
+                                                                            <div className="text-[9px] font-bold text-[#00e5ff] mb-1">NÚMEROS RESULTANTES (SZ {sz}# — {szResultingNums.length} #):</div>
+                                                                            <div className="flex gap-1 flex-wrap max-h-[100px] overflow-y-auto pr-1">
+                                                                                {szResultingNums.map(n => {
+                                                                                    const isWin = targetDrawObj ? targetDrawObj.win.includes(n) : false;
+                                                                                    return (
+                                                                                        <span key={n} className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${isWin ? 'bg-[#2e7d32] border-[#4caf50] text-white' : 'bg-[#121212] border-[#333] text-[#00e5ff]'}`}>
+                                                                                            {String(n).padStart(2, '0')}
+                                                                                        </span>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Simulation Results Table (30 Past Draws) — la gráfica está fija arriba */}
+                                {simCResults.length > 0 && (
+                                    <div className="space-y-4">
+                                        <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3">
+                                            <h3 className="text-[12px] font-black text-[#ffeb3b] mb-2">📊 Resultados de Simulación C en los Últimos 30 Sorteos</h3>
+                                            <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+                                                <div className="grid grid-cols-5 gap-2 bg-[#222] p-2 rounded-lg text-[10px] font-black text-[#00e5ff] text-center sticky top-0 z-10">
+                                                    <div>Sorteo</div>
+                                                    <div>Fecha</div>
+                                                    <div>Ganadores Reales</div>
+                                                    <div>Resultantes</div>
+                                                    <div>Aciertos</div>
+                                                </div>
+                                                {simCResults.map(r => (
+                                                    <div key={r.num} className="grid grid-cols-5 gap-2 bg-[#121212] border border-[#262626] p-2 rounded-lg text-[10px] items-center text-center">
+                                                        <div className="font-bold text-[#ffeb3b]">#{r.num}</div>
+                                                        <div className="text-[#888] text-[9px]">{r.date}</div>
+                                                        <div className="font-mono text-[9px] text-[#ccc]">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</div>
+                                                        <div className="text-[#00e5ff] font-bold">{r.count} #</div>
+                                                        <div className={`font-black px-2 py-0.5 rounded ${r.hits >= 4 ? 'bg-[#2e7d32] text-white' : r.hits === 3 ? 'bg-[#424242] text-[#ffeb3b]' : 'bg-[#1e1e1e] text-[#888]'}`}>
+                                                            {r.hits} aciertos
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
