@@ -7404,7 +7404,7 @@ ${breakdownRows30.slice(20).join('\n')}
                         <div className="flex items-center gap-2">
                             <span className="text-[14px]">🧪</span>
                             <div>
-                                <div className="text-[12px] font-black text-[#ffeb3b]">LAB - Laboratorio de Estadísticas & Asistente IA Chispazo</div>
+                                <div className="text-[12px] font-black text-[#ffeb3b]">LAB - Laboratorio de Estadísticas</div>
                                 <div className="text-[9px] text-[#888]">Laboratorio experimental para simulaciones y algoritmos con alta precisión.</div>
                             </div>
                         </div>
@@ -8071,7 +8071,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                     <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
                                         <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
                                             <div>
-                                                <h3 className="text-[12px] font-black text-[#ffeb3b]">📈 Correlación: Números Resultantes vs. Aciertos (Hit Rate en 30 Sorteos)</h3>
+                                                <h3 className="text-[12px] font-black text-[#ffeb3b]">📈 Correlación: Números Resultantes vs. Aciertos</h3>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[9px] font-bold bg-[#00e5ff]/20 text-[#00e5ff] px-2.5 py-0.5 rounded-full border border-[#00e5ff]/40">
