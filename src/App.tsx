@@ -258,8 +258,10 @@ import * as XLSX from 'xlsx';
 
 
 
-function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: number; pickHits?: number; date: string }[] }) {
+function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: number; pickHits?: number; date: string; filtered?: number[]; win?: number[] }[] }) {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    const [pinnedIndex, setPinnedIndex] = useState<number | null>(null);
+
     if (!data || data.length === 0) return null;
 
     const width = 600;
@@ -292,8 +294,10 @@ function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: n
     }) : [];
     const pickPathData = pickLinePoints.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
 
+    const activeIndex = pinnedIndex !== null ? pinnedIndex : hoveredIndex;
+
     return (
-        <div className="relative w-full h-[150px] select-none">
+        <div className="relative w-full h-[150px] select-none" onClick={() => { if (pinnedIndex !== null) setPinnedIndex(null); }}>
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
                 {[0, 1, 2, 3, 4, 5].map(h => {
                     const y = padding.top + chartH - (h / maxHits) * chartH;
@@ -308,6 +312,7 @@ function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: n
                     const x = padding.left + i * dx - barWidth / 2;
                     const barH = (d.count / maxCount) * chartH;
                     const y = padding.top + chartH - barH;
+                    const isSelected = pinnedIndex === i || hoveredIndex === i;
                     return (
                         <rect
                             key={i}
@@ -316,61 +321,98 @@ function CustomSVGChart({ data }: { data: { draw: string; count: number; hits: n
                             width={barWidth}
                             height={barH}
                             fill="#00e5ff"
-                            opacity={hoveredIndex === i ? 0.9 : 0.5}
+                            opacity={isSelected ? 0.9 : 0.5}
                             rx={2}
                             onMouseEnter={() => setHoveredIndex(i)}
                             onMouseLeave={() => setHoveredIndex(null)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPinnedIndex(pinnedIndex === i ? null : i);
+                            }}
                             className="transition-opacity cursor-pointer"
                         />
                     );
                 })}
                 <path d={pathData} fill="none" stroke="#ffeb3b" strokeWidth="2.5" />
-                {linePoints.map((p, i) => (
-                    <circle
-                        key={i}
-                        cx={p.x}
-                        cy={p.y}
-                        r={hoveredIndex === i ? 5 : 3}
-                        fill="#ffeb3b"
-                        stroke="#121212"
-                        strokeWidth="1.5"
-                        onMouseEnter={() => setHoveredIndex(i)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                        className="cursor-pointer transition-all"
-                    />
-                ))}
+                {linePoints.map((p, i) => {
+                    const isSelected = pinnedIndex === i || hoveredIndex === i;
+                    return (
+                        <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r={isSelected ? 6 : 3}
+                            fill="#ffeb3b"
+                            stroke="#121212"
+                            strokeWidth="1.5"
+                            onMouseEnter={() => setHoveredIndex(i)}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPinnedIndex(pinnedIndex === i ? null : i);
+                            }}
+                            className="cursor-pointer transition-all"
+                        />
+                    );
+                })}
                 {showPicks && (
                     <path d={pickPathData} fill="none" stroke="#ff4081" strokeWidth="2" />
                 )}
-                {showPicks && pickLinePoints.map((p, i) => (
-                    <circle
-                        key={i}
-                        cx={p.x}
-                        cy={p.y}
-                        r={hoveredIndex === i ? 5 : 3}
-                        fill="#ff4081"
-                        stroke="#121212"
-                        strokeWidth="1.5"
-                        onMouseEnter={() => setHoveredIndex(i)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                        className="cursor-pointer transition-all"
-                    />
-                ))}
-                {/* Sin etiquetas de sorteos en el eje X: el sorteo se ve al pasar el mouse sobre cada punto (tooltip). */}
+                {showPicks && pickLinePoints.map((p, i) => {
+                    const isSelected = pinnedIndex === i || hoveredIndex === i;
+                    return (
+                        <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r={isSelected ? 6 : 3}
+                            fill="#ff4081"
+                            stroke="#121212"
+                            strokeWidth="1.5"
+                            onMouseEnter={() => setHoveredIndex(i)}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPinnedIndex(pinnedIndex === i ? null : i);
+                            }}
+                            className="cursor-pointer transition-all"
+                        />
+                    );
+                })}
             </svg>
-            {showPicks && (
-                <div className="absolute top-2 left-2 bg-[#181818]/80 border border-[#333] px-2 py-1 rounded-lg text-[9px] pointer-events-none z-25 flex items-center gap-3">
-                    <span className="text-[#ffeb3b]">● Consenso</span>
-                    <span className="text-[#ff4081]">● Picks</span>
-                </div>
-            )}
-            {hoveredIndex !== null && (
-                <div className="absolute top-2 right-2 bg-[#181818] border border-[#333] p-2 rounded-lg text-[10px] shadow-xl pointer-events-none z-25 text-white">
-                    <div className="font-bold text-[#ffeb3b]">{data[hoveredIndex].draw} ({data[hoveredIndex].date})</div>
-                    <div className="text-[#00e5ff]">Números Resultantes: {data[hoveredIndex].count}</div>
-                    <div className="text-[#ffeb3b]">Aciertos: {data[hoveredIndex].hits} ac</div>
-                    {data[hoveredIndex].pickHits !== undefined && (
-                        <div className="text-[#ff4081]">Aciertos picks: {data[hoveredIndex].pickHits} ac</div>
+
+            {activeIndex !== null && (
+                <div className="absolute top-2 right-2 bg-[#181818] border border-[#00e5ff] p-2.5 rounded-xl text-[10px] shadow-2xl z-25 text-white max-w-[280px]" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center gap-3 mb-1">
+                        <span className="font-bold text-[#ffeb3b]">{data[activeIndex].draw} ({data[activeIndex].date})</span>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${pinnedIndex !== null ? 'bg-[#00e5ff] text-black' : 'bg-[#333] text-[#aaa]'}`}>
+                            {pinnedIndex !== null ? '📌 Fijo' : '☁️ Flotante'}
+                        </span>
+                    </div>
+                    <div className="text-[#00e5ff]">Números Resultantes: {data[activeIndex].count}</div>
+                    <div className="text-[#ffeb3b]">Aciertos: {data[activeIndex].hits} ac</div>
+                    {data[activeIndex].pickHits !== undefined && (
+                        <div className="text-[#ff4081]">Aciertos picks: {data[activeIndex].pickHits} ac</div>
+                    )}
+                    {data[activeIndex].filtered && data[activeIndex].win && (
+                        <div className="mt-2 pt-1.5 border-t border-[#333]">
+                            <div className="text-[9px] text-[#aaa] mb-1">Números Resultantes (ganadores en verde):</div>
+                            <div className="flex flex-wrap gap-1">
+                                {data[activeIndex].filtered!.map(n => {
+                                    const isMatch = data[activeIndex].win!.includes(n);
+                                    return (
+                                        <span
+                                            key={n}
+                                            className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                                isMatch ? 'bg-[#2e7d32] text-white border border-[#4caf50]' : 'bg-[#222] text-[#00e5ff] border border-[#333]'
+                                            }`}
+                                        >
+                                            {String(n).padStart(2, '0')}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     )}
                 </div>
             )}
@@ -2470,7 +2512,7 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: num
         // Con restriccion (optimizacion sobre toggles selectos): los
         // tamanos apagados no entran en la optimizacion.
         if (allowed && !(allowed.configs[sz] && allowed.configs[sz].enabled)) return;
-        const mlPools = getPoolsForDraw(allDraws, draw.num, sz);
+        const mlPools = histIdx > 0 ? calculateMLPools(histDraws, sz) : getPoolsForDraw(allDraws, draw.num, sz);
         const poolList = [
             { id: 'final', name: 'Final', nums: mlPools.final },
             { id: 'p2', name: 'Pool2', nums: mlPools.p2 },
@@ -2487,7 +2529,7 @@ function getOptimalMultipoolConfig(allDraws: Draw[], draw: Draw, targetSize: num
     let poolSizeFilteredSets: number[][] = [];
     poolSizes.forEach(sz => {
         if (allowed && !(allowed.configs[sz] && allowed.configs[sz].enabled)) return;
-        const mlPools = getPoolsForDraw(allDraws, draw.num, sz);
+        const mlPools = histIdx > 0 ? calculateMLPools(histDraws, sz) : getPoolsForDraw(allDraws, draw.num, sz);
         const poolList = [
             { id: 'final', name: 'Final', nums: mlPools.final },
             { id: 'p2', name: 'Pool2', nums: mlPools.p2 },
@@ -5292,6 +5334,24 @@ ${breakdownRows30.slice(20).join('\n')}
     // Target draw selector state (0 = next upcoming draw, otherwise historical draw number)
     const [selectedTargetDrawNum, setSelectedTargetDrawNum] = useState<number>(0);
 
+    const allBuiltinRecipes = [
+        { id: 'master_1', name: '🍳 Receta 1: Alfa Compacta', type: 'Maestra' },
+        { id: 'master_2', name: '🍳 Receta 2: Beta Consenso Estricto', type: 'Maestra' },
+        { id: 'master_3', name: '🍳 Receta 3: Gamma Balanceada', type: 'Maestra' },
+        { id: 'master_4', name: '🍳 Receta 4: Delta Núcleo Reducido', type: 'Maestra' },
+        { id: 'master_5', name: '🍳 Receta 5: Omega Maestra Definitiva', type: 'Maestra' },
+        { id: 'master_6', name: '🍳 Receta 6: Zeta Cuatro Eficiente', type: 'Maestra' },
+        { id: 'thesis_14', name: '📜 Tesis 14 (optimizada)', type: 'Tesis' },
+        { id: 'thesis_10', name: '📜 Tesis 10 (optimizada)', type: 'Tesis' },
+    ];
+
+    const [hiddenRecipes, setHiddenRecipes] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('chispazo_hidden_recipes');
+            return saved ? JSON.parse(saved) : [];
+        } catch(e) { return []; }
+    });
+
     // Custom saved recipes state with keyword 'keep'
     const [customRecipes, setCustomRecipes] = useState<any[]>(() => {
         try {
@@ -5364,11 +5424,19 @@ ${breakdownRows30.slice(20).join('\n')}
             showLocToast('Error: La palabra clave debe ser exactamente "keep" para eliminar');
             return;
         }
-        const updated = customRecipes.filter(r => r.id !== id);
-        setCustomRecipes(updated);
-        try {
-            localStorage.setItem('chispazo_custom_recipes', JSON.stringify(updated));
-        } catch(e) {}
+        if (id.startsWith('master_') || id.startsWith('thesis_')) {
+            const nextHidden = [...hiddenRecipes, id];
+            setHiddenRecipes(nextHidden);
+            try {
+                localStorage.setItem('chispazo_hidden_recipes', JSON.stringify(nextHidden));
+            } catch(e) {}
+        } else {
+            const updated = customRecipes.filter(r => r.id !== id);
+            setCustomRecipes(updated);
+            try {
+                localStorage.setItem('chispazo_custom_recipes', JSON.stringify(updated));
+            } catch(e) {}
+        }
         showLocToast("¡Configuración eliminada exitosamente con la palabra clave 'keep'!");
         setDeleteTargetId(null);
         setDeleteKeywordInput('');
@@ -6381,7 +6449,7 @@ ${breakdownRows30.slice(20).join('\n')}
     // comportamiento por defecto y para recetas maestras/personalizadas).
     // Al cargar una receta de tesis se fija a su target (14 o 10) y la
     // salida (en vivo y en la gráfica) se recorta a esos números.
-    const [simCTargetSize, setSimCTargetSize] = useState<number | null>(null);
+    const [simCTargetSize, setSimCTargetSize] = useState<number | null>(10);
     // Visibilidad de los bloques fijos del Simulador C (numeros
     // resultantes y grafica) en la columna izquierda.
     const [simCChartVisible, setSimCChartVisible] = useState(true);
@@ -6626,6 +6694,7 @@ ${breakdownRows30.slice(20).join('\n')}
         const masterFreqMapC = getMultipoolMasterFreqMap(simCConfigs, mlPoolsMap, poolSizesList, effPicks);
         let filtered = sortByMasterFreqDesc(baseFiltered, masterFreqMapC);
         filtered = capSimCToTarget(filtered, masterFreqMapC, simCTargetSize);
+        filtered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
         let hits = targetDrawObj ? targetDrawObj.win.filter(w => filtered.includes(w)).length : null;
         return { filtered, targetDrawObj, hits, mlPoolsMap };
     }, [allDraws, selectedTargetDrawNum, simCConfigs, simCFinalFreqs, userPicks, simCTargetSize, simCPicksInFreq]);
@@ -7100,11 +7169,11 @@ ${breakdownRows30.slice(20).join('\n')}
             }, 600);
         }
         return () => { if (timer) clearTimeout(timer); };
-    }, [activeTab, allDraws, simCConfigs, simCFinalFreqs, userPicks, simCPicksInFreq]);
+    }, [activeTab, allDraws, simCConfigs, simCFinalFreqs, userPicks, simCPicksInFreq, simCTargetSize, selectedTargetDrawNum]);
     // Simulador C: la salida es el consenso completo, sin recortar
     // ni rellenar a ningún tamaño y sin forzar ganadores.
     // Cada sorteo se evalúa con el consenso completo que resulte.
-    function runSimC(opts?: { configs?: any; finalFreqs?: any; targetDrawNum?: number; userPicks?: number[]; silent?: boolean }) {
+    function runSimC(opts?: { configs?: any; finalFreqs?: any; targetDrawNum?: number; userPicks?: number[]; targetSize?: number | null; silent?: boolean }) {
         // Valores efectivos: los pasados explícitamente (p. ej. recién
         // optimizados o cargados) o, si no, los del estado actual. Sin esto,
         // un setTimeout tras cambiar el estado simulaba con la configuración
@@ -7113,6 +7182,7 @@ ${breakdownRows30.slice(20).join('\n')}
         const ff = opts?.finalFreqs ?? simCFinalFreqs;
         const selDraw = opts?.targetDrawNum ?? selectedTargetDrawNum;
         const picks = opts?.userPicks ?? userPicks;
+        const targetSz = opts?.targetSize !== undefined ? opts.targetSize : simCTargetSize;
         // Toggle de picks: si está apagado, los picks no cuentan en la
         // frecuencia final ni se incluyen en el resultado (como un pool
         // size apagado).
@@ -7154,6 +7224,8 @@ ${breakdownRows30.slice(20).join('\n')}
                 // frecuencia maestra pasa el filtro de frecuencias finales.
                 const masterFreqMapD = getMultipoolMasterFreqMap(cfgs, mlPoolsMap, poolSizesList, effPicks);
                 let filtered = sortByMasterFreqDesc(baseFiltered, masterFreqMapD);
+                filtered = capSimCToTarget(filtered, masterFreqMapD, targetSz);
+                filtered.sort((a, b) => getNumberScore(b, histDraws) - getNumberScore(a, histDraws));
 
                 let hits = d.win.filter(w => filtered.includes(w)).length;
                 // Aciertos de los picks fijos en este sorteo (línea rosa):
@@ -7272,10 +7344,41 @@ ${breakdownRows30.slice(20).join('\n')}
             const k = scoreKey(r);
             if (better(k, bestKey)) { bestKey = k; best = cloneCfg(c); bestEval = r; }
         }
-        // Semilla: la configuración actual (si tiene algo prendido).
+        // Semilla 1: configuración actual (si tiene algo prendido).
         if (allowed) {
             consider({ configs: allowed.configs, finalFreqs: allowed.finalFreqs });
         }
+        // Semilla 2: Recetas maestras (1 a 6) y Tesis evaluadas en la ventana
+        [1, 2, 3, 4, 5, 6].forEach(recId => {
+            try {
+                const rec = getRecipeConfig(recId);
+                consider({ configs: rec.configs, finalFreqs: rec.finalFreqs });
+            } catch(e) {}
+        });
+        ['thesis_14', 'thesis_10'].forEach(tId => {
+            try {
+                const rec = getRecipeConfig(tId);
+                consider({ configs: rec.configs, finalFreqs: rec.finalFreqs });
+            } catch(e) {}
+        });
+        // Semilla 3: Optimización multipool individual para cada sorteo de la ventana
+        windowDraws.forEach(d => {
+            try {
+                const opt = getOptimalMultipoolConfig(allDraws, d, maxAvgCount, allowed, effPicks);
+                if (opt && opt.configs && opt.finalFreqs) {
+                    const cfgMap: Record<number, any> = {};
+                    poolSizes.forEach(sz => {
+                        const enabled = sizeAllowed(sz);
+                        cfgMap[sz] = {
+                            enabled,
+                            pools: opt.configs[sz] ? opt.configs[sz].pools : { final: false, p2: false, p3: false, p4: false, p5: false, p6: false, p7: false },
+                            freqs: opt.configs[sz] ? opt.configs[sz].freqs : { 7: false, 6: false, 5: false, 4: false, 3: false, 2: false, 1: false, 0: false }
+                        };
+                    });
+                    consider({ configs: cfgMap, finalFreqs: opt.finalFreqs });
+                }
+            } catch(e) {}
+        });
         const RESTARTS = 8;
         const STEPS = 250;
         for (let rs = 0; rs < RESTARTS; rs++) {
@@ -7366,7 +7469,8 @@ ${breakdownRows30.slice(20).join('\n')}
             drawNum = targetIdx;
         }
         if (drawNum >= 0 && allDraws[drawNum]) {
-            const opt = getOptimalMultipoolConfig(allDraws, allDraws[drawNum], simCTargetSize, allowedOpt, effPicks);
+            const effectiveTarget = simCTargetSize !== null ? simCTargetSize : 10;
+            const opt = getOptimalMultipoolConfig(allDraws, allDraws[drawNum], effectiveTarget, allowedOpt, effPicks);
             // Fusiona con la selección actual: solo los tamaños activos
             // reciben la optimización; los apagados quedan como estaban.
             const simCReady: Record<number, { enabled: boolean; pools: Record<string, boolean>; freqs: Record<number, boolean> }> = { ...simCConfigs };
@@ -7499,7 +7603,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <select
-                                        value={selectedTargetDrawNum}
+                                        value={selectedTargetDrawNum ?? 0}
                                         onChange={(e) => {
                                             const v = parseInt(e.target.value);
                                             React.startTransition(() => {
@@ -7517,13 +7621,25 @@ ${breakdownRows30.slice(20).join('\n')}
                                     </select>
                                     {activeTab === 'optimizar' ? (
                                         <>
-                                            <div className="flex items-center gap-1.5 bg-[#222] border border-[#333] rounded-lg px-2 py-1">
-                                                <span className="text-[10px] text-[#ffeb3b] font-bold">Target Opt.: {simCTargetSize !== null ? `${simCTargetSize} #` : 'Sin target'}</span>
-                                                <button onClick={() => setSimCTargetSize(prev => prev === null ? 10 : Math.max(5, prev - 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">-</button>
-                                                <button onClick={() => setSimCTargetSize(prev => prev === null ? 11 : Math.min(28, prev + 1))} className="bg-[#333] text-white px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-[#444]">+</button>
-                                                {simCTargetSize !== null && (
-                                                    <button onClick={() => setSimCTargetSize(null)} className="text-[9px] text-[#ff5252] ml-1 hover:underline">Reset</button>
-                                                )}
+                                            <div className="flex items-center gap-1 bg-[#222] border border-[#333] rounded-lg px-2 py-1">
+                                                <span className="text-[9px] text-[#ffeb3b] font-bold mr-1">Target:</span>
+                                                {[9, 12, 15, 18, 21, 24, 27].map(sz => (
+                                                    <button
+                                                        key={sz}
+                                                        onClick={() => setSimCTargetSize(sz)}
+                                                        className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition ${simCTargetSize === sz ? 'bg-[#7c4dff] text-white shadow-sm' : 'text-[#888] hover:text-white'}`}
+                                                        title={`Target de ${sz} números`}
+                                                    >
+                                                        {sz}#
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={() => setSimCTargetSize(null)}
+                                                    className={`px-1.5 py-0.5 rounded text-[9px] font-black cursor-pointer transition ${simCTargetSize === null ? 'bg-[#ff5252] text-white shadow-sm' : 'text-[#888] hover:text-white'}`}
+                                                    title="Sin target (todos los resultantes)"
+                                                >
+                                                    Sin target
+                                                </button>
                                             </div>
                                             <button
                                                 onClick={() => optimizeSimC()}
@@ -7569,6 +7685,13 @@ ${breakdownRows30.slice(20).join('\n')}
                                             title="Guardar Receta"
                                         >
                                             💾
+                                        </button>
+                                        <button
+                                            onClick={() => setShowManageSavedModal(true)}
+                                            className="bg-[#333] border border-[#555] text-[#ff5252] px-2 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer hover:bg-[#444] transition shadow-md"
+                                            title="Gestionar / Eliminar Recetas"
+                                        >
+                                            🗑️
                                         </button>
                                     </div>
                                     )}
@@ -8074,12 +8197,12 @@ ${breakdownRows30.slice(20).join('\n')}
                                                 <h3 className="text-[12px] font-black text-[#ffeb3b]">📈 Correlación: Números Resultantes vs. Aciertos</h3>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[9px] font-bold bg-[#00e5ff]/20 text-[#00e5ff] px-2.5 py-0.5 rounded-full border border-[#00e5ff]/40">
-                                                    Promedio Aciertos: {(simCResults.reduce((acc, r) => acc + r.hits, 0) / simCResults.length).toFixed(1)} ac
+                                                <span className="text-[9px] font-bold bg-[#222] text-[#ffeb3b] px-2.5 py-0.5 rounded-full border border-[#00e5ff]/40">
+                                                    ● Consenso
                                                 </span>
                                                 {userPicks.length > 0 && simCPicksInFreq && simCResults.length > 0 && (
-                                                    <span className="text-[9px] font-bold bg-[#ff4081]/20 text-[#ff4081] px-2.5 py-0.5 rounded-full border border-[#ff4081]/40">
-                                                        Prom. picks: {(simCResults.reduce((acc, r) => acc + (r.pickHits ?? 0), 0) / simCResults.length).toFixed(2)} ac
+                                                    <span className="text-[9px] font-bold bg-[#222] text-[#ff4081] px-2.5 py-0.5 rounded-full border border-[#ff4081]/40">
+                                                        ● Picks
                                                     </span>
                                                 )}
                                                 <button
@@ -8093,9 +8216,38 @@ ${breakdownRows30.slice(20).join('\n')}
                                         </div>
                                         {simCChartVisible && (
                                             <div className="w-full h-[170px] bg-[#121212] border border-[#262626] rounded-xl p-2 flex flex-col justify-center items-center">
-                                                 <CustomSVGChart data={simCResults.map(r => ({ draw: `#${r.num}`, count: r.count, hits: r.hits, pickHits: (userPicks.length > 0 && simCPicksInFreq) ? r.pickHits : undefined, date: r.date }))} />
+                                                 <CustomSVGChart data={simCResults.map(r => ({ draw: `#${r.num}`, count: r.count, hits: r.hits, pickHits: (userPicks.length > 0 && simCPicksInFreq) ? r.pickHits : undefined, date: r.date, filtered: r.filtered, win: r.win }))} />
                                              </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* Simulation Results Table (30 Past Draws) — en la columna izquierda abajo de la gráfica */}
+                                {simCResults.length > 0 && (
+                                    <div className="space-y-4">
+                                        <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3">
+                                            <h3 className="text-[12px] font-black text-[#ffeb3b] mb-2">📊 Resultados de Simulación C en los Últimos 30 Sorteos</h3>
+                                            <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+                                                <div className="grid grid-cols-5 gap-2 bg-[#222] p-2 rounded-lg text-[10px] font-black text-[#00e5ff] text-center sticky top-0 z-10">
+                                                    <div>Sorteo</div>
+                                                    <div>Fecha</div>
+                                                    <div>Ganadores Reales</div>
+                                                    <div>Resultantes</div>
+                                                    <div>Aciertos</div>
+                                                </div>
+                                                {simCResults.slice().reverse().map(r => (
+                                                    <div key={r.num} className="grid grid-cols-5 gap-2 bg-[#121212] border border-[#262626] p-2 rounded-lg text-[10px] items-center text-center">
+                                                        <div className="font-bold text-[#ffeb3b]">#{r.num}</div>
+                                                        <div className="text-[#888] text-[9px]">{r.date}</div>
+                                                        <div className="font-mono text-[9px] text-[#ccc]">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</div>
+                                                        <div className="text-[#00e5ff] font-bold">{r.count} #</div>
+                                                        <div className={`font-black px-2 py-0.5 rounded ${r.hits >= 4 ? 'bg-[#2e7d32] text-white' : r.hits === 3 ? 'bg-[#424242] text-[#ffeb3b]' : 'bg-[#1e1e1e] text-[#888]'}`}>
+                                                            {r.hits} aciertos
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -8173,11 +8325,11 @@ ${breakdownRows30.slice(20).join('\n')}
                                     <div className="text-[11px] font-black text-[#ffeb3b]">Configuración de Pool Sizes, Pools y Frecuencias (Simulador C (Libre)) — Vista Vertical:</div>
                                     <div className="space-y-3">
                                         {[9, 12, 15, 18, 21, 24, 27].map(sz => {
-                                            const rawCfg: any = simCConfigs[sz] || {};
+                                            const valid = getValidCfg(simCConfigs[sz]);
                                             const cfg = {
-                                                enabled: !!rawCfg.enabled,
-                                                pools: rawCfg.pools || { final: true, p2: true, p3: true, p4: true, p5: false, p6: true, p7: false },
-                                                freqs: rawCfg.freqs || { 7: false, 6: false, 5: true, 4: true, 3: true, 2: true, 1: true, 0: false }
+                                                enabled: !!simCConfigs[sz]?.enabled,
+                                                pools: valid.pools,
+                                                freqs: valid.freqs
                                             };
                                             return (
                                                 <div key={sz} className={`border rounded-xl p-3 transition flex flex-col ${cfg.enabled ? 'bg-[#181818] border-[#7c4dff]/50 shadow-[0_0_10px_rgba(124,77,255,0.15)]' : 'bg-[#141414] border-[#262626] opacity-60'}`}>
@@ -8311,34 +8463,6 @@ ${breakdownRows30.slice(20).join('\n')}
                                     </div>
                                 </div>
 
-                                {/* Simulation Results Table (30 Past Draws) — la gráfica está fija arriba */}
-                                {simCResults.length > 0 && (
-                                    <div className="space-y-4">
-                                        <div className="bg-[#181818] border border-[#2a2a2a] rounded-xl p-3">
-                                            <h3 className="text-[12px] font-black text-[#ffeb3b] mb-2">📊 Resultados de Simulación C en los Últimos 30 Sorteos</h3>
-                                            <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
-                                                <div className="grid grid-cols-5 gap-2 bg-[#222] p-2 rounded-lg text-[10px] font-black text-[#00e5ff] text-center sticky top-0 z-10">
-                                                    <div>Sorteo</div>
-                                                    <div>Fecha</div>
-                                                    <div>Ganadores Reales</div>
-                                                    <div>Resultantes</div>
-                                                    <div>Aciertos</div>
-                                                </div>
-                                                {simCResults.map(r => (
-                                                    <div key={r.num} className="grid grid-cols-5 gap-2 bg-[#121212] border border-[#262626] p-2 rounded-lg text-[10px] items-center text-center">
-                                                        <div className="font-bold text-[#ffeb3b]">#{r.num}</div>
-                                                        <div className="text-[#888] text-[9px]">{r.date}</div>
-                                                        <div className="font-mono text-[9px] text-[#ccc]">{r.win.map((n: number) => String(n).padStart(2, '0')).join(' ')}</div>
-                                                        <div className="text-[#00e5ff] font-bold">{r.count} #</div>
-                                                        <div className={`font-black px-2 py-0.5 rounded ${r.hits >= 4 ? 'bg-[#2e7d32] text-white' : r.hits === 3 ? 'bg-[#424242] text-[#ffeb3b]' : 'bg-[#1e1e1e] text-[#888]'}`}>
-                                                            {r.hits} aciertos
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     )}
@@ -8400,10 +8524,16 @@ ${breakdownRows30.slice(20).join('\n')}
                                 <button onClick={() => setShowManageSavedModal(false)} className="text-[#888] hover:text-white text-[14px]">×</button>
                             </div>
                             <div className="max-h-[300px] overflow-y-auto space-y-2">
-                                {customRecipes.length === 0 ? (
-                                    <div className="text-[11px] text-[#888] text-center py-4">No hay configuraciones guardadas.</div>
+                                {[
+                                    ...allBuiltinRecipes.filter(m => !hiddenRecipes.includes(m.id)).map(m => ({ id: m.id, name: m.name, timestamp: 'Predeterminada', simulatorType: m.type })),
+                                    ...customRecipes
+                                ].length === 0 ? (
+                                    <div className="text-[11px] text-[#888] text-center py-4">No hay configuraciones disponibles.</div>
                                 ) : (
-                                    customRecipes.map(r => (
+                                    [
+                                        ...allBuiltinRecipes.filter(m => !hiddenRecipes.includes(m.id)).map(m => ({ id: m.id, name: m.name, timestamp: 'Predeterminada', simulatorType: m.type })),
+                                        ...customRecipes
+                                    ].map(r => (
                                         <div key={r.id} className="bg-[#121212] border border-[#333] rounded-lg p-2.5 flex items-center justify-between">
                                             <div>
                                                 <div className="text-[11px] font-bold text-[#ffeb3b]">{r.name}</div>
@@ -8414,8 +8544,7 @@ ${breakdownRows30.slice(20).join('\n')}
                                                     <div className="flex items-center gap-1">
                                                         <input
                                                             type="text"
-                                                            placeholder="Ingresa 'keep'"
-                                                            value={deleteKeywordInput}
+                                                            value={deleteKeywordInput ?? ''}
                                                             onChange={e => setDeleteKeywordInput(e.target.value)}
                                                             className="bg-[#222] border border-[#ff5252] text-white rounded px-2 py-1 text-[10px] w-[90px]"
                                                         />
